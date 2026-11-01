@@ -74,17 +74,18 @@ export function tabsDelta(entries: readonly RpcEntry[], responseText: string) {
   return delta;
 }
 
-/** The text parts of the tool results in a response, joined. A response that is cut off is read as raw text. */
-export function resultText(responseText: string): string {
+/**
+ * The text parts of the tool results in a response, joined, or null when the response is not a whole
+ * JSON-RPC answer. A response that is cut off is never read: the broker reads nothing it cannot frame.
+ */
+export function resultText(responseText: string): string | null {
   const parts: string[] = [];
   for (const message of responseMessages(responseText)) {
     if (!isDynamicRecord(message) || !isDynamicRecord(message.result)) continue;
     const content = Array.isArray(message.result.content) ? message.result.content : [];
     for (const item of content) if (isDynamicRecord(item) && typeof item.text === "string") parts.push(item.text);
   }
-  if (parts.length > 0) return parts.join("\n");
-  // The broker reads only the start of a long answer, and that is not JSON. The sections it needs come first.
-  return responseText.replaceAll("\\n", "\n").replaceAll('\\"', '"');
+  return parts.length > 0 ? parts.join("\n") : null;
 }
 
 /** Whether the tool result of a response says that the call failed. */
@@ -99,53 +100,56 @@ export function resultFailed(responseText: string): boolean {
 /** One tab as the Playwright server lists it: `- 0: (current) [Title](url)`. */
 export interface ListedTab {
   index: number;
-  url: string;
+  /**
+   * The URL, or null when the line cannot be read in one way only. The page writes the title and can
+   * put `](` in its URL, so a line with two of them is not trusted.
+   */
+  url: string | null;
   current: boolean;
 }
 
-const TAB_LINE = /^- (\d+):( \(current\))? \[.*\]\((.*)\)( \[crashed\])?$/u;
+const TAB_LINE = /^- (\d+):( \(current\))? \[(.*)\]\((.*)\)( \[crashed\])?$/u;
 
-/** The lines of one `### <name>` section of a tool result, or null when the result has no such section. */
-function section(text: string, name: string): string[] | null {
-  const lines = text.split("\n");
-  const start = lines.findIndex((line) => line.trim() === `### ${name}`);
-  if (start === -1) return null;
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => line.startsWith("### "));
-  return end === -1 ? rest : rest.slice(0, end);
+function listedTab(line: string): ListedTab | null {
+  const match = TAB_LINE.exec(line);
+  if (!match) return null;
+  const ambiguous = line.split("](").length !== 2;
+  return { index: Number(match[1]), url: ambiguous ? null : (match[4] ?? null), current: match[2] !== undefined };
 }
 
 /**
- * The tabs that a tool result lists, in the `Result` of a `browser_tabs` call or the `Open tabs` of
- * another call, or null when it lists none. The server lists the tabs of the shared context, so an
- * index names the same tab for every session of one server.
+ * The tabs of a `browser_tabs` result, or null when the text is not one. Only the broker's own
+ * `browser_tabs` calls are read: their text starts with the `Result` section, and each of its lines is
+ * a tab line, with the indexes 0, 1, 2 in order. A page cannot add a line, because a title and a URL
+ * hold no line break. A result of an agent's call is never read, because a page can write its text.
  */
-export function listedTabs(text: string): ListedTab[] | null {
-  for (const name of ["Result", "Open tabs"]) {
-    const lines = section(text, name);
-    if (!lines) continue;
-    if (lines.some((line) => line.startsWith("No open tabs"))) return [];
-    const tabs: ListedTab[] = [];
-    for (const line of lines) {
-      const match = TAB_LINE.exec(line.trim());
-      if (match) tabs.push({ index: Number(match[1]), url: match[3] ?? "", current: match[2] !== undefined });
-    }
-    if (tabs.length > 0) return tabs;
+export function listedTabs(text: string | null): ListedTab[] | null {
+  if (text === null) return null;
+  const lines = text.split("\n");
+  if (lines[0] !== "### Result") return null;
+  const rest = lines.slice(1);
+  const end = rest.findIndex((line) => line.startsWith("### "));
+  const body = (end === -1 ? rest : rest.slice(0, end)).filter((line) => line.length > 0);
+  if (body.length === 1 && body[0]?.startsWith("No open tabs")) return [];
+  const tabs: ListedTab[] = [];
+  for (const [position, line] of body.entries()) {
+    const tab = listedTab(line);
+    if (!tab || tab.index !== position) return null;
+    tabs.push(tab);
   }
-  return null;
+  return tabs.length > 0 ? tabs : null;
 }
 
-/** The number of tabs a tool result shows: its list, or one when it shows a page and no list. */
-export function shownTabCount(text: string): number | null {
-  const tabs = listedTabs(text);
-  if (tabs) return tabs.length;
-  return section(text, "Page") ? 1 : null;
+/** The number of tabs of a `browser_tabs` result, or null when the text is not one. */
+export function listedTabCount(text: string | null): number | null {
+  return listedTabs(text)?.length ?? null;
 }
 
-/** The URL of the page a tool result shows, from its `Page` section, or null. */
-export function shownPageUrl(text: string): string | null {
-  const line = section(text, "Page")?.find((entry) => entry.startsWith("- Page URL: "));
-  return line ? line.slice("- Page URL: ".length).trim() : null;
+const CONNECT_PAGE = /^chrome-extension:\/\/[a-p]{32}\/connect\.html(\?[^\s()[\]]*)?$/u;
+
+/** A page that an agent leaves as nothing: `about:blank`, or the connect page of the extension. */
+export function isBlankTab(tab: ListedTab): boolean {
+  return tab.url !== null && (tab.url === "about:blank" || CONNECT_PAGE.test(tab.url));
 }
 
 export interface BrowserLimits {

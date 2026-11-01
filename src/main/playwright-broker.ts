@@ -20,15 +20,15 @@ import {
   type BrowserLimits,
   DEFAULT_BROWSER_LIMITS,
   inspectRpc,
+  isBlankTab,
   type ListedTab,
+  listedTabCount,
   listedTabs,
   type RpcEntry,
   refusalResult,
   responseMessages,
   resultFailed,
   resultText,
-  shownPageUrl,
-  shownTabCount,
   tabsDelta,
 } from "./playwright-broker-policy";
 import { maskSecrets } from "./playwright-broker-runtime";
@@ -85,11 +85,6 @@ function groupTitle(name: string): string {
   if (!clean) return SHARED_LANE_TITLE;
   const characters = [...clean];
   return characters.length > MAX_GROUP_TITLE ? `${characters.slice(0, MAX_GROUP_TITLE - 1).join("")}…` : clean;
-}
-
-/** A page that an agent leaves as nothing: closed when the group is put away. */
-function isBlankPage(url: string): boolean {
-  return url === "about:blank" || (url.startsWith("chrome-extension://") && url.includes("/connect.html"));
 }
 
 /** A change to one JSON-RPC answer of the upstream. */
@@ -169,7 +164,10 @@ interface SessionState {
   agent: string | null;
   /** Set once the broker chose the tab of the session, at its first call. */
   placing: Promise<void> | null;
+  /** The page of the session's current tab, as the broker's own list showed it. */
   pageUrl: string | null;
+  /** Set by each call of the agent: the page may have changed since the broker read it. */
+  pageStale: boolean;
   lastCallAt: number | null;
 }
 
@@ -487,6 +485,9 @@ export class PlaywrightBroker {
     const agent = address.searchParams.get("agent");
     const agentKey = agent !== null && AGENT_KEY.test(agent) ? agent : null;
     if (method === "POST") return this.#handlePost(request, response, session, agentKey);
+    // The agent's next turn goes back to the page that this one ends on.
+    const ending = method === "DELETE" && session !== undefined ? this.#sessions.get(session) : undefined;
+    if (session !== undefined && ending?.pageStale && ending.agent !== null) await this.#readPage(session, ending);
     if (session === undefined) return reply(response, 400, jsonRpcError(null, -32000, "A session id is required."));
     return this.#forward(request, response, this.#sessionLane(session), session, undefined, []);
   }
@@ -762,7 +763,14 @@ export class PlaywrightBroker {
     const issued = singleHeader(headers["mcp-session-id"]);
     if (method === "POST" && entries.some((entry) => entry.kind === "initialize") && issued) {
       this.#ledger.register(issued, this.#now());
-      this.#sessions.set(issued, { lane, agent: call.agentKey, placing: null, pageUrl: null, lastCallAt: null });
+      this.#sessions.set(issued, {
+        lane,
+        agent: call.agentKey,
+        placing: null,
+        pageUrl: null,
+        pageStale: false,
+        lastCallAt: null,
+      });
       return;
     }
     if (session === undefined) return;
@@ -773,20 +781,21 @@ export class PlaywrightBroker {
     }
     if (method !== "POST") return;
     this.#ledger.applyDelta(session, tabsDelta(entries, call.text));
-    if (call.toolName !== null) this.#notePage(session, call.text);
+    // The result of an agent's call holds text that the page writes, so it is not read for the tabs: the
+    // broker reads the page again with a list of its own when it needs it.
+    const state = this.#sessions.get(session);
+    if (state && call.toolName !== null) state.pageStale = true;
   }
 
-  /** What a tool result shows of the session's page and of the group's tabs. */
-  #notePage(session: string, response: string): void {
-    const state = this.#sessions.get(session);
-    if (!state) return;
-    const text = resultText(response);
-    const count = shownTabCount(text);
-    if (count !== null) state.lane.tabs = count;
-    const current = listedTabs(text)?.find((tab) => tab.current)?.url ?? shownPageUrl(text);
-    if (current === null || current === undefined) return;
+  /** Reads the current page of a session with a `browser_tabs` list of the broker's own. */
+  async #readPage(session: string, state: SessionState): Promise<void> {
+    const tabs = listedTabs(await this.#tool(state.lane, session, "browser_tabs", { action: "list" }));
+    if (!tabs) return;
+    state.lane.tabs = tabs.length;
+    state.pageStale = false;
+    const current = tabs.find((tab) => tab.current)?.url ?? null;
     state.pageUrl = current;
-    if (state.agent !== null) state.lane.lastPages.set(state.agent, current);
+    if (current !== null && state.agent !== null) state.lane.lastPages.set(state.agent, current);
   }
 
   #endSession(id: string): void {
@@ -887,7 +896,7 @@ export class PlaywrightBroker {
     // The extension did not connect, for example: the agent's call tries again and says why.
     if (listed === null) return;
     lane.heldAt = this.#now();
-    lane.tabs = shownTabCount(listed) ?? lane.tabs;
+    lane.tabs = listedTabCount(listed) ?? lane.tabs;
   }
 
   /**
@@ -899,17 +908,19 @@ export class PlaywrightBroker {
   async #place(session: string, state: SessionState, toolName: string): Promise<void> {
     if (toolName === "browser_tabs") return;
     const lane = state.lane;
-    const listed = await this.#tool(lane, session, "browser_tabs", { action: "list" });
-    const tabs = listed === null ? null : listedTabs(listed);
-    if (!tabs) return;
-    lane.tabs = tabs.length;
     const now = this.#now();
     const taken = new Set<string>();
     for (const [id, other] of this.#sessions) {
-      if (id === session || other.lane !== lane || other.pageUrl === null || other.lastCallAt === null) continue;
-      if (now - other.lastCallAt < BUSY_MS) taken.add(other.pageUrl);
+      if (id === session || other.lane !== lane || other.lastCallAt === null || now - other.lastCallAt >= BUSY_MS)
+        continue;
+      if (other.pageStale) await this.#readPage(id, other);
+      if (other.pageUrl !== null) taken.add(other.pageUrl);
     }
-    const free = tabs.filter((tab) => !taken.has(tab.url));
+    const tabs = listedTabs(await this.#tool(lane, session, "browser_tabs", { action: "list" }));
+    if (!tabs) return;
+    lane.tabs = tabs.length;
+    // A tab whose line cannot be read in one way only is not chosen: it may be the tab of another agent.
+    const free = tabs.filter((tab) => tab.url !== null && !taken.has(tab.url));
     const last = state.agent === null ? undefined : lane.lastPages.get(state.agent);
     const choice: ListedTab | undefined = free.find((tab) => tab.url === last) ?? free[0];
     if (choice) {
@@ -923,14 +934,14 @@ export class PlaywrightBroker {
     const opened = await this.#tool(lane, session, "browser_tabs", { action: "new" });
     if (opened === null) return;
     this.#ledger.applyDelta(session, 1);
-    lane.tabs = shownTabCount(opened) ?? (lane.tabs ?? 0) + 1;
+    lane.tabs = listedTabCount(opened) ?? (lane.tabs ?? 0) + 1;
     state.pageUrl = "about:blank";
   }
 
   /** Reads the tabs of the session's group again, and gives the number of tabs open in all groups. */
   async #refreshTabs(session: string, state: SessionState): Promise<number> {
     const listed = await this.#tool(state.lane, session, "browser_tabs", { action: "list" });
-    const count = listed === null ? null : shownTabCount(listed);
+    const count = listedTabCount(listed);
     if (count !== null) state.lane.tabs = count;
     return this.#openTabs();
   }
@@ -942,7 +953,7 @@ export class PlaywrightBroker {
    */
   async #keepLastTab(session: string, state: SessionState, id: number | string | null): Promise<string | null> {
     const listed = await this.#tool(state.lane, session, "browser_tabs", { action: "list" });
-    const tabs = listed === null ? null : listedTabs(listed);
+    const tabs = listedTabs(listed);
     if (!tabs || tabs.length > 1) return null;
     if (tabs.length === 1) await this.#tool(state.lane, session, "browser_navigate", { url: "about:blank" });
     state.pageUrl = "about:blank";
@@ -1030,9 +1041,9 @@ export class PlaywrightBroker {
     // Only a group that the broker's session holds: a list in another session could open a new connection.
     if (!lane.upstream || lane.holder === null || lane.heldAt === null) return;
     const listed = await this.#tool(lane, lane.holder, "browser_tabs", { action: "list" });
-    const tabs = listed === null ? null : listedTabs(listed);
+    const tabs = listedTabs(listed);
     if (!tabs) return;
-    const blank = tabs.filter((tab) => isBlankPage(tab.url)).sort((a, b) => b.index - a.index);
+    const blank = tabs.filter(isBlankTab).sort((a, b) => b.index - a.index);
     for (const tab of blank) await this.#tool(lane, lane.holder, "browser_tabs", { action: "close", index: tab.index });
   }
 
