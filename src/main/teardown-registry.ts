@@ -20,6 +20,13 @@
  *   database (#3166). The wait ends at half the step limit, and the step then runs anyway: a database
  *   that the process leaves open makes the next start check every page, which takes minutes.
  *
+ * - **The steps share one budget.** Each limit applies to one step, so the limits used to add up:
+ *   the local host and the team WebRTC bridge held one quit for 20 s, and a third step that did not
+ *   stop took the quit to the shutdown deadline before the database step had run. After the budget,
+ *   each step that is left still starts in its order, but the drain waits only a short time for it.
+ *   A step that waits for abandoned steps keeps its own limits, so the database always closes before
+ *   the deadline, and an abandoned agent stop still has time to record its interrupted turns.
+ *
  * Steps declare an **order** rather than running last-in-first-out. Shutdown here is largely
  * *construction* order and not its reverse: the browser host is destroyed before the
  * picture-in-picture window that holds a reference to it, and the provider runtimes stop before the
@@ -29,16 +36,31 @@
 
 export interface TeardownRegistryOptions {
   reportError: (name: string, error: unknown) => void;
+  /** A line for the main log: a step that took long, or the budget that ran out. */
+  report?: (message: string) => void;
   /**
    * How long one step may run before the drain moves on. A step that never settles would otherwise
    * keep a windowless process alive: it holds the single-instance lock, so every later launch hands
    * off to it and exits, and the user can only end it from the task manager.
    */
   stepTimeoutMs?: number;
+  /**
+   * How long all the steps together may hold the quit, from `runAll`. With the half step limit that
+   * the database step can wait for abandoned steps, and its close, it stays below the shutdown
+   * deadline of the process.
+   */
+  budgetMs?: number;
 }
 
 /** Well above the two-second kill grace that provider processes get before `SIGKILL`. */
 const DEFAULT_STEP_TIMEOUT_MS = 10_000;
+/** One step that does not stop still gets its full limit, and a second one gets half of it. */
+const DEFAULT_BUDGET_MS = 15_000;
+/** Enough for a step that only closes a handle or a socket. Steps that do not stop add little. */
+const LATE_STEP_TIMEOUT_MS = 100;
+/** A step that takes this long goes to the main log, so a slow quit names the step that held it. */
+const SLOW_STEP_MS = 1_000;
+const TIMED_OUT = Symbol("timed out");
 
 interface TeardownStep {
   order: number;
@@ -54,7 +76,9 @@ export interface TeardownStepOptions {
 
 export class TeardownRegistry {
   readonly #reportError: (name: string, error: unknown) => void;
+  readonly #report: (message: string) => void;
   readonly #stepTimeoutMs: number;
+  readonly #budgetMs: number;
   #steps: TeardownStep[] = [];
   /** The sorted steps a drain in progress has not reached yet. Late pushes are spliced into it. */
   #pending: TeardownStep[] | null = null;
@@ -62,10 +86,20 @@ export class TeardownRegistry {
   #tail: Promise<void> = Promise.resolve();
   /** Steps that passed their limit and still run. Each removes itself when it ends. */
   readonly #abandoned = new Set<Promise<unknown>>();
+  /** Set when the drain starts. */
+  #budgetEndsAt: number | null = null;
+  #budgetReported = false;
 
-  constructor({ reportError, stepTimeoutMs = DEFAULT_STEP_TIMEOUT_MS }: TeardownRegistryOptions) {
+  constructor({
+    reportError,
+    report = () => undefined,
+    stepTimeoutMs = DEFAULT_STEP_TIMEOUT_MS,
+    budgetMs = DEFAULT_BUDGET_MS,
+  }: TeardownRegistryOptions) {
     this.#reportError = reportError;
+    this.#report = report;
     this.#stepTimeoutMs = stepTimeoutMs;
+    this.#budgetMs = budgetMs;
   }
 
   /** `order` is the position in the shutdown sequence, not the position in this call sequence. */
@@ -106,6 +140,7 @@ export class TeardownRegistry {
   }
 
   async #drain(): Promise<void> {
+    this.#budgetEndsAt = Date.now() + this.#budgetMs;
     const pending = [...this.#steps].sort((left, right) => left.order - right.order);
     this.#steps = [];
     this.#pending = pending;
@@ -114,29 +149,53 @@ export class TeardownRegistry {
     this.#pending = null;
   }
 
+  /** The step limit, or what is left of the budget when that is less, but never below a short wait. */
+  #limit(step: TeardownStep): number {
+    if (step.afterAbandonedSteps || this.#budgetEndsAt === null) return this.#stepTimeoutMs;
+    const left = this.#budgetEndsAt - Date.now();
+    if (left <= LATE_STEP_TIMEOUT_MS && !this.#budgetReported) {
+      this.#budgetReported = true;
+      this.#report(
+        `The shutdown steps used their ${this.#budgetMs} ms. Each step that is left, from "${step.name}", gets ${LATE_STEP_TIMEOUT_MS} ms.`,
+      );
+    }
+    return Math.min(this.#stepTimeoutMs, Math.max(LATE_STEP_TIMEOUT_MS, left));
+  }
+
   async #runStep(step: TeardownStep): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const running = (step.afterAbandonedSteps ? this.#abandonedSettled() : Promise.resolve()).then(() => step.run());
-    const timedOut = new Promise<void>((resolve) => {
+    const limit = this.#limit(step);
+    // From the step's own start: the wait of the database step for abandoned steps is not its own.
+    let startedAt = Date.now();
+    const running = (step.afterAbandonedSteps ? this.#abandonedSettled() : Promise.resolve()).then(() => {
+      startedAt = Date.now();
+      return step.run();
+    });
+    const timedOut = new Promise<typeof TIMED_OUT>((resolve) => {
       timer = setTimeout(() => {
-        this.#reportError(step.name, new Error(`It did not stop within ${this.#stepTimeoutMs} ms.`));
+        this.#reportError(step.name, new Error(`It did not stop within ${limit} ms.`));
         // The step is abandoned, not cancelled: it keeps running, but the steps after it no longer wait.
         const abandoned = running.then(
-          () => undefined,
+          () => this.#reportSlow(step.name, startedAt),
           (error) => this.#reportError(step.name, error),
         );
         this.#abandoned.add(abandoned);
         void abandoned.finally(() => this.#abandoned.delete(abandoned));
-        resolve();
-      }, this.#stepTimeoutMs);
+        resolve(TIMED_OUT);
+      }, limit);
     });
     try {
-      await Promise.race([running, timedOut]);
+      if ((await Promise.race([running, timedOut])) !== TIMED_OUT) this.#reportSlow(step.name, startedAt);
     } catch (error) {
       this.#reportError(step.name, error);
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  #reportSlow(name: string, startedAt: number): void {
+    const durationMs = Date.now() - startedAt;
+    if (durationMs >= SLOW_STEP_MS) this.#report(`Shutting down ${name} took ${durationMs} ms.`);
   }
 
   async #abandonedSettled(): Promise<void> {

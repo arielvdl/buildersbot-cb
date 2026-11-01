@@ -391,6 +391,7 @@ if (!app.isPackaged || hostedServer || serverMode || localServerChild) {
  */
 const teardown = new TeardownRegistry({
   reportError: (name, error) => logger.error(`Unable to shut down ${name}:`, toLogValue(error)),
+  report: (message) => logger.info(message),
 });
 
 // Declared before the forwarders and the window surface because both read it, and it outlives any
@@ -1698,9 +1699,10 @@ function reopenMainWindow(): void {
 }
 
 /**
- * The teardown gives up on each step after its own limit, but steps run one after another, and
- * something outside it can still hold the quit. A process that outlives its window keeps the
- * single-instance lock, so every later launch exits without opening anything.
+ * The last resort. The teardown steps share a budget of 15 s, and the database step then waits at
+ * most 5 s for the steps it abandoned before it closes, so the teardown ends before this. Something
+ * outside it can still hold the quit. A process that outlives its window keeps the single-instance
+ * lock, so every later launch exits without opening anything.
  */
 const SHUTDOWN_DEADLINE_MS = 30_000;
 
