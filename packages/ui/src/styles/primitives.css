@@ -774,7 +774,8 @@ html.ui-textarea-resizing {
 
 .ui-select-content {
   z-index: var(--openbot-layer-popover);
-  max-height: 320px;
+  /* Kobalte gives the space between the trigger and the edge of the window, so a short window scrolls the list. */
+  max-height: min(320px, var(--kb-popper-content-available-height, 320px));
   min-width: 144px;
   overflow: hidden auto;
   border: 0;
