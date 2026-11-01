@@ -848,8 +848,18 @@ export function ComposerEditor(props: ComposerEditorProps) {
       return;
     }
 
-    const text = clipboard.getData("text/plain").replace(/\r\n?/g, "\n").slice(0, INPUT_LIMITS.messageText);
-    if (!text) return;
+    const pastedText = clipboard.getData("text/plain").replace(/\r\n?/g, "\n");
+    if (!pastedText) return;
+    // Text that would make the message too long goes in as a text file, as Claude Code keeps a long
+    // paste out of the prompt. The message gets a reference to the file, and no text is lost.
+    const remaining = serializeEditor(editor).length - (selection.end - selection.start);
+    if (props.onPasteFiles && remaining + pastedText.length > INPUT_LIMITS.messageText) {
+      event.stopPropagation();
+      const file = new File([pastedText], t("composer.pastedTextFileName"), { type: "text/plain" });
+      finishPaste(props.onPasteFiles([file], selection));
+      return;
+    }
+    const text = pastedText.slice(0, INPUT_LIMITS.messageText);
 
     insertPlainText(editor, text);
     emitValue();

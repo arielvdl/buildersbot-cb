@@ -67,6 +67,7 @@ export const messages = {
   "composer.reply.attachment": "Archivo adjunto",
   "composer.reply.cancel": "Cancelar respuesta",
   "composer.attachment.remove": "Quitar {name}",
+  "composer.pastedTextFileName": "texto-pegado.txt",
   "composer.placeholder.hostSetup": "Completa la configuración del proveedor en tu host para empezar",
   "composer.placeholder.connectHost": "Conéctate a tu host para empezar",
   "composer.placeholder.hostSleeping": "Este servidor está en reposo. Pulsa una tecla o haz clic para activarlo",
