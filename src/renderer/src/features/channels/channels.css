@@ -467,6 +467,11 @@ body:has(.channel-member-dialog) .ui-select-content {
   place-items: center;
   padding: var(--openbot-space-6);
 }
+/* The agent dialog grows when its model section opens. It starts at the top, so it grows down and
+   the model row stays under the pointer. */
+.channel-dialog-backdrop:has(> .channel-member-dialog) {
+  place-items: start center;
+}
 .channel-create-dialog {
   /* One inset for the header, the fields, every row and the footer. */
   --channel-dialog-inset: var(--openbot-space-4);
