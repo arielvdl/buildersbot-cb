@@ -89,6 +89,7 @@ import {
   isStopWorkInput,
   isTaskWatchPreference,
   MAC_AUTOMATION_TARGETS,
+  WEB_ACCESS_MODES,
 } from "@openbot/contracts/ipc";
 import {
   type DynamicRecord,
@@ -279,18 +280,22 @@ export function parseIdleRestartTarget(input: unknown): IdleRestartTarget {
 }
 
 export function parseAppBehaviorPreferenceChange(input: unknown): AppBehaviorPreferenceChange {
-  return parseSwitches(
-    input,
-    [
-      "launchAtLogin",
-      "keepRunningInBackground",
-      "keepAwake",
-      "keepAwakeOnBattery",
-      "browserInApp",
-      "culturaBuilderFullContext",
-    ],
-    "The app behavior setting is required.",
-  );
+  const message = "The app behavior setting is required.";
+  if (!isDynamicRecord(input)) throw new Error(message);
+  const keys = [
+    "launchAtLogin",
+    "keepRunningInBackground",
+    "keepAwake",
+    "keepAwakeOnBattery",
+    "browserInApp",
+    "culturaBuilderFullContext",
+  ] as const;
+  // `webAccess` is the one choice that is not a switch: a closed list of modes.
+  const { webAccess } = input;
+  if (webAccess === undefined) return parseSwitches(input, keys, message);
+  if (!isOneOf(WEB_ACCESS_MODES, webAccess)) throw new Error(message);
+  const hasSwitch = keys.some((key) => input[key] !== undefined);
+  return { ...(hasSwitch ? parseSwitches(input, keys, message) : {}), webAccess };
 }
 
 export function parseUpdatePreference(input: unknown): UpdatePreferenceChange {

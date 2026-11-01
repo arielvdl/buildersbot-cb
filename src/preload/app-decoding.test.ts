@@ -20,6 +20,7 @@ import {
   decodeAgentLimitPreference,
   decodeAnalyticsPreference,
   decodeAppAppearancePreference,
+  decodeAppBehaviorPreference,
   decodeAppInfo,
   decodeAppLanguagePreference,
   decodeApprovalAutomationPreference,
@@ -277,6 +278,19 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     } satisfies ApprovalAutomationPreference,
   ],
   ["language preference", decodeAppLanguagePreference, { language: "fr" }],
+  [
+    "an app behavior preference with web access in the person's Chrome",
+    decodeAppBehaviorPreference,
+    {
+      launchAtLogin: null,
+      keepRunningInBackground: null,
+      keepAwake: true,
+      keepAwakeOnBattery: false,
+      browserInApp: false,
+      webAccess: "chrome",
+      culturaBuilderFullContext: false,
+    },
+  ],
   ["appearance preference", decodeAppAppearancePreference, { appearance: "light", transparentWindow: true }],
   ["signed out", decodeCentralAuthState, { status: "signed_out" } satisfies CentralAuthState],
   ["code sent", decodeCentralAuthState, codeSent],
@@ -574,6 +588,19 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["analytics preference without a switch", decodeAnalyticsPreference, {}],
   ["approval automation without overrides", decodeApprovalAutomationPreference, { defaultAutoApprove: true }],
   ["language preference with an unknown tag", decodeAppLanguagePreference, { language: "xx" }],
+  [
+    "an app behavior preference with a web access mode that does not exist",
+    decodeAppBehaviorPreference,
+    {
+      launchAtLogin: null,
+      keepRunningInBackground: null,
+      keepAwake: true,
+      keepAwakeOnBattery: false,
+      browserInApp: false,
+      webAccess: "firefox",
+      culturaBuilderFullContext: false,
+    },
+  ],
   ["appearance preference with no transparent window", decodeAppAppearancePreference, { appearance: "dark" }],
   [
     "appearance preference with a string transparent window",
@@ -640,5 +667,21 @@ describe("app decoding", () => {
 
   it.each(malformed)("rejects %s", (_name, decode, value) => {
     expect(() => decode(value)).toThrow(/^Invalid /);
+  });
+
+  // A main process from before `webAccess` sends only the released switch.
+  it.each([
+    [true, "app"],
+    [false, "playwright-legacy"],
+  ] as const)("reads web access from the switch %s of an older main process", (browserInApp, webAccess) => {
+    const preference = {
+      launchAtLogin: null,
+      keepRunningInBackground: null,
+      keepAwake: null,
+      keepAwakeOnBattery: null,
+      browserInApp,
+      culturaBuilderFullContext: false,
+    };
+    expect(decodeAppBehaviorPreference(preference)).toEqual({ ...preference, webAccess });
   });
 });

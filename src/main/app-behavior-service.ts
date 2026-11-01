@@ -1,5 +1,11 @@
-import type { AppBehaviorPreference, AppBehaviorPreferenceChange } from "@openbot/contracts/ipc";
-import { isDynamicRecord } from "@openbot/contracts/runtime-values";
+import {
+  type AppBehaviorPreference,
+  type AppBehaviorPreferenceChange,
+  WEB_ACCESS_MODES,
+  type WebAccessMode,
+  webAccessFromSwitch,
+} from "@openbot/contracts/ipc";
+import { isDynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Result, Semaphore } from "effect";
 import { isMissingFileError } from "../backend/file-errors";
@@ -31,7 +37,8 @@ export class AppBehaviorService {
   #keepRunningInBackground = false;
   #keepAwake = false;
   #keepAwakeOnBattery = false;
-  #browserInApp = false;
+  /** `browserInApp` is derived from it, and both are written, so an older app reads the switch. */
+  #webAccess: WebAccessMode = "playwright-legacy";
   #culturaBuilderFullContext = false;
   #writes = Semaphore.makeUnsafe(1);
   readonly #listeners = new Set<() => void>();
@@ -57,7 +64,10 @@ export class AppBehaviorService {
                 keepRunningInBackground: parsed.keepRunningInBackground === true,
                 keepAwake: parsed.keepAwake === true,
                 keepAwakeOnBattery: parsed.keepAwakeOnBattery === true,
-                browserInApp: parsed.browserInApp === true,
+                // A file that an older app wrote has no `webAccess`, or one it did not know: the switch decides.
+                webAccess: isOneOf(WEB_ACCESS_MODES, parsed.webAccess)
+                  ? parsed.webAccess
+                  : webAccessFromSwitch(parsed.browserInApp === true),
                 culturaBuilderFullContext: parsed.culturaBuilderFullContext === true,
               }
             : null,
@@ -68,7 +78,7 @@ export class AppBehaviorService {
           this.#keepRunningInBackground = loaded.success.keepRunningInBackground;
           this.#keepAwake = loaded.success.keepAwake;
           this.#keepAwakeOnBattery = loaded.success.keepAwakeOnBattery;
-          this.#browserInApp = loaded.success.browserInApp;
+          this.#webAccess = loaded.success.webAccess;
           this.#culturaBuilderFullContext = loaded.success.culturaBuilderFullContext;
         }
       } else if (!isMissingFileError(loaded.failure.cause) && !(loaded.failure.cause instanceof SyntaxError))
@@ -93,7 +103,12 @@ export class AppBehaviorService {
 
   /** Read at each hand-off of the MCP servers to a provider, so the choice applies to the next turn. */
   get browserInApp(): boolean {
-    return this.#browserInApp;
+    return this.#webAccess === "app";
+  }
+
+  /** Where agents browse. Read at the same points as `browserInApp`. */
+  get webAccess(): WebAccessMode {
+    return this.#webAccess;
   }
 
   /** Read at each spawn of a Cultura Builder process, which reads its model windows only then. */
@@ -107,7 +122,8 @@ export class AppBehaviorService {
       keepRunningInBackground: this.#offersBackground ? this.#keepRunningInBackground : null,
       keepAwake: this.#offersKeepAwake ? this.#keepAwake : null,
       keepAwakeOnBattery: this.#offersKeepAwake ? this.#keepAwakeOnBattery : null,
-      browserInApp: this.#browserInApp,
+      browserInApp: this.#webAccess === "app",
+      webAccess: this.#webAccess,
       culturaBuilderFullContext: this.#culturaBuilderFullContext,
     };
     return preference;
@@ -140,13 +156,15 @@ export class AppBehaviorService {
     const keepRunningInBackground = this.#offersBackground ? change.keepRunningInBackground : undefined;
     const keepAwake = this.#offersKeepAwake ? change.keepAwake : undefined;
     const keepAwakeOnBattery = this.#offersKeepAwake ? change.keepAwakeOnBattery : undefined;
-    const browserInApp = change.browserInApp;
+    // The released switch still works: on is the Builders Bot browser, off is the legacy path.
+    const webAccess =
+      change.webAccess ?? (change.browserInApp === undefined ? undefined : webAccessFromSwitch(change.browserInApp));
     const culturaBuilderFullContext = change.culturaBuilderFullContext;
     if (
       keepRunningInBackground !== undefined ||
       keepAwake !== undefined ||
       keepAwakeOnBattery !== undefined ||
-      browserInApp !== undefined ||
+      webAccess !== undefined ||
       culturaBuilderFullContext !== undefined
     ) {
       yield* this.#writes.withPermit(
@@ -156,16 +174,17 @@ export class AppBehaviorService {
               keepRunningInBackground: keepRunningInBackground ?? this.#keepRunningInBackground,
               keepAwake: keepAwake ?? this.#keepAwake,
               keepAwakeOnBattery: keepAwakeOnBattery ?? this.#keepAwakeOnBattery,
-              browserInApp: browserInApp ?? this.#browserInApp,
+              webAccess: webAccess ?? this.#webAccess,
               culturaBuilderFullContext: culturaBuilderFullContext ?? this.#culturaBuilderFullContext,
             };
-            return writePreferenceFile(this.#path, { version: 1, ...next }).pipe(
+            const file = { version: 1, ...next, browserInApp: next.webAccess === "app" };
+            return writePreferenceFile(this.#path, file).pipe(
               Effect.tap(() =>
                 Effect.sync(() => {
                   this.#keepRunningInBackground = next.keepRunningInBackground;
                   this.#keepAwake = next.keepAwake;
                   this.#keepAwakeOnBattery = next.keepAwakeOnBattery;
-                  this.#browserInApp = next.browserInApp;
+                  this.#webAccess = next.webAccess;
                   this.#culturaBuilderFullContext = next.culturaBuilderFullContext;
                 }),
               ),

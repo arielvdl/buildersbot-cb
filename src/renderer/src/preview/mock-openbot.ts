@@ -170,6 +170,7 @@ import {
   type UpdateQueuedMessageInput,
   type UpdateStatus,
   type WorkspaceDirectory,
+  webAccessFromSwitch,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import {
@@ -512,6 +513,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     keepAwake: false,
     keepAwakeOnBattery: false,
     browserInApp: false,
+    webAccess: "playwright-legacy",
     culturaBuilderFullContext: false,
   };
   let languagePreference = clone<AppLanguagePreference>(options.languagePreference ?? { language: "system" });
@@ -1204,7 +1206,11 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     },
     getAppBehaviorPreference: async () => clone(appBehavior),
     setAppBehaviorPreference: async (change) => {
-      appBehavior = { ...appBehavior, ...change };
+      // As in main: `webAccess` wins, and the released switch is derived from it.
+      const webAccess =
+        change.webAccess ??
+        (change.browserInApp === undefined ? appBehavior.webAccess : webAccessFromSwitch(change.browserInApp));
+      appBehavior = { ...appBehavior, ...change, webAccess, browserInApp: webAccess === "app" };
       return clone(appBehavior);
     },
     getRemoteSessionReusePreference: async () => clone(remoteSessionReuse),
