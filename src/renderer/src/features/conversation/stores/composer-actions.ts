@@ -26,7 +26,7 @@ import { claimDictatedSend, forgetDictatedMessage } from "../../speech/speech-re
 import { rememberAttachmentKinds } from "../attachment-analytics";
 import { type PastedComposerCopy, rememberComposerFile } from "../composer-clipboard";
 import { copyComposerDraft, EMPTY_DRAFT, QUEUE_EDIT_STORAGE_KEY, type StoredQueueEdit } from "../composer-draft";
-import { composerDraftKey } from "../conversation-keys";
+import { composerDraftKey, sameComposerDraft } from "../conversation-keys";
 import { conversationRuntime } from "../conversation-runtime";
 import type { ComposerDraft, ConversationProps, ConversationTarget } from "../conversation-types";
 import { conversationOwnerId } from "./composer-store";
@@ -765,8 +765,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     steer = false,
   ): void {
     const onScreen = () => {
-      const activeTarget = deps.currentTarget();
-      return activeTarget?.agentId === target.agentId && activeTarget.serverId === target.serverId;
+      return sameComposerDraft(deps.currentTarget(), target);
     };
     if (onScreen()) deps.setStickToLatest(true);
     // A message to a working agent waits behind its turn or its queue. A channel has no such queue.
