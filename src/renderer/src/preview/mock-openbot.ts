@@ -1277,6 +1277,14 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     stopWork: async () => previewLoad(),
     resumeStoppedWork: async () => previewLoad(),
     reassignStoppedWork: async () => previewLoad(),
+    listStoppedWork: async () => ({ items: [], total: 0, agents: [], channels: [] }),
+    bulkStoppedWork: async () => ({
+      done: 0,
+      failed: [],
+      undoId: null,
+      agents: [],
+      list: { items: [], total: 0, agents: [], channels: [] },
+    }),
     setAutoRecovery: async (preference) => {
       previewRecovery = { ...preference };
       return previewLoad();

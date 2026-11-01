@@ -343,6 +343,9 @@ import type {
   ReassignStoppedWorkInput,
   ResumeStoppedWorkInput,
   RunChannelNowInput,
+  StoppedWorkBulkInput,
+  StoppedWorkBulkResult,
+  StoppedWorkList,
   StopWorkInput,
   TaskWatchPreference,
 } from "./ipc-load";
@@ -716,6 +719,9 @@ export const IPC_ENDPOINTS = {
     stopWork: request<StopWorkInput, LoadSnapshot>()("app:stop-work"),
     resumeStoppedWork: request<ResumeStoppedWorkInput, LoadSnapshot>()("app:resume-stopped-work"),
     reassignStoppedWork: request<ReassignStoppedWorkInput, LoadSnapshot>()("app:reassign-stopped-work"),
+    // The stopped work page of Settings: every stopped run, and one action on many of them.
+    listStoppedWork: request<undefined, StoppedWorkList>()("app:list-stopped-work"),
+    bulkStoppedWork: request<StoppedWorkBulkInput, StoppedWorkBulkResult>()("app:bulk-stopped-work"),
     setAutoRecovery: request<AutoRecoveryPreference, LoadSnapshot>()("app:set-auto-recovery"),
     // The task reviewer (`ipc-load.ts`). Experimental and off until the person turns it on.
     setTaskWatch: request<TaskWatchPreference, LoadSnapshot>()("app:set-task-watch"),

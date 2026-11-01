@@ -44,6 +44,7 @@ import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores
 import { createServerCreationAdminStore } from "@openbot/ui/features/settings/stores/server-creation-admin-store";
 import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores/updates-store";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
+import { appPort } from "../../app-port";
 import { useI18n } from "../../i18n-context";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
 import { revealSettingsRow } from "../window/settings-row-reveal";
@@ -55,10 +56,12 @@ import { createSettingsAgentsSection } from "./SettingsAgentsSection";
 import { SettingsDynamicIslandTab } from "./SettingsDynamicIslandTab";
 import { SettingsGeneralTab } from "./SettingsGeneralTab";
 import { SettingsGuardTab } from "./SettingsGuardTab";
+import { type SettingsLoad, SettingsLoadTab } from "./SettingsLoadTab";
 import { SettingsNotificationsTab } from "./SettingsNotificationsTab";
 import { SettingsTaskReviewerTab, type TaskReviewerLoad } from "./SettingsTaskReviewerTab";
 import { SettingsVoiceTab } from "./SettingsVoiceTab";
 import { createSettingsGuardStore } from "./settings-guard-store";
+import { createSettingsLoadStore } from "./settings-load-store";
 import { dynamicIslandSettingsShown, navItem, navItems, type SettingsTab, settingsTabShown } from "./settings-tabs";
 import { createSettingsVoiceStore } from "./settings-voice-store";
 
@@ -127,12 +130,16 @@ export interface SettingsModalProps {
   /** Where the settings page shows, or nothing while the page is not on screen. */
   page: SettingsPagePlacement | undefined;
   /**
-   * The load of this computer: the same store as the ring of the rail, so the task reviewer page and
-   * the load panel change one preference. `watch` reads the load while the page shows it.
+   * The load of this computer: the same store as the ring of the rail, so the load page, the task
+   * reviewer page and the ring change one preference. `watch` reads the load while a page shows it.
    */
-  load: TaskReviewerLoad & { watch: (visible: () => boolean) => void };
-  /** Opens the load panel of the rail. Absent while the rail does not show it, such as on a joined server. */
-  onOpenLoadPanel?: (() => void) | undefined;
+  load: TaskReviewerLoad &
+    SettingsLoad & {
+      watch: (visible: () => boolean, options?: { fast?: boolean }) => void;
+      refresh: () => Promise<void>;
+    };
+  /** The name of a channel, for the lane of the load page. */
+  channelName?: ((channelId: string) => string) | undefined;
   /**
    * True while a question of the Guard waits for the person in the approvals of the active server: the
    * siren of the Guard page turns red. The page reads it only while this computer is the active server.
@@ -176,11 +183,23 @@ export function SettingsModal(props: SettingsModalProps) {
     () => props.open && activeTab() === "profile",
   );
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
-  // The task reviewer page names the review model of the Guard, so it reads the Guard too.
+  // The task reviewer page names the review model of the Guard, so it reads the Guard too. The load page
+  // offers the models that the Guard lists for a change of model.
   const guard = createSettingsGuardStore(
-    () => props.open && (activeTab() === "guard" || activeTab() === "task-reviewer"),
+    () => props.open && (activeTab() === "guard" || activeTab() === "task-reviewer" || activeTab() === "load"),
   );
   untrack(() => props.load).watch(() => props.open && activeTab() === "task-reviewer");
+  // The load page acts on the work, so it reads the load often while it shows, as the panel of the ring did.
+  untrack(() => props.load).watch(() => props.open && activeTab() === "load", { fast: true });
+  const stoppedWork = createSettingsLoadStore({
+    port: appPort,
+    visible: () => props.open && activeTab() === "load",
+    stoppedTotal: () => {
+      const snapshot = props.load.snapshot();
+      return snapshot ? (snapshot.stoppedTotal ?? snapshot.stopped.length) : null;
+    },
+    onChanged: () => void props.load.refresh(),
+  });
   /** The Guard and the task reviewer run on this computer: a joined server that the window shows has its own. */
   const joinedServer = () => props.servers?.find((server) => server.active && server.kind === "remote")?.name ?? null;
   const notificationLevels = createNotificationLevelsStore({
@@ -228,6 +247,7 @@ export function SettingsModal(props: SettingsModalProps) {
         value === "general" ||
         value === "agents" ||
         value === "guard" ||
+        value === "load" ||
         value === "task-reviewer" ||
         value === "notifications" ||
         value === "voice" ||
@@ -340,7 +360,7 @@ export function SettingsModal(props: SettingsModalProps) {
             selectMount={modalElement}
             joinedServer={joinedServer()}
             onOpenTaskReviewer={() => setActiveTab("task-reviewer")}
-            onOpenLoadPanel={props.onOpenLoadPanel}
+            onOpenLoadPanel={() => setActiveTab("load")}
             onOpenMessageReview={() => {
               setActiveTab("general");
               void revealSettingsRow("general", "settings.promptGuard.title");
@@ -358,7 +378,18 @@ export function SettingsModal(props: SettingsModalProps) {
             joinedServer={joinedServer()}
             selectMount={modalElement}
             onOpenGuard={() => setActiveTab("guard")}
-            onOpenLoadPanel={props.onOpenLoadPanel}
+            onOpenLoadPanel={() => setActiveTab("load")}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content value="load" class="settings-modal-tab-panel" data-tab="load">
+          <SettingsLoadTab
+            store={stoppedWork}
+            load={props.load}
+            guard={guard}
+            channelName={(channelId) => props.channelName?.(channelId) ?? channelId}
+            menuMount={modalElement}
+            onOpenTaskReviewer={() => setActiveTab("task-reviewer")}
           />
         </Tabs.Content>
 

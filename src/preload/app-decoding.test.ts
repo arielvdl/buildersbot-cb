@@ -10,6 +10,7 @@ import type {
   NotificationOpenedEvent,
   RunningWork,
   StoppedWork,
+  StoppedWorkList,
   TaskWatchEvent,
   UpdateStatus,
 } from "@openbot/contracts/ipc";
@@ -42,6 +43,8 @@ import {
   decodeResumeOffer,
   decodeServerCreationAccess,
   decodeServerCreationAdminState,
+  decodeStoppedWorkBulkResult,
+  decodeStoppedWorkList,
   decodeUnreadableSecrets,
   decodeUpdatePreference,
   decodeUpdateStatus,
@@ -119,6 +122,23 @@ const loadSnapshot = {
   agentLimit: { enabled: true, max: 10 },
   taskWatch: { enabled: false, quietMinutes: 15, active: false, modelReady: false, recent: [] },
 } satisfies LoadSnapshot;
+
+/** The stopped work page: one row of a deleted routine, its agent and its channel. */
+const stoppedWorkList = {
+  items: [
+    {
+      ...stoppedWork,
+      topicId: "topic-1",
+      agentId: "qa",
+      origin: "routine",
+      routineName: "slop.cash hourly",
+      orphan: "routine-deleted",
+    },
+  ],
+  total: 253,
+  agents: [{ id: "qa", name: "QA", title: "Tester", provider: "codex", model: "gpt-6-luna" }],
+  channels: [{ id: "channel-1", memberIds: ["qa"] }],
+} satisfies StoppedWorkList;
 
 const taskWatchEvent = {
   at: "2026-10-30T20:40:00.000Z",
@@ -332,6 +352,23 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ["a resume result with work left", decodeResumeInterruptedWorkResult, { offer: resumeOffer, failed: 1 }],
   ["a resume result with nothing left", decodeResumeInterruptedWorkResult, { offer: null, failed: 0 }],
   ["a load snapshot with the tab of each work, or no tab", decodeLoadSnapshot, loadSnapshot],
+  [
+    "a load snapshot that counts more stopped work than it lists",
+    decodeLoadSnapshot,
+    { ...loadSnapshot, stoppedTotal: 253 },
+  ],
+  ["a stopped work list with an orphan of a deleted routine", decodeStoppedWorkList, stoppedWorkList],
+  [
+    "a stopped work result with a failed row and an undo",
+    decodeStoppedWorkBulkResult,
+    {
+      done: 2,
+      failed: [{ channelId: "channel-1", taskId: "task-2", reason: "gone" }],
+      undoId: "undo-1",
+      agents: [],
+      list: stoppedWorkList,
+    },
+  ],
   ["a load snapshot while the task reviewer looks", decodeLoadSnapshot, watchedLoadSnapshot],
   [
     "a load snapshot with a failed start that the task reviewer left",
@@ -377,6 +414,23 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["an agent limit above 64", decodeAgentLimitPreference, { enabled: true, max: 65 }],
   ["an agent limit that is not whole", decodeAgentLimitPreference, { enabled: true, max: 2.5 }],
   ["a load snapshot with no agent limit", decodeLoadSnapshot, { ...loadSnapshot, agentLimit: undefined }],
+  ["a load snapshot with a stopped total below zero", decodeLoadSnapshot, { ...loadSnapshot, stoppedTotal: -1 }],
+  [
+    "a stopped work list with an unknown orphan reason",
+    decodeStoppedWorkList,
+    { ...stoppedWorkList, items: [{ ...stoppedWorkList.items[0], orphan: "lost" }] },
+  ],
+  [
+    "a stopped work result with an unknown failure reason",
+    decodeStoppedWorkBulkResult,
+    {
+      done: 0,
+      failed: [{ channelId: "channel-1", taskId: "task-2", reason: "maybe" }],
+      undoId: null,
+      agents: [],
+      list: stoppedWorkList,
+    },
+  ],
   ["a load snapshot with no task reviewer", decodeLoadSnapshot, { ...loadSnapshot, taskWatch: undefined }],
   [
     "a task reviewer threshold below 5 minutes",

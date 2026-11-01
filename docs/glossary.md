@@ -36,9 +36,10 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   Portuguese. It is not the **message reviewer** (`SecurityGuardService`, `getGuardPreference`, the
   `settings.promptGuard.*` text keys), which reads each message before the turn starts, and its
   **review model** (`GuardPreference.judge`) is not the **task reviewer**.
-- **load panel**: the panel of the ring in the rail (`LoadRing`, `LoadSnapshot`, `app:get-load`,
-  `LoadProvider`). It shows what runs and what stopped on this computer, and holds "Resume by itself"
-  (`AutoRecovery`) and the switch of the task reviewer.
+- **load page** (formerly the load panel): Settings › Load ("Carga"), which the ring in the rail opens
+  (`LoadRing`, `SettingsLoadTab`, `LoadSnapshot`, `app:get-load`, `app:list-stopped-work`,
+  `LoadProvider`). It shows what stopped, with actions on many runs at once, and what runs on this
+  computer, and holds "Resume by itself" (`AutoRecovery`) and the switch of the task reviewer.
 - **messaging connection**: one workspace of an external chat platform (a Slack workspace, a Discord
   guild or a Telegram chat), where this computer's agents answer (`projection_messaging_connections`,
   `MessagingConnection`, `messaging:*`). Its **Slack Orchestrator** is the agent that receives each

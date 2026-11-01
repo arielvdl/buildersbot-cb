@@ -10,23 +10,18 @@ import type {
 } from "@openbot/contracts/ipc";
 import {
   Button,
-  buttonVariants,
   ChevronDown,
   CircleAlert,
   Clock3,
-  DropdownMenu,
   IconButton,
   Input,
   MessageSquare,
   PanelTop,
-  Play,
-  Popover,
   SlidersHorizontal,
   Square,
   SwitchField,
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { cx } from "@openbot/ui/utils";
 import { createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import {
   activeAgentLimit,
@@ -57,38 +52,20 @@ const RING = { size: 34, stroke: 2.5 };
 export interface LoadRailProps {
   /** The last reading, or null before the first one. */
   snapshot: LoadSnapshot | null;
-  channelName: (channelId: string) => string;
-  /** Whether the panel is open. Absent, the ring keeps it; given, a page outside the rail can open it. */
-  open?: boolean | undefined;
-  /** The panel opened or closed, so the window reads the load faster while it is open. */
-  onOpenChange: (open: boolean) => void;
-  onLaneChange: (preference: LoadLanePreference) => void;
-  onRunNow: (channelId: string) => void;
-  onStop: (work: RunningWork) => void;
-  onResumeAll: () => void;
-  onResume: (work: StoppedWork) => void;
-  onReassign: (work: StoppedWork, agentId: string) => void;
-  onRecoveryChange: (preference: AutoRecoveryPreference) => void;
-  onAgentLimitChange: (preference: AgentLimitPreference) => void;
-  /** The task reviewer: its switch and its threshold. */
-  onTaskWatchChange: (preference: TaskWatchPreference) => void;
   /**
-   * Opens the page of the task reviewer in Settings. Absent where the window has no Settings. `ring` is
-   * the button of the ring: the panel closes, so the ring takes the focus back when Settings closes.
+   * Opens the load page of Settings, where the person acts on the work. `ring` is the button of the
+   * ring: it takes the focus back when Settings closes.
    */
-  onOpenTaskReviewerSettings?: ((ring: HTMLElement | null) => void) | undefined;
+  onOpen: (ring: HTMLElement) => void;
 }
 
 /**
  * The load of this computer as one ring in the rail: the number inside is how many agents run now, and
  * the arc is that count of ten (more can run, and the arc stays full), or of the cap when the person set
  * one, so a full circle is the cap reached. The memory is the colour of the
- * ring, and the tooltip and the panel give it. A red mark on the ring counts the work that stopped. The
- * pointer over the ring gives a one-line summary; a click opens the panel, where the person can stop
- * what runs, start stopped work again or give it to another agent, and let the app do it by itself.
- *
- * The rail is a drag region of the window and clips what is drawn inside it, so the panel is drawn in a
- * portal and takes no drag.
+ * ring, and the tooltip gives it. A red mark on the ring counts the work that stopped. The pointer over
+ * the ring gives a one-line summary; a click opens the load page of Settings, where the person can stop
+ * what runs, act on many stopped runs at once, and let the app recover work by itself.
  */
 export function LoadRing(props: LoadRailProps) {
   const { t } = useText();
@@ -123,81 +100,78 @@ export function LoadRing(props: LoadRailProps) {
       ? t("app.rail.load.summary", { agents: agentsText(), stopped: stopped(), used: used.used, total: used.total })
       : t("app.rail.load.summaryQuiet", { agents: agentsText(), used: used.used, total: used.total });
   };
-  let ring: HTMLElement | undefined;
-  const openTaskReviewerSettings = () => {
-    const open = props.onOpenTaskReviewerSettings;
-    return open ? () => open(ring ?? null) : undefined;
-  };
   return (
-    <Popover.Root placement="right-end" gutter={8} open={props.open} onOpenChange={props.onOpenChange}>
-      <Popover.Trigger
-        as={Button}
-        ref={(element: HTMLElement) => {
-          ring = element;
-        }}
-        variant="ghost"
-        type="button"
-        class="window-rail-button window-rail-usage window-rail-load"
-        aria-label={label()}
-        title={summary()}
-      >
-        <svg class="window-rail-usage-ring" viewBox={`0 0 ${RING.size} ${RING.size}`} fill="none" aria-hidden="true">
+    <Button
+      variant="ghost"
+      type="button"
+      class="window-rail-button window-rail-usage window-rail-load"
+      aria-label={label()}
+      title={summary()}
+      onClick={(event) => props.onOpen(event.currentTarget)}
+    >
+      <svg class="window-rail-usage-ring" viewBox={`0 0 ${RING.size} ${RING.size}`} fill="none" aria-hidden="true">
+        <circle
+          class="window-rail-usage-track"
+          cx={RING.size / 2}
+          cy={RING.size / 2}
+          r={radius}
+          stroke-width={RING.stroke}
+        />
+        <Show when={arc() > 0}>
           <circle
-            class="window-rail-usage-track"
+            class="window-rail-usage-arc"
+            data-load-tone={tone()}
             cx={RING.size / 2}
             cy={RING.size / 2}
             r={radius}
             stroke-width={RING.stroke}
+            stroke-linecap="round"
+            pathLength={100}
+            stroke-dasharray={`${arc()} 100`}
           />
-          <Show when={arc() > 0}>
-            <circle
-              class="window-rail-usage-arc"
-              data-load-tone={tone()}
-              cx={RING.size / 2}
-              cy={RING.size / 2}
-              r={radius}
-              stroke-width={RING.stroke}
-              stroke-linecap="round"
-              pathLength={100}
-              stroke-dasharray={`${arc()} 100`}
-            />
-          </Show>
-        </svg>
-        <span class="window-rail-load-count" aria-hidden="true">
-          {agents()}
-        </span>
-        <Show when={stopped() > 0}>
-          <span class="window-rail-load-alert" aria-hidden="true">
-            {Math.min(stopped(), 9)}
-            {stopped() > 9 ? "+" : ""}
-          </span>
         </Show>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content class="ui-popover-menu-surface window-rail-load-panel">
-          <Popover.Title class="account-usage-popover-title">{t("app.rail.load.title")}</Popover.Title>
-          <Show when={props.snapshot}>
-            {(snapshot) => (
-              <LoadPanel {...props} snapshot={snapshot()} openTaskReviewerSettings={openTaskReviewerSettings()} />
-            )}
-          </Show>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      </svg>
+      <span class="window-rail-load-count" aria-hidden="true">
+        {agents()}
+      </span>
+      <Show when={stopped() > 0}>
+        <span class="window-rail-load-alert" aria-hidden="true">
+          {Math.min(stopped(), 9)}
+          {stopped() > 9 ? "+" : ""}
+        </span>
+      </Show>
+    </Button>
   );
 }
 
-function LoadPanel(
-  props: LoadRailProps & { snapshot: LoadSnapshot; openTaskReviewerSettings: (() => void) | undefined },
-) {
+/** What the load page of Settings shows besides the stopped work, and the changes it makes. */
+export interface LoadOverviewProps {
+  snapshot: LoadSnapshot;
+  channelName: (channelId: string) => string;
+  onLaneChange: (preference: LoadLanePreference) => void;
+  onRunNow: (channelId: string) => void;
+  onStop: (work: RunningWork) => void;
+  onRecoveryChange: (preference: AutoRecoveryPreference) => void;
+  onAgentLimitChange: (preference: AgentLimitPreference) => void;
+  /** The task reviewer: its switch and its threshold. */
+  onTaskWatchChange: (preference: TaskWatchPreference) => void;
+  /** Opens the page of the task reviewer in Settings. */
+  onOpenTaskReviewerSettings?: (() => void) | undefined;
+}
+
+/**
+ * The load of this computer on the load page of Settings, below the stopped work: the memory, what waits
+ * for a place and what runs (with Stop), the one-channel-at-a-time mode, the cap on agents, and the
+ * automatic recovery with the task reviewer.
+ */
+export function LoadOverview(props: LoadOverviewProps) {
   const { t } = useText();
   const memory = () => props.snapshot.memory;
   const rows = () => loadLaneRows(props.snapshot);
   const queued = () => rows().filter((row) => row.status === "queued");
-  // The requests that the person opened. They close again with the panel.
+  // The requests that the person opened. They close again with the page.
   const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set());
   const toggle = (key: string) => setExpanded((keys) => toggledKey(keys, key));
-  const stoppedKey = (work: StoppedWork) => `stopped:${work.channelId}:${work.taskId}`;
   const runningKey = (work: RunningWork) => `running:${work.turnId}`;
   return (
     <div class="window-rail-load-body">
@@ -211,30 +185,6 @@ function LoadPanel(
             </p>
           </Show>
         )}
-      </Show>
-      <Show when={props.snapshot.stopped.length > 0}>
-        <section class="window-rail-load-work">
-          <header class="window-rail-load-section-head">
-            <h3>{t("app.rail.load.stoppedCount", { count: props.snapshot.stopped.length })}</h3>
-            <Button variant="secondary" size="sm" class="window-rail-load-action" onClick={() => props.onResumeAll()}>
-              <Play aria-hidden="true" />
-              {t("app.rail.load.resumeAll")}
-            </Button>
-          </header>
-          <ul class="window-rail-load-list">
-            <For each={props.snapshot.stopped} keyed={stoppedKey}>
-              {(row) => (
-                <StoppedRow
-                  work={row()}
-                  expanded={expanded().has(stoppedKey(row()))}
-                  onToggle={() => toggle(stoppedKey(row()))}
-                  onResume={props.onResume}
-                  onReassign={props.onReassign}
-                />
-              )}
-            </For>
-          </ul>
-        </section>
       </Show>
       <Show when={props.snapshot.waiting.length > 0}>
         <section class="window-rail-load-work">
@@ -362,104 +312,38 @@ function LoadPanel(
         recent={loadRecentEvents(props.snapshot)}
         onChange={props.onRecoveryChange}
         onTaskWatchChange={props.onTaskWatchChange}
-        onOpenTaskReviewerSettings={props.openTaskReviewerSettings}
+        onOpenTaskReviewerSettings={props.onOpenTaskReviewerSettings}
       />
     </div>
   );
 }
 
-interface WorkRowProps {
+export interface WorkRowProps {
   expanded: boolean;
   onToggle: () => void;
 }
 
 /**
- * One stopped task: the channel, with an icon whose tooltip gives the reason; the tab; one line of the
- * request; who had it; then Resume and Reassign. The reason is in the tooltip only, because most tasks
- * stop for the same reason and the same sentence on each one hid the requests.
+ * Why a task stopped, as the icon at the right of its channel: red for a failed task, amber for a paused
+ * one. The reason is its tooltip and its accessible name, in the reader's language when it is the
+ * English of a source key. The reason is in the tooltip only, because most tasks stop for the same
+ * reason and the same sentence on each one hid the requests.
  */
-function StoppedRow(
-  props: WorkRowProps & {
-    work: StoppedWork;
-    onResume: (work: StoppedWork) => void;
-    onReassign: (work: StoppedWork, agentId: string) => void;
-  },
-) {
-  const { t, sourceText } = useText();
+export function StoppedState(props: { work: Pick<StoppedWork, "state" | "reason"> }) {
+  const { sourceText } = useText();
   const tone = () => stoppedTone(props.work.state);
   return (
-    <li class="window-rail-load-item">
-      <div class="window-rail-load-item-head">
-        <span class="window-rail-load-item-name">{props.work.channelName}</span>
-        <IconButton
-          variant="ghost"
-          size="icon-xs"
-          class="window-rail-load-state"
-          data-tone={tone()}
-          label={sourceText(props.work.reason)}
-        >
-          <Show when={tone() === "danger"} fallback={<Clock3 aria-hidden="true" />}>
-            <CircleAlert aria-hidden="true" />
-          </Show>
-        </IconButton>
-      </div>
-      <WorkTab name={props.work.topicName} />
-      <Show when={props.work.title}>
-        <WorkRequest request={props.work.title} expanded={props.expanded} onToggle={props.onToggle} />
+    <IconButton
+      variant="ghost"
+      size="icon-xs"
+      class="window-rail-load-state"
+      data-tone={tone()}
+      label={sourceText(props.work.reason)}
+    >
+      <Show when={tone() === "danger"} fallback={<Clock3 aria-hidden="true" />}>
+        <CircleAlert aria-hidden="true" />
       </Show>
-      <Show when={props.work.agentName || props.work.auto}>
-        <p class="window-rail-load-item-meta">
-          <Show when={props.work.agentName}>
-            {(agent) => <span>{t("app.rail.load.stoppedBy", { agent: agent() })}</span>}
-          </Show>
-          <Show when={props.work.auto === "waiting"}>
-            <span>{t("app.rail.load.autoWaiting")}</span>
-          </Show>
-          <Show when={props.work.auto === "gave-up"}>
-            <span data-tone="danger">{t("app.rail.load.autoGaveUp")}</span>
-          </Show>
-        </p>
-      </Show>
-      <div class="window-rail-load-item-actions">
-        <Button
-          variant="secondary"
-          size="sm"
-          class="window-rail-load-action"
-          onClick={() => props.onResume(props.work)}
-        >
-          <Play aria-hidden="true" />
-          {t("app.rail.load.resume")}
-        </Button>
-        <Show when={props.work.candidates.length > 0}>
-          <DropdownMenu.Root placement="bottom-start" gutter={4} modal={false}>
-            <DropdownMenu.Trigger
-              class={cx(buttonVariants({ variant: "secondary", size: "sm" }), "window-rail-load-action")}
-            >
-              {t("app.rail.load.reassign")}
-              <ChevronDown aria-hidden="true" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content>
-                <span class="ui-menu-label" aria-hidden="true">
-                  {t("app.rail.load.reassignLabel")}
-                </span>
-                {/* The main process lists the agents with the same model first. */}
-                <For each={props.work.candidates} keyed={(candidate) => candidate.agentId}>
-                  {(candidate) => (
-                    <DropdownMenu.Item onSelectAfterClose={() => props.onReassign(props.work, candidate().agentId)}>
-                      <span>{candidate().name}</span>
-                      <Show when={candidate().sameModel}>
-                        <span class="ui-menu-trailing">{t("app.rail.load.sameModel")}</span>
-                      </Show>
-                    </DropdownMenu.Item>
-                  )}
-                </For>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        </Show>
-      </div>
-    </li>
+    </IconButton>
   );
 }
 
@@ -520,7 +404,7 @@ function RunningRow(props: WorkRowProps & { work: RunningWork; onStop: (work: Ru
 }
 
 /** The tab of the channel that holds the work. No line when the tab is not known. */
-function WorkTab(props: { name: string | null }) {
+export function WorkTab(props: { name: string | null }) {
   const { t } = useText();
   return (
     <Show when={props.name}>
@@ -540,7 +424,7 @@ function WorkTab(props: { name: string | null }) {
  * the chevron's hit area covers the line while it is closed. Open, the text can be selected and scrolls
  * after eight lines.
  */
-function WorkRequest(props: WorkRowProps & { request: string }) {
+export function WorkRequest(props: WorkRowProps & { request: string }) {
   const { t } = useText();
   const id = `window-rail-load-request-${createUniqueId()}`;
   const request = () => requestText(props.request);

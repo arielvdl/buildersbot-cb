@@ -67,8 +67,6 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
     load.setOpen(false);
     if (!jumped) queueMicrotask(() => (teamButton?.isConnected ? teamButton.focus() : undefined));
   };
-  const channelName = (channelId: string) =>
-    channels.state.channels.find((channel) => channel.id === channelId)?.name ?? channelId;
   /** The compact sidebar has no footer, so the update island does not show. The Settings button then marks the update. */
   const updateNotice = () => {
     const phase = updates.status().phase;
@@ -101,23 +99,9 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
           localLoad()
             ? {
                 snapshot: load.snapshot(),
-                channelName,
-                open: load.panelOpen(),
-                onOpenChange: load.setPanelOpen,
-                onLaneChange: (preference) => void load.setLane(preference),
-                onRunNow: (channelId) => void load.runNow(channelId),
-                onStop: (work) => void load.stop(work),
-                onResumeAll: () => void load.resumeAll(),
-                onResume: (work) => void load.resume(work),
-                onReassign: (work, agentId) => void load.reassign(work, agentId),
-                onRecoveryChange: (preference) => void load.setRecovery(preference),
-                onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
-                onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
-                // The button in the panel goes away with the panel, so the ring takes the focus back.
-                onOpenTaskReviewerSettings: (ring) => {
-                  load.setPanelOpen(false);
-                  openAppSettings(ring, "task-reviewer");
-                },
+                // The work is acted on in its page of Settings, with room for many rows at once. The ring
+                // takes the focus back when Settings closes.
+                onOpen: (ring) => openAppSettings(ring, "load"),
               }
             : undefined
         }

@@ -392,6 +392,7 @@
     "./features/updates/WhatsNewDialog": "./src/features/updates/WhatsNewDialog.tsx",
     "./features/updates/whats-new": "./src/features/updates/whats-new.ts",
     "./features/updates/whats-new.css": "./src/features/updates/whats-new.css",
+    "./features/window/LoadRing": "./src/features/window/LoadRing.tsx",
     "./features/window/PageRail": "./src/features/window/PageRail.tsx",
     "./features/window/load-view": "./src/features/window/load-view.ts",
     "./features/window/page-rail.css": "./src/features/window/page-rail.css",

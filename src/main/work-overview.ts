@@ -70,10 +70,99 @@ export interface StoppedChannelInput {
   topicName(topicId: string): string | null;
 }
 
+/** The task of each stopped run of one channel: the root when the root stopped, else the task that did. */
+function stoppedRunTasks(
+  tasks: readonly ChannelTask[],
+): (ChannelTask & { state: "paused" | "failed"; error: string })[] {
+  const entries = new Map<string, ChannelTask>();
+  for (const task of tasks) {
+    if (!stopped(task)) continue;
+    const known = entries.get(task.rootTaskId);
+    if (!known || task.id === task.rootTaskId) entries.set(task.rootTaskId, task);
+  }
+  return [...entries.values()].filter(stopped);
+}
+
+/** How many stopped runs the channels that are not archived have, with no limit. */
+export function countStoppedWork(channels: readonly Pick<StoppedChannelInput, "archived" | "tasks">[]): number {
+  let count = 0;
+  for (const channel of channels) if (!channel.archived) count += stoppedRunTasks(channel.tasks).length;
+  return count;
+}
+
 /**
- * The stopped runs of the channels, one row for each run: the root when the root stopped, else the task
- * that did. This is the rule of the Continue button of a channel, and a resume of this task starts the run again.
+ * The stopped root tasks of one channel that repeat a request: another root of the same request
+ * completed, runs or waits, with the same agent or after the lead routed it (a stopped root with no
+ * agent); or an older root of the same request with the same agent stopped too. A routine request
+ * that each start of the app posted again left such roots, one for each start.
  */
+export function duplicateStoppedTasks(tasks: readonly ChannelTask[]): Set<string> {
+  const groups = new Map<string, ChannelTask[]>();
+  for (const task of tasks) {
+    if (task.id !== task.rootTaskId || task.state === "cancelled") continue;
+    const group = groups.get(task.requestMessageId);
+    if (group) group.push(task);
+    else groups.set(task.requestMessageId, [task]);
+  }
+  const duplicates = new Set<string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const live = group.filter((task) => task.state !== "paused" && task.state !== "failed");
+    const seen = new Set<string | null>();
+    for (const task of group) {
+      if (task.state !== "paused" && task.state !== "failed") continue;
+      const owner = task.ownerAgentId;
+      if (seen.has(owner) || live.some((other) => owner === null || other.ownerAgentId === owner)) {
+        duplicates.add(task.id);
+      } else {
+        seen.add(owner);
+      }
+    }
+  }
+  return duplicates;
+}
+
+/** A stopped run: its channel and the task of its row. */
+export interface StoppedRun {
+  channel: StoppedChannelInput;
+  task: ChannelTask & { state: "paused" | "failed"; error: string };
+}
+
+/**
+ * The stopped runs of the channels that are not archived, one for each run: the root when the root
+ * stopped, else the task that did. This is the rule of the Continue button of a channel, and a resume
+ * of this task starts the run again. At most `limit` runs.
+ */
+export function stoppedRuns(channels: readonly StoppedChannelInput[], limit: number): StoppedRun[] {
+  const runs: StoppedRun[] = [];
+  for (const channel of channels) {
+    if (channel.archived) continue;
+    for (const task of stoppedRunTasks(channel.tasks)) {
+      if (runs.length >= limit) return runs;
+      runs.push({ channel, task });
+    }
+  }
+  return runs;
+}
+
+/** The fields of a stopped row that the channel and the task give. */
+export function stoppedRow(
+  { channel, task }: StoppedRun,
+  agentName: (agentId: string) => string | null,
+): Omit<StoppedWork, "candidates" | "auto"> {
+  return {
+    channelId: channel.id,
+    channelName: channel.name,
+    topicName: task.topicId ? channel.topicName(task.topicId) : null,
+    taskId: task.id,
+    title: clipText(task.instruction, TITLE_LIMIT),
+    reason: clipText(task.error, REASON_LIMIT),
+    agentName: task.ownerAgentId ? agentName(task.ownerAgentId) : null,
+    state: task.state,
+  };
+}
+
+/** The rows of the load panel: the first `LOAD_WORK_LIST_LIMIT` stopped runs. */
 export function buildStoppedWork(
   channels: readonly StoppedChannelInput[],
   agentName: (agentId: string) => string | null,
@@ -85,30 +174,8 @@ export function buildStoppedWork(
     auto: null,
   }),
 ): StoppedWork[] {
-  const rows: StoppedWork[] = [];
-  for (const channel of channels) {
-    if (channel.archived) continue;
-    const entries = new Map<string, ChannelTask>();
-    for (const task of channel.tasks) {
-      if (!stopped(task)) continue;
-      const known = entries.get(task.rootTaskId);
-      if (!known || task.id === task.rootTaskId) entries.set(task.rootTaskId, task);
-    }
-    for (const task of entries.values()) {
-      if (!stopped(task)) continue;
-      rows.push({
-        channelId: channel.id,
-        channelName: channel.name,
-        topicName: task.topicId ? channel.topicName(task.topicId) : null,
-        taskId: task.id,
-        title: clipText(task.instruction, TITLE_LIMIT),
-        reason: clipText(task.error ?? "", REASON_LIMIT),
-        agentName: task.ownerAgentId ? agentName(task.ownerAgentId) : null,
-        state: task.state,
-        ...enrich(channel.id, task),
-      });
-      if (rows.length >= LOAD_WORK_LIST_LIMIT) return rows;
-    }
-  }
-  return rows;
+  return stoppedRuns(channels, LOAD_WORK_LIST_LIMIT).map((run) => ({
+    ...stoppedRow(run, agentName),
+    ...enrich(run.channel.id, run.task),
+  }));
 }

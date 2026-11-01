@@ -99,6 +99,8 @@ import {
   isResumeInterruptedWorkResult,
   isSecurityGuardPreference,
   isSpeechVoice,
+  isStoppedWorkBulkResult,
+  isStoppedWorkList,
   isUnreadableSecrets,
   isVoiceLanguage,
   isVoiceModelId,
@@ -127,6 +129,8 @@ import {
   type SpeechAudio,
   type SpeechModelStatus,
   type SpeechSettings,
+  type StoppedWorkBulkResult,
+  type StoppedWorkList,
   type UnreadableSecret,
   UPDATE_PHASES,
   type UpdatePreference,
@@ -193,6 +197,14 @@ export const decodeApprovalAutomationPreference: (value: unknown) => ApprovalAut
 );
 
 export const decodeLoadSnapshot: (value: unknown) => LoadSnapshot = guardedDecoder(isLoadSnapshot, "load snapshot");
+export const decodeStoppedWorkList: (value: unknown) => StoppedWorkList = guardedDecoder(
+  isStoppedWorkList,
+  "stopped work list",
+);
+export const decodeStoppedWorkBulkResult: (value: unknown) => StoppedWorkBulkResult = guardedDecoder(
+  isStoppedWorkBulkResult,
+  "stopped work result",
+);
 export const decodeAgentLimitPreference: (value: unknown) => AgentLimitPreference = guardedDecoder(
   isAgentLimitPreference,
   "agent limit preference",

@@ -45,6 +45,7 @@ import type {
   SetAppLogoColorPreferenceInput,
   SetDynamicIslandInteractiveInput,
   SetEnabledSkillInput,
+  StoppedWorkBulkInput,
   StopWorkInput,
   SubmitMarketplaceAgentInput,
   SubmitSkillInput,
@@ -82,6 +83,7 @@ import {
   isResumeStoppedWorkInput,
   isRunChannelNowInput,
   isSkillCategory,
+  isStoppedWorkBulkInput,
   isStopWorkInput,
   isTaskWatchPreference,
   MAC_AUTOMATION_TARGETS,
@@ -162,6 +164,22 @@ export function parseResumeStoppedWorkInput(input: unknown): ResumeStoppedWorkIn
 export function parseReassignStoppedWorkInput(input: unknown): ReassignStoppedWorkInput {
   if (!isReassignStoppedWorkInput(input)) throw new Error("A task and an agent are required.");
   return { channelId: input.channelId, taskId: input.taskId, recipientAgentId: input.recipientAgentId };
+}
+
+export function parseStoppedWorkBulkInput(input: unknown): StoppedWorkBulkInput {
+  if (!isStoppedWorkBulkInput(input)) throw new Error("An action on stopped work is required.");
+  const items = (value: { items: { channelId: string; taskId: string }[] }) =>
+    value.items.map((item) => ({ channelId: item.channelId, taskId: item.taskId }));
+  switch (input.action) {
+    case "undo":
+      return { action: "undo", undoId: input.undoId };
+    case "reassign":
+      return { action: "reassign", items: items(input), recipientAgentId: input.recipientAgentId };
+    case "model":
+      return { action: "model", items: items(input), provider: input.provider, model: input.model };
+    default:
+      return { action: input.action, items: items(input) };
+  }
 }
 
 export function parseRunChannelNowInput(input: unknown): RunChannelNowInput {

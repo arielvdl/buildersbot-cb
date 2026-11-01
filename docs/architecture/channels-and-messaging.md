@@ -393,9 +393,11 @@ The code:
   number from 1 to 64 (`parseAgentLimitPreference`), and the preload decodes the answer. `src/main/ipc/app-handlers.ts` answers them with `buildLoadSnapshot`
   (`src/main/load-snapshot.ts`), `ResourceMonitor.loadReading` for the memory, and
   `WorkControl.overview` for the count and the work.
-- `packages/ui/src/features/window/LoadRing.tsx`, `load-view.ts` and `page-rail.css`: the ring and
-  its panel. `src/renderer/src/features/load/load-controller.ts` reads the load, and
-  `WorkspacePageRail.tsx` gives the ring only on the local host.
+- `packages/ui/src/features/window/LoadRing.tsx`, `load-view.ts` and `page-rail.css`: the ring, and
+  `LoadOverview`, the load below the stopped work on the load page of Settings.
+  `src/renderer/src/features/load/load-controller.ts` reads the load, and `WorkspacePageRail.tsx`
+  gives the ring only on the local host. A click on the ring opens Settings › Load
+  (`SettingsLoadTab.tsx`); there is no popover.
 
 Rules that are easy to break:
 
@@ -409,10 +411,13 @@ Rules that are easy to break:
 
 ## Stopped work and its recovery
 
-The load panel lists the work that runs and the work that stopped. The person can stop a run, start
-stopped work again, or give it to another agent. `WorkControl` (`src/main/work-control.ts`) owns
-this. It reads the channels at each request and keeps no copy of them. Each list has at most 50 rows
-(`LOAD_WORK_LIST_LIMIT`).
+The load page of Settings (Settings › Load, "Carga"), which the ring of the rail opens, lists the
+work that stopped and the work that runs. The person can stop a run, and act on many stopped runs at
+once: start them again, give them to another agent, change the model of their agents, or remove them.
+`WorkControl` (`src/main/work-control.ts`) owns this. It reads the channels at each request and keeps
+no copy of them. The load snapshot has at most 50 rows of each list (`LOAD_WORK_LIST_LIMIT`), and
+`stoppedTotal` counts every stopped run, for the red mark of the ring. The stopped work page reads its
+own list (`listStoppedWork`), with up to 2,000 rows (`STOPPED_WORK_PAGE_LIMIT`).
 
 - Work that runs: each agent turn that runs now, from `AgentService.runningTurns()` at each request.
   A turn on the execution thread of a channel shows the channel and the task of the active assignment
@@ -427,8 +432,9 @@ Each row of both lists names the tab of its task (`topicName`): the name of the 
 tab, or a tab that is gone. The lookup runs only for the rows that the panel lists. The request is
 clipped to 1,000 characters (`TITLE_LIMIT`) and the reason to 200.
 
-The panel (`packages/ui/src/features/window/LoadRing.tsx`) shows each row as a short list item, with
-thin lines between the items:
+The page shows each row as the panel of the ring did, as a short list item with thin lines between
+the items (`StoppedState`, `WorkTab` and `WorkRequest` in `packages/ui/src/features/window/LoadRing.tsx`),
+with a box to mark it:
 
 - The channel name. At its right, a stopped task has one state icon: red for `failed`, amber for
   `paused`. The reason is the tooltip and the accessible name of that icon, not text in the item.
@@ -439,7 +445,9 @@ thin lines between the items:
   (`@[name](attachment:id)`), also a mark that the clip cut; a request with only attachments reads
   "Attached file". The open requests are kept in the panel and close with it.
 - Who had the task, and what the automatic recovery does with it.
-- Resume and a Reassign menu (the agents with the same model first, marked), or Stop.
+- What posted the request (a routine, by name, or a task), and a mark when what the run belongs to
+  was deleted (see "Orphan stopped work" below).
+- A run that runs has Stop.
 
 The reason is stored as English. The panel translates it with `sourceText` (`useText`): a stored
 reason that is the English of a source key, such as `error.backend.channelStartFailed` or
@@ -459,6 +467,75 @@ Each of `resumeStopped` and `reassignStopped` checks the ids against the work th
 An id that is not stopped is ignored, so a forged or old id starts nothing. A reassign also needs an
 agent that the panel offered for that task; the channel service then checks that the agent is an
 available member.
+
+### The stopped work page
+
+`SettingsLoadTab.tsx`, `settings-load-store.ts` and `stopped-work-filter.ts` in
+`src/renderer/src/features/settings/`:
+
+- The header counts the stopped, failed and paused runs, and the runs whose source was deleted.
+- A search (request, channel, tab, agent, routine, reason; case and accents do not count) and filters:
+  state, agent (or no agent), channel or tab, origin (routine or task), and source (deleted or kept).
+- A box on each row; "Select all N shown" marks every row that the filters show. Space marks the row
+  that has the focus, Shift with Space or with a click marks the range from the last marked row, and
+  the arrow keys move between rows.
+- With rows marked, a bar of actions shows: Resume, Reassign (the `AgentPicker` of
+  `packages/ui/src/features/agents/AgentPicker.tsx`, with the members of the channels of the marked
+  rows), Change model, Remove, and Clear selection. The bar stays at the top while the list scrolls.
+- Remove asks first, with the count and the count of rows whose source was deleted. Change model asks
+  first, with the names of the agents that change.
+- After each action a line says how many rows were done and, for each reason, how many failed.
+  After Remove it has Undo for 10 seconds (`STOPPED_WORK_UNDO_MS`).
+- The page reads the list when it opens, and again when the count of the ring changes. The load reads
+  every 3 seconds while the page shows (`watch(visible, { fast: true })`).
+
+`bulkStoppedWork` (`app:bulk-stopped-work`, `WorkControl.bulkStopped`) takes one action and up to
+2,000 rows. Each row is done or refused on its own, so one refusal does not stop the others, and the
+answer lists each failed row with a reason (`StoppedWorkFailure`) and the new list:
+
+- Each row must be stopped now, else `gone`. A forged or old id changes nothing.
+- `resume`: the `resume` command for each row, as the Continue button of the channel.
+- `reassign`: the `reassign` command, when the agent is an available member of the channel of the row
+  and not the agent that has it; else `not-member`.
+- `model`: the model is a field of the agent (`UpdateAgentInput.model`), not of the task or the
+  routine, so each agent that had a marked row changes once, through `AgentService.updateAgent`, for
+  all of its work. A row that no agent had fails with `no-agent`.
+- `remove`: `ChannelService.closeStopped`, one write for each channel. Each selected run, from its
+  root, becomes `cancelled`: the rows stay in the database and the history, and the Continue button of
+  the channel no longer offers it. A task of another run that waited on one of them leaves its list
+  of dependencies. A run with a task that runs or holds an assignment is refused (`running`). The
+  answer has an `undoId`; `undo` within 10 seconds puts each task back as it was, when nothing
+  changed it since (`ChannelService.reopenClosed`), else `expired`.
+- A routine run whose tasks were all closed reads as `cancelled`, not `succeeded`.
+
+### Orphan stopped work
+
+`WorkControl.listStopped` marks a row with the reason it can only wait (`StoppedWorkOrphan`), the
+deleted source first:
+
+- `routine-deleted`: the request came from a run of a channel routine
+  (`ChannelRoutineScheduler.originsFor`, by the request id of the run) and the routine is gone.
+- `topic-deleted`: the tab of the task is gone.
+- `agent-deleted`: the agent that had it is gone.
+- `duplicate` (`duplicateStoppedTasks` in `src/main/work-overview.ts`): another root task of the same
+  request completed, runs or waits, with the same agent, or the stopped root has no agent (the lead did
+  not route it); or an older root of the same request with the same agent stopped too.
+
+Nothing removes these by itself. The person filters them ("Source deleted") and removes them.
+
+Why they stayed for ever, and the fixes:
+
+- `pruneChannelEvents` drops the older `channel.changed` events of a channel with their receipts, so
+  the receipt of a routine request is gone after the next change of its channel. The scheduler read a
+  run with no receipt as "not posted yet": `reconcile` never settled it, so it stayed `queued`, and
+  `resumePendingRuns` posted its request again at each start of the app, as a new task. With a request
+  that the lead cannot route, each start added one stopped task for each open run. Now a run whose
+  request message is in the channel counts as posted (`#reached`): it is not posted again, and
+  `reconcile` reads its status from its tasks.
+- Deleting a channel routine withdrew only the requests that no member had started. Its stopped
+  tasks stayed. Now the delete also closes the stopped runs of every run of the routine
+  (`ChannelService.closeStoppedRequests`). Work that runs keeps its Stop control.
+- A deleted tab and a deleted channel take their tasks with them already.
 
 Candidates (`reassignCandidates` in `src/main/auto-recovery.ts`):
 

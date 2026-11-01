@@ -24,6 +24,7 @@ import { useAuth } from "./features/account/account-context";
 import { useAgents } from "./features/agents/agents-context";
 import { desktopBrowserProfileCalls } from "./features/browser/browser-profiles-port";
 import { createBrowserProfilesStore } from "./features/browser/stores/browser-profiles-store";
+import { useChannels } from "./features/channels/channels-context";
 import { useConnectors } from "./features/connectors/connectors-context";
 import { conversationPort } from "./features/conversation/conversation-port";
 import { useCustomAgents } from "./features/custom-agents/custom-agents-context";
@@ -880,9 +881,7 @@ function AppSettings(props: AccountProps) {
   const windowPage = useWindowPage();
   const platform = usePlatform();
   const load = useLoad();
-  /** The ring of the rail shows the load of this computer in the main window, while this computer is active. */
-  const openLoadPanel = () =>
-    platform.chatWindow === null && load.railShown() ? () => load.setPanelOpen(true) : undefined;
+  const channels = useChannels();
   const auth = useAuth();
   const updates = useUpdates();
   const whatsNew = useWhatsNew();
@@ -975,7 +974,9 @@ function AppSettings(props: AccountProps) {
         openTab={appSettingsTab()}
         hostedServerDeleteRequest={hostedServerDeleteRequest()}
         load={load}
-        onOpenLoadPanel={openLoadPanel()}
+        channelName={(channelId) =>
+          channels.state.channels.find((channel) => channel.id === channelId)?.name ?? channelId
+        }
       />
     </Loading>
   );
