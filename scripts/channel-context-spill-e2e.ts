@@ -10,6 +10,9 @@
 //    packet with channel_history {messageId, offset}, and reads the compact page ({limit: 20}).
 // 3. Reader gets "find fact 2" in the same session: it gets the delta. The fake finds the fact from
 //    the compact page and reads by id.
+// 4. The tab of the off run has a summary. With the optimization on, a request to Lead and Worker
+//    replies to the first request of that tab. Lead has no session in the tab: its packet reads only
+//    the rows after the summary, and the replied message by id, and Lead finds fact 3 by a pointer.
 // Off, the packet, the delta and channel_history must be as before the optimization: the report keeps
 // a hash of each one with ids and times replaced, to compare with a run on the code before it. On,
 // the packet is smaller, cut rows carry chars and nextOffset, Reader finds fact 1 by the pointer of
@@ -122,7 +125,7 @@ const step = (turn) => {
   const found = turn.found;
   const via = found.pointer ? "pointer" : found.listing ? "listing" : found.defaultHistory ? "default-history" : found.packet ? "packet" : "nothing";
   const value = found.pointer || found.listing || found.defaultHistory || found.packet || "none";
-  log({ find: turn.mark, threadId: turn.threadId, inputCharacters: turn.text.length, found, via, sizes: turn.sizes, reads: turn.reads });
+  log({ find: turn.mark, turnId: turn.turnId, threadId: turn.threadId, inputCharacters: turn.text.length, found, via, sizes: turn.sizes, reads: turn.reads });
   finish(turn, "FOUND " + value + " via " + via);
 };
 const onResult = (entry, message) => {
@@ -194,9 +197,10 @@ const answer = (message) => {
       const assignment = text.lastIndexOf("Current assignment:");
       const request = assignment < 0 ? "" : text.slice(assignment);
       log({ turnStarted: turnId, threadId: params.threadId, texts: [text] });
-      const seed = /SEED-([a-z]+)-(\\d)/.exec(request);
-      if (seed) return call(turn, "result", { text: resultText(seed[1], Number(seed[2])) });
+      // A reply that continues an older task gives that task's request first, then the follow-up.
       const find = /FIND-([a-z]+)-(\\d)/.exec(request);
+      const seed = find ? null : /SEED-([a-z]+)-(\\d)/.exec(request);
+      if (seed) return call(turn, "result", { text: resultText(seed[1], Number(seed[2])) });
       if (!find) return finish(turn, "Done.");
       Object.assign(turn, { mark: find[0], mode: find[1], n: Number(find[2]) });
       const packetFact = factIn(turn, text);
@@ -327,7 +331,10 @@ interface ModeReport {
   checks: Record<string, boolean | number | string | null>;
 }
 
-const report: { modes: ModeReport[]; passed: boolean; error?: string } = { modes: [], passed: false };
+const report: { modes: ModeReport[]; summarizedTabOn?: WindowReport; passed: boolean; error?: string } = {
+  modes: [],
+  passed: false,
+};
 
 const unused = () => Effect.die(new Error("Not used by this check."));
 const browser: AgentBrowserHost = {
@@ -374,8 +381,11 @@ const endedTurn = (mark: string) => {
   const turnId = startedTurn(mark)?.turnStarted;
   return turnId ? protocol().find((line) => line.turnEnded === turnId) : undefined;
 };
-const findEntry = (mark: string) => {
-  const line = protocol().find((entry) => entry.find === mark);
+/** The find of this mark, or of the turn with this id when several turns get the mark. */
+const findEntry = (mark: string, turnId?: string) => {
+  const line = protocol().find(
+    (entry) => entry.find === mark && (turnId === undefined || getString(entry.value, "turnId") === turnId),
+  );
   return line ? findReport(line) : undefined;
 };
 
@@ -467,7 +477,7 @@ async function createChannel(name: string, memberIds: string[]): Promise<string>
   return channelId;
 }
 
-async function send(channelId: string, text: string, agentId: string): Promise<void> {
+async function send(channelId: string, text: string, agentId: string, replyToMessageId: string | null = null) {
   await runCauseEffect(
     agents.channels.command(
       {
@@ -477,7 +487,7 @@ async function send(channelId: string, text: string, agentId: string): Promise<v
         topicId: `openbot-topic-${channelId}`,
         text,
         recipientAgentId: agentId,
-        replyToMessageId: null,
+        replyToMessageId,
         attachmentDraftIds: [],
       },
       actor,
@@ -509,7 +519,12 @@ function packetRows(text: string): PacketRow[] {
 
 const count = (text: string, part: string) => text.split(part).length - 1;
 
-async function runMode(mode: "off" | "on", lead: string, worker: string, reader: string): Promise<ModeReport> {
+async function runMode(
+  mode: "off" | "on",
+  lead: string,
+  worker: string,
+  reader: string,
+): Promise<{ channelId: string; result: ModeReport }> {
   spill = mode === "on";
   const summariesBefore = protocol().filter((line) => line.summary).length;
   const channelId = await createChannel(`spill-${mode}`, [lead, worker, reader]);
@@ -540,7 +555,7 @@ async function runMode(mode: "off" | "on", lead: string, worker: string, reader:
   const note = rows.find((row) => typeof row.text === "string" && row.text.startsWith(`NOTE-REF-${mode}`));
   const summaryGenerations = protocol().filter((line) => line.summary).length - summariesBefore;
   const expected = (n: number) => `FACT-${mode}-${n}=amber-${mode}-${n}`;
-  return {
+  const result: ModeReport = {
     mode,
     summaryGenerations,
     packet: {
@@ -571,6 +586,69 @@ async function runMode(mode: "off" | "on", lead: string, worker: string, reader:
       requestInAssignment: rows.some((row) => row.textInCurrentAssignment === true),
     },
   };
+  return { channelId, result };
+}
+
+/** What the packet of a tab with a summary gave with the optimization on. */
+interface WindowReport {
+  packetCharacters: number;
+  hasSummary: boolean;
+  referencedRows: number;
+  referencedIsTheReply: boolean;
+  recentHasSummarizedResult: boolean;
+  via: string;
+  answer: string | null;
+}
+
+/**
+ * Step 4: the tab of the off run, which has a summary, with the optimization on. The request asks two
+ * members, so it starts new tasks and changes no older row: a reply that continued an older task would
+ * mark its rows as replaced, and that resets the summary. The request replies to the first request of
+ * the tab, which the summary covers, so it is a source that the packet reads by id.
+ */
+async function runWindow(channelId: string, lead: string, worker: string): Promise<WindowReport> {
+  spill = true;
+  const first = agents.channels
+    .page(channelId, `openbot-topic-${channelId}`)
+    .messages.find((message) => message.message.text.startsWith("SEED-off-1"));
+  assert.ok(first, "the first request of the off run is in its tab");
+  const text = `@[Lead](agent:${lead}) @[Worker](agent:${worker}) FIND-off-3: which value does fact 3 of the off run have?`;
+  await send(channelId, text, lead, first.id);
+  // Lead has no session in this tab, so its packet is the complete one.
+  const turn = await waitFor(
+    "on, summarized tab: the complete packet of Lead",
+    () =>
+      protocol().find(
+        (line) =>
+          line.turnStarted &&
+          line.texts.some((item) => item.includes("FIND-off-3") && item.includes("Recent shared messages:")),
+      ),
+    60_000,
+  );
+  const find = await waitFor(
+    "on, summarized tab: Lead finds fact 3",
+    () => findEntry("FIND-off-3", turn.turnStarted ?? undefined),
+    60_000,
+  );
+  await waitFor("on, summarized tab: both members answer", () =>
+    agents.channels
+      .page(channelId, `openbot-topic-${channelId}`)
+      .tasks.filter((task) => task.instruction.includes("FIND-off-3"))
+      .every((task) => task.state === "completed"),
+  );
+  const packet = turn.texts.join("\n");
+  const referencedStart = packet.indexOf("Referenced messages:\n");
+  const recentStart = packet.indexOf("Recent shared messages:\n");
+  const referenced = packetRows(packet.slice(referencedStart, recentStart));
+  return {
+    packetCharacters: packet.length,
+    hasSummary: packet.includes("Shared history summary (through"),
+    referencedRows: referenced.length,
+    referencedIsTheReply: referenced[0]?.text?.startsWith("SEED-off-1") === true,
+    recentHasSummarizedResult: packetRows(packet.slice(recentStart)).some((row) => row.text?.startsWith("Result 1")),
+    via: find.via,
+    answer: find.found.pointer ?? find.found.listing ?? null,
+  };
 }
 
 try {
@@ -579,10 +657,12 @@ try {
   const worker = await createAgent("Worker");
   const reader = await createAgent("Reader");
 
-  const off = await runMode("off", lead, worker, reader);
+  const { channelId: offChannel, result: off } = await runMode("off", lead, worker, reader);
   report.modes.push(off);
-  const on = await runMode("on", lead, worker, reader);
+  const { result: on } = await runMode("on", lead, worker, reader);
   report.modes.push(on);
+  const windowed = await runWindow(offChannel, lead, worker);
+  report.summarizedTabOn = windowed;
 
   // Off: as before the optimization.
   assert.equal(off.checks.oldToolLine, true, "off: the packet keeps the old channel_history line");
@@ -622,6 +702,12 @@ try {
     Number(on.find1.defaultHistory.characters) < Number(off.find1.defaultHistory.characters),
     "on: the page is smaller",
   );
+
+  // On, in a tab with a summary: the rows after it, and the replied message read by id.
+  assert.equal(windowed.hasSummary, true, "on: the summary of the tab stays");
+  assert.equal(windowed.referencedIsTheReply, true, "on: the replied message before the summary is read by id");
+  assert.equal(windowed.recentHasSummarizedResult, false, "on: a summarized row is not read again");
+  assert.equal(windowed.answer, "FACT-off-3=amber-off-3", "on: Lead finds fact 3");
   report.passed = true;
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);

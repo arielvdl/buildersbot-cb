@@ -247,8 +247,16 @@ export class ChannelHistory {
       // saved, so it does not generate the same summary again.
       const summarized = yield* summaryLock(dependencies.summaryLocks, channel.id, topicId).withPermits(1)(
         Effect.gen(function* () {
-          let messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id, topicId)));
+          // With spill, only the rows after the summary are read: the others are read by id below.
+          const read = (after: number) =>
+            channelSync(() =>
+              spill
+                ? dependencies.store.messagesAfter(channel.id, topicId, after)
+                : dependencies.store.messages(channel.id, topicId),
+            );
+          let messages = spill ? [] : conversation(yield* read(0));
           let summary = yield* channelSync(() => dependencies.store.summary(channel.id, topicId));
+          if (spill) messages = conversation(yield* read(summary.throughSequence));
           let recent = messages.filter((message) => message.sequence > summary.throughSequence);
           // Reserve half the handoff ceiling for instructions, requested sources, and provider overhead.
           while (size(recent, messages) > characterBudget / 2 && recent.length > 1) {
@@ -308,7 +316,7 @@ export class ChannelHistory {
               };
               yield* channelSync(() => dependencies.store.saveSummary(channel.id, topicId, summary));
             }
-            messages = conversation(yield* channelSync(() => dependencies.store.messages(channel.id, topicId)));
+            messages = conversation(yield* read(summary.throughSequence));
             recent = messages.filter((message) => message.sequence > summary.throughSequence);
           }
           return { messages, summary, recent };
@@ -317,16 +325,30 @@ export class ChannelHistory {
       const { messages, summary } = summarized;
       let { recent } = summarized;
       const memories = yield* channelSync(() => dependencies.memories.list(channel.id));
-      const request = messages.find((message) => message.id === task.requestMessageId);
+      // With spill, `messages` holds only the rows after the summary. A row before it is read by id,
+      // and only from this tab.
+      const firstTopic = spill ? yield* channelSync(() => dependencies.store.firstTopicId(channel.id)) : "";
+      const byId = (id: string | undefined) => {
+        if (id === undefined) return Effect.succeed(undefined);
+        const found = messages.find((message) => message.id === id);
+        if (found || !spill) return Effect.succeed(found);
+        return channelSync(() => {
+          const stored = dependencies.store.message(channel.id, id);
+          return stored && (stored.topicId ?? firstTopic) === topicId ? conversation([stored])[0] : undefined;
+        });
+      };
+      const request = yield* byId(task.requestMessageId);
       const tasks = spillTasks ?? (yield* channelSync(() => dependencies.store.tasks(channel.id)));
       // A typed "continue" makes the follow-up the request, so the siblings count from the first one.
-      const origin = messages.find((message) => message.id === task.sourceMessageIds[0]) ?? request;
+      const origin = (yield* byId(task.sourceMessageIds[0])) ?? request;
       // Members that answer one request each give their own view. The reply of a member that
       // finished first made the next one copy its first sentence, so the rows that the other tasks
       // of this request wrote after the request stay out until this assignment ends. After the
       // member gave its own view, a follow-up can ask about the others, so they show again. A note
       // between tool calls or a reply that a stop cut off is not that view.
-      const answered = messages.some(
+      const answered = (
+        spill ? conversation(yield* channelSync(() => dependencies.store.taskMessages(channel.id, task.id))) : messages
+      ).some(
         (message) =>
           message.author.kind === "agent" &&
           message.taskId === task.id &&
@@ -348,9 +370,30 @@ export class ChannelHistory {
         message.sequence > (origin?.sequence ?? 0);
       const hidden = recent.find(sibling);
       const sources = taskSources(task, messages);
-      const referenced = messages.filter(
+      let referenced = messages.filter(
         (message) => sources.has(message.id) && message.sequence <= summary.throughSequence,
       );
+      if (spill) {
+        // The replies that the sources answer, by id: each one points to an older message. The walk
+        // stops after as many reads as a task keeps sources, so a broken chain cannot hold it.
+        const found = new Map<string, ChannelMessage>();
+        const pending = [...sources];
+        for (let reads = 0; pending.length && reads < 64; reads += 1) {
+          const id = pending.shift();
+          if (id === undefined || found.has(id)) continue;
+          const message = yield* byId(id);
+          if (!message) continue;
+          found.set(id, message);
+          const reply = message.message.replyToMessageId;
+          if (reply && !sources.has(reply)) {
+            sources.add(reply);
+            pending.push(reply);
+          }
+        }
+        referenced = [...found.values()]
+          .filter((message) => message.sequence <= summary.throughSequence)
+          .sort((one, other) => one.sequence - other.sequence);
+      }
       // The complete packet is self-contained and bounded: the first packet of a provider session
       // must be. The delta gives a session only what it has not read: the session already has the
       // earlier messages, and a complete packet on each turn put the same history in its context
@@ -361,7 +404,7 @@ export class ChannelHistory {
       // packet gives its final text. The cursor also stops before a hidden reply of another member,
       // so a later turn of this session gets it.
       const throughSequence = Math.min(
-        open ? open.sequence - 1 : (messages.at(-1)?.sequence ?? 0),
+        open ? open.sequence - 1 : (messages.at(-1)?.sequence ?? (spill ? summary.throughSequence : 0)),
         hidden ? hidden.sequence - 1 : Number.POSITIVE_INFINITY,
       );
       recent = recent.filter((message) => !sibling(message));
