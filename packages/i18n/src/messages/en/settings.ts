@@ -399,6 +399,37 @@ export const messages = defineMessages("settings", {
   "settings.notch.size.previewIsland": "External display",
   "settings.analytics.title": "Usage analytics",
   "settings.analytics.description": "Off. Builders Bot sends no usage analytics and no error reports from this app.",
+  // Settings › General › Advanced optimizations (beta). Each switch says what it changes and its risk.
+  "settings.optimizations.section": "Advanced optimizations (beta)",
+  "settings.optimizations.title": "All optimizations",
+  "settings.optimizations.description":
+    "Beta. Each one changes how agents run on this computer, and each one is off until you turn it on. You can turn any of them off again at any time.",
+  "settings.optimizations.allOn": "Turn all on",
+  "settings.optimizations.allOff": "Turn all off",
+  "settings.optimizations.queuePriorityUser.title": "Your messages first",
+  "settings.optimizations.queuePriorityUser.description":
+    "A message that you write can use one more place than the cap on agents. When memory is low, one message of yours can start on an agent whose session is open. Risk: more memory in use.",
+  "settings.optimizations.idleReleaseLow.title": "Free idle agents when memory is low",
+  "settings.optimizations.idleReleaseLow.description":
+    "When memory becomes low, sessions that did nothing for 2 minutes close. They open again from their history. Risk: the next message to such an agent takes a few seconds more.",
+  "settings.optimizations.fiscalResumeGrace.title": "Task reviewer waits after sleep",
+  "settings.optimizations.fiscalResumeGrace.description":
+    "After the computer wakes from sleep, the task reviewer waits two looks before it acts. Risk: a task that really stopped is moved about 2 minutes later.",
+  "settings.optimizations.turnStartUnify.title": "Faster start of a turn",
+  "settings.optimizations.turnStartUnify.description":
+    "The two security reviews before a turn become one quick review, and the agent wakes at the same time. The review still comes before your message. Risk: a less detailed review.",
+  "settings.optimizations.channelContextSpill.title": "Shorter channel context",
+  "settings.optimizations.channelContextSpill.description":
+    "Long old messages of a channel go to agents shortened, with a link to read the rest. Risk: an agent can decide without the part that was cut.",
+  "settings.optimizations.safeResume.title": "Continue after a short failure",
+  "settings.optimizations.safeResume.description":
+    "A channel task that stops for a short provider or network failure continues by itself, at most 3 times. Risk: an action done before the failure can happen again.",
+  "settings.optimizations.routing.title": "Lighter channel routing",
+  "settings.optimizations.routing.description":
+    "The choice of who answers in a channel uses less reasoning. Risk: a worse choice for an unclear request.",
+  "settings.optimizations.streamingCheckpoints.title": "Fewer writes during a reply",
+  "settings.optimizations.streamingCheckpoints.description":
+    "A reply that streams is saved every 1 to 2 seconds, not many times each second. Risk: if the app stops, up to 2 seconds of a reply can be lost.",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "General",
   "settings.tab.general.description": "Control how Builders Bot behaves on this computer.",
@@ -1170,6 +1201,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.mobileConnectPublish":
     "publish, published, publish server, remote access, reach this computer, connect from the phone, not published",
   "settings.search.keywords.notifications": "notifications, alerts, sounds, banners",
+  "settings.search.keywords.optimizations": "optimizations, beta, experimental, performance, speed, memory, advanced",
   "settings.search.keywords.profile": "profile, account, name, photo, avatar, sign out",
   "settings.search.keywords.promptGuard": "prompt injection, security, scan messages, safety",
   "settings.search.keywords.providers": "providers, models, API key, sign in, OpenAI, Claude, Codex, prompt cache",

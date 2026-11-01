@@ -37,6 +37,9 @@ export interface SettingsPort {
   setRemoteNetworkRoute: BuildersBotDesktopApi["setRemoteNetworkRoute"];
   setRemoteSessionReusePreference: BuildersBotDesktopApi["setRemoteSessionReusePreference"];
   setGuardPreference: BuildersBotDesktopApi["setGuardPreference"];
+  /** The advanced optimizations (beta) of this computer, for the General tab. */
+  getOptimizations: BuildersBotDesktopApi["getOptimizations"];
+  setOptimizations: BuildersBotDesktopApi["setOptimizations"];
   /** The retries and backup model of a start that fails, for the Agents tab. */
   getStartRetry: BuildersBotDesktopApi["getStartRetry"];
   setStartRetry: BuildersBotDesktopApi["setStartRetry"];

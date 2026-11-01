@@ -44,6 +44,7 @@ import { buildLoadSnapshot } from "../load-snapshot";
 import type { LogoColorService } from "../logo-color-service";
 import { MAC_PERMISSION_URLS } from "../mac-permission-urls";
 import { exportBuildersBotData, exportDiagnostics } from "../maintenance-service";
+import type { OptimizationStore } from "../optimization-store";
 import type { PreferenceStore } from "../preference-file";
 import { isTailscaleConnected } from "../private-network-detection";
 import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-preference-store";
@@ -77,6 +78,7 @@ import {
   parseResumeInterruptedWorkInput,
   parseResumeStoppedWorkInput,
   parseRunChannelNowInput,
+  parseSetOptimizationsInput,
   parseSetup,
   parseStartRetrySettings,
   parseStoppedWorkBulkInput,
@@ -131,6 +133,8 @@ export interface AppIpcDependencies {
   analyticsPreferences: AnalyticsPreferenceService;
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
+  /** The advanced optimizations (beta) of this computer. Each one is off until the person turns it on. */
+  optimizations: OptimizationStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
   /** The task reviewer. Experimental and off until the person turns it on. */
@@ -175,6 +179,7 @@ export function appIpcHandlers({
   analyticsPreferences,
   approvalAutomation,
   busyMessageMode,
+  optimizations,
   channelLane,
   autoRecovery,
   taskWatch,
@@ -250,6 +255,11 @@ export function appIpcHandlers({
         runCauseEffect(analyticsPreferences.set(parsed.enabled, parsed.chosen === true)),
       ),
       getApprovalAutomation: handler(() => approvalAutomation.current()),
+      getOptimizations: handler(() => optimizations.state()),
+      // The host reads each switch when it decides, so a change applies to the next decision.
+      setOptimizations: payloadHandler(parseSetOptimizationsInput, (parsed) =>
+        runCauseEffect(optimizations.set(parsed.changes)),
+      ),
       getBusyMessageModePreference: handler(() => busyMessageMode.get()),
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
         runCauseEffect(busyMessageMode.set(parsed)),
