@@ -46,6 +46,7 @@ import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
+import { revealSettingsRow } from "../window/settings-row-reveal";
 import { licenseContactUs, trackLicenseEvent } from "./license-analytics";
 import { createNotificationLevelsStore } from "./notification-levels-store";
 import { createProfileActivityStore } from "./profile-activity-store";
@@ -335,6 +336,10 @@ export function SettingsModal(props: SettingsModalProps) {
             joinedServer={joinedServer()}
             onOpenTaskReviewer={() => setActiveTab("task-reviewer")}
             onOpenLoadPanel={props.onOpenLoadPanel}
+            onOpenMessageReview={() => {
+              setActiveTab("general");
+              void revealSettingsRow("general", "settings.promptGuard.title");
+            }}
           />
         </Tabs.Content>
 

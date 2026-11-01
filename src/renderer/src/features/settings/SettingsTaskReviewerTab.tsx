@@ -1,5 +1,6 @@
 import {
   type AutoRecoveryPreference,
+  DEFAULT_AUTO_RECOVERY_PREFERENCE,
   DEFAULT_TASK_WATCH_PREFERENCE,
   type LoadSnapshot,
   TASK_WATCH_MAX_MINUTES,
@@ -136,9 +137,9 @@ export function SettingsTaskReviewerTab(props: {
     if (judge === null) return t("settings.taskReviewer.model.localOnly");
     const row = props.guard.rows().find((candidate) => candidate.key === guardModelKey(judge));
     const model = guardModelName(row, t);
-    // The reading of the load says what the reviewer sees; before it, the Guard's own state.
-    const ready = watch()?.modelReady ?? guard.judgeReady;
-    return ready
+    // The name and whether it runs come from the same reading of the Guard, which a change of the model
+    // on the Guard page gives at once. The reading of the load can be 15 s older.
+    return guard.judgeReady
       ? t("settings.taskReviewer.model.ready", { model })
       : t("settings.taskReviewer.model.notReady", { model });
   };
@@ -235,7 +236,7 @@ export function SettingsTaskReviewerTab(props: {
             onChange={(enabled) => setRecovery({ enabled })}
             label={t("app.rail.load.recoveryTitle")}
             description={t("settings.taskReviewer.recovery.description", {
-              minutes: recovery()?.intervalMinutes ?? 0,
+              minutes: recovery()?.intervalMinutes ?? DEFAULT_AUTO_RECOVERY_PREFERENCE.intervalMinutes,
             })}
           />
           <SwitchField
@@ -256,7 +257,13 @@ export function SettingsTaskReviewerTab(props: {
             <Show when={props.onOpenLoadPanel}>
               {(open) => (
                 <ItemActions>
-                  <Button type="button" variant="outline" size="sm" onClick={() => open()()}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={t("settings.related.open", { name: t("settings.loadPanel.title") })}
+                    onClick={() => open()()}
+                  >
                     {t("common.open")}
                   </Button>
                 </ItemActions>

@@ -301,7 +301,8 @@ export const messages = defineMessages("settings", {
   "settings.taskReviewer.state.title": "Now",
   "settings.taskReviewer.state.loading": "Reading the state of this computer…",
   "settings.taskReviewer.state.off": "Off. It looks at no task.",
-  "settings.taskReviewer.state.waiting": "On, but it waits: it looks only while Resume by itself is on too.",
+  "settings.taskReviewer.state.waiting":
+    "On, but it waits: it looks only while Resume by itself is on too. Resume by itself also starts again the tasks that you stopped.",
   "settings.taskReviewer.state.active": "On. It looks at the channel tasks every minute.",
   "settings.taskReviewer.state.turnOnRecovery": "Turn on Resume by itself",
   "settings.taskReviewer.quiet.title": "Consider it stopped after",
@@ -320,7 +321,7 @@ export const messages = defineMessages("settings", {
   "settings.taskReviewer.load.description":
     "The task reviewer follows these switches of the load panel. A change here also shows there.",
   "settings.taskReviewer.recovery.description":
-    "The task reviewer looks only while this is on. It acts on the same task at most once in {minutes} minutes, the interval of Resume by itself.",
+    "Starts stopped work again by itself after {minutes} minutes, also the tasks that you stopped. The task reviewer looks only while this is on, and it acts on the same task at most once in this interval.",
   "settings.taskReviewer.reassign.description":
     "Without it, the task reviewer only resumes a task, and never gives it to another agent.",
   "settings.taskReviewer.recent.title": "Last actions",
@@ -340,7 +341,8 @@ export const messages = defineMessages("settings", {
   "settings.taskReviewer.does.giveUp.description":
     "Each task has 2 resumes and 2 reassigns in all, shared with Resume by itself. Then it stops the task and says so in the load panel.",
   "settings.taskReviewer.doesNot.title": "What it does not do",
-  "settings.taskReviewer.doesNot.stopped": "It never touches a task that you stopped.",
+  "settings.taskReviewer.doesNot.stopped":
+    "The task reviewer never touches a task that you stopped (Resume by itself does).",
   "settings.taskReviewer.doesNot.waiting":
     "It does not act while an agent waits for you: a question, an approval or the browser.",
   "settings.taskReviewer.doesNot.memory": "It does not act while the memory of this computer is critical.",
@@ -354,7 +356,9 @@ export const messages = defineMessages("settings", {
   "settings.loadPanel.title": "Load panel",
   "settings.loadPanel.description":
     "The ring in the bar on the left: what runs, what stopped, and the switches of Resume by itself and of the task reviewer.",
-  "settings.loadPanel.unavailable": "It shows in the bar on the left while This computer is the active server.",
+  "settings.loadPanel.unavailable":
+    "It shows in the bar on the left of the main window, while This computer is the active server.",
+  "settings.related.open": "Open {name}",
   "settings.sections.label": "Settings sections",
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.

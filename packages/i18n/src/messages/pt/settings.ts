@@ -283,7 +283,8 @@ export const messages = {
   "settings.taskReviewer.state.title": "Agora",
   "settings.taskReviewer.state.loading": "Lendo o estado deste computador…",
   "settings.taskReviewer.state.off": "Desligado. Não olha nenhuma tarefa.",
-  "settings.taskReviewer.state.waiting": "Ligado, mas esperando: só olha quando Retomar sozinho também está ligado.",
+  "settings.taskReviewer.state.waiting":
+    "Ligado, mas esperando: só olha quando Retomar sozinho também está ligado. O Retomar sozinho retoma também as tarefas que você parou.",
   "settings.taskReviewer.state.active": "Ligado. Olha as tarefas dos canais a cada minuto.",
   "settings.taskReviewer.state.turnOnRecovery": "Ligar Retomar sozinho",
   "settings.taskReviewer.quiet.title": "Considerar parada depois de",
@@ -302,7 +303,7 @@ export const messages = {
   "settings.taskReviewer.load.description":
     "O Fiscal segue estas opções do painel de Carga. O que você muda aqui muda lá também.",
   "settings.taskReviewer.recovery.description":
-    "O Fiscal só olha com isto ligado. Ele age numa mesma tarefa no máximo uma vez a cada {minutes} minutos, o intervalo de Retomar sozinho.",
+    "Retoma sozinho o trabalho parado depois de {minutes} minutos, inclusive tarefas que você parou. O Fiscal só olha com isto ligado, e age numa mesma tarefa no máximo uma vez nesse intervalo.",
   "settings.taskReviewer.reassign.description":
     "Sem isto, o Fiscal só retoma a tarefa e nunca a passa para outro agente.",
   "settings.taskReviewer.recent.title": "Últimas ações",
@@ -322,7 +323,7 @@ export const messages = {
   "settings.taskReviewer.does.giveUp.description":
     "Cada tarefa tem 2 retomadas e 2 trocas no total, somadas com Retomar sozinho. Depois ele para a tarefa e avisa no painel de Carga.",
   "settings.taskReviewer.doesNot.title": "O que ele não faz",
-  "settings.taskReviewer.doesNot.stopped": "Nunca mexe numa tarefa que você parou.",
+  "settings.taskReviewer.doesNot.stopped": "O Fiscal nunca mexe numa tarefa que você parou (o Retomar sozinho, sim).",
   "settings.taskReviewer.doesNot.waiting":
     "Não age enquanto um agente espera por você: uma pergunta, uma aprovação ou o navegador.",
   "settings.taskReviewer.doesNot.memory": "Não age enquanto a memória deste computador está no limite.",
@@ -335,7 +336,9 @@ export const messages = {
   "settings.loadPanel.title": "Painel de Carga",
   "settings.loadPanel.description":
     "O anel na barra à esquerda: o que roda, o que parou e as opções de Retomar sozinho e do Fiscal.",
-  "settings.loadPanel.unavailable": "Aparece na barra à esquerda enquanto Este computador é o servidor ativo.",
+  "settings.loadPanel.unavailable":
+    "Aparece na barra à esquerda da janela principal, enquanto Este computador é o servidor ativo.",
+  "settings.related.open": "Abrir {name}",
   "settings.sections.label": "Seções das configurações",
   "settings.panel.resize": "Redimensionar painel direito",
   "settings.preferences.loadFailed": "Não foi possível carregar suas configurações.",

@@ -37,7 +37,7 @@ export const messages = {
     "As páginas que o navegador interno e o navegador Playwright compartilhado leem; as URLs, o texto, os scripts e os arquivos que o navegador envia; posts em chats, anexos, sites e novos servidores MCP; e os comandos que um agente pede para você aprovar. As ferramentas que um provedor roda no próprio processo, e os servidores MCP que ele acessa direto, ainda não são conferidos.",
   "guard.ask.title": "Quando o Guarda pergunta a você",
   "guard.ask.card":
-    "Ele pergunta no cartão de aprovação, com o título “O Guarda pede sua confirmação”. O cartão não tem “Sempre permitir”, e o acesso total não responde por você.",
+    "No app do computador, ele pergunta no cartão de aprovação, com o título “O Guarda pede sua confirmação”. O cartão não tem “Sempre permitir”, e o acesso total não responde por você. No celular e no cliente web, a pergunta ainda aparece como uma aprovação comum, e o cliente web ainda oferece “Sempre permitir”.",
   "guard.ask.remember":
     "Quando você permite um item, ele não pergunta de novo por 10 minutos sobre o mesmo item, do mesmo agente, na mesma conversa. Uma recusa não fica guardada.",
   "guard.ask.owner":
@@ -50,6 +50,8 @@ export const messages = {
     "O registro do Guarda guarda a ferramenta, a decisão e o horário, nunca o conteúdo. O app não guarda uma lista das decisões passadas.",
   "guard.related.title": "Relacionados",
   "guard.related.taskReviewer": "Usa este modelo de revisão para decidir sobre tarefas lentas dos canais.",
+  "guard.related.messageReview":
+    "Outra verificação, fora do Guarda: lê cada mensagem antes de o turno começar. A opção fica em Geral.",
   "guard.joined.description":
     "{server} é outro servidor, com o próprio Guarda. Esta página muda só o Guarda deste computador: este app ainda não muda o de {server}.",
   "guard.loadFailed": "A configuração do Guarda não carregou.",

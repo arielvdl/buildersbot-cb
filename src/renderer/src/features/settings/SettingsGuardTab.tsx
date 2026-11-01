@@ -46,7 +46,8 @@ const LEAVES = [
  * Settings › Guard: the level of the Guard and the model that reviews suspicious items. Off and
  * Light run now; the stricter levels show as coming soon. The page says when the Guard uses only
  * the local check, such as with no Cultura Builder sign-in, when it asks the person, and what leaves
- * the computer. It links to the task reviewer, which asks the same model, and to the load panel. The
+ * the computer. It links to the task reviewer, which asks the same model, to the load panel, and to
+ * the security review of messages, a separate check that people can take for a part of the Guard. The
  * Guard runs on this computer, so a joined server gets a note that its own Guard is not changed here.
  */
 export function SettingsGuardTab(props: {
@@ -57,6 +58,8 @@ export function SettingsGuardTab(props: {
   onOpenTaskReviewer: () => void;
   /** Opens the load panel of the rail. Absent while the rail does not show it. */
   onOpenLoadPanel: (() => void) | undefined;
+  /** Shows the switch of the security review of messages, in General. */
+  onOpenMessageReview: () => void;
 }) {
   const { t } = useText();
   const guard = () => props.store.state.guard;
@@ -241,7 +244,13 @@ export function SettingsGuardTab(props: {
               <ItemDescription>{t("guard.related.taskReviewer")}</ItemDescription>
             </ItemContent>
             <ItemActions>
-              <Button type="button" variant="outline" size="sm" onClick={() => props.onOpenTaskReviewer()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("settings.related.open", { name: t("settings.tab.taskReviewer.title") })}
+                onClick={() => props.onOpenTaskReviewer()}
+              >
                 {t("common.open")}
               </Button>
             </ItemActions>
@@ -256,12 +265,35 @@ export function SettingsGuardTab(props: {
             <Show when={props.onOpenLoadPanel}>
               {(open) => (
                 <ItemActions>
-                  <Button type="button" variant="outline" size="sm" onClick={() => open()()}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={t("settings.related.open", { name: t("settings.loadPanel.title") })}
+                    onClick={() => open()()}
+                  >
                     {t("common.open")}
                   </Button>
                 </ItemActions>
               )}
             </Show>
+          </Item>
+          <Item class="settings-modal-row" data-settings-row-skip="link to the security review of messages">
+            <ItemContent>
+              <ItemTitle>{t("settings.promptGuard.title")}</ItemTitle>
+              <ItemDescription>{t("guard.related.messageReview")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("settings.related.open", { name: t("settings.promptGuard.title") })}
+                onClick={() => props.onOpenMessageReview()}
+              >
+                {t("common.open")}
+              </Button>
+            </ItemActions>
           </Item>
         </ItemGroup>
       </SettingsSection>
