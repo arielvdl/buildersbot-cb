@@ -807,8 +807,12 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
     });
   }
 
-  releaseIdleThreads(): Effect.Effect<void, ProviderClientOperationError> {
-    return this.#threads.releaseIdle();
+  releaseIdleThreads(minIdleMs?: number): Effect.Effect<void, ProviderClientOperationError> {
+    return this.#threads.releaseIdle(minIdleMs);
+  }
+
+  threadOpen(externalThreadId: string): boolean {
+    return this.#threads.has(externalThreadId);
   }
 
   /** A non-resumable ACP session must keep its process and in-memory context. */

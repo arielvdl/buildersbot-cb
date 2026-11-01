@@ -443,6 +443,13 @@ it.
   already can start another lane, because it is still one agent; the memory limit counts each turn.
   The waiting lanes go by the head of their queue, a message from a person first, as for the memory
   limit. A change of the limit tries each queue again (`AgentService.agentLimitChanged`).
+- With the advanced optimization `queue-priority-user` on (off by default, see
+  [optimizations.md](optimizations.md)), a lane whose head is a message of the person has one place
+  more than `max` (`TurnSlots` option `personPlace`): the person who writes while routines fill the
+  limit does not wait for one of them to end. There is one extra place only, the oldest message of
+  the person takes it first, and every other lane still sees `max`. The memory turn limit gets no
+  extra place. The ring can then read one agent more than `max`. A change of the switch tries each
+  queue again.
 - With the limit on, the ring arc is the agents of `max` instead of ten, the tooltip says "3 of 10",
   and the panel lists the agents that wait for a place (`AgentService.slotWaitingAgents`) with the
   reason "Limit of N agents reached". The switch and the number are in the panel, beside "One channel

@@ -57,10 +57,17 @@ export interface AgentClient {
   archiveThread?(externalThreadId: string): Effect.Effect<void, ProviderClientOperationError>;
   /**
    * Closes each thread that has no turn and can open again from its session, to free its processes
-   * and MCP servers when the machine is low on memory. Optional, because a client that runs all its
-   * threads in one process frees nothing this way.
+   * and MCP servers when the machine is low on memory. With `minIdleMs`, only a thread that had no turn
+   * for at least that long. Optional, because a client that runs all its threads in one process frees
+   * nothing this way.
    */
-  releaseIdleThreads?(): Effect.Effect<void, ProviderClientOperationError>;
+  releaseIdleThreads?(minIdleMs?: number): Effect.Effect<void, ProviderClientOperationError>;
+  /**
+   * Whether this client holds the thread open now, so a turn on it starts with no new process. False
+   * for a thread that `releaseIdleThreads` or its idle timer closed. Optional: a client without it keeps
+   * every loaded thread open.
+   */
+  threadOpen?(externalThreadId: string): boolean;
   /**
    * The folders and sessions that this client's process holds now. The idle check reads it to stop
    * a process that keeps idle folders, and the resource samples record the counts. Optional, because

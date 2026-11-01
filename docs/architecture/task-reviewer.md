@@ -104,6 +104,31 @@ A task is never touched when:
   hidden;
 - it acted on the task less than one interval of "Resume by itself" ago, or it gave up on it.
 
+## Sleep of the computer
+
+While the computer sleeps, no provider sends an event, so at the wake every run seems quiet for as
+long as the sleep lasted. Before, the first look after an hour with the lid closed found each run
+stalled and acted on one of them at once, while the network and the providers were not back yet.
+
+With the advanced optimization `fiscal-resume-grace` on (Settings › General › Advanced
+optimizations (beta), off by default; see [optimizations.md](optimizations.md)), a sleep holds every
+watched task for two looks (`SLEEP_GRACE_LOOKS`):
+
+- A sleep is the `resume` event of Electron's `powerMonitor` (`WorkControl` gives it to
+  `TaskWatch.noteResume`), or more than 3 minutes between two looks (`SLEEP_GAP_MS`, three looks of
+  60 s), so a timer that slept shows a sleep too.
+- In the grace, the reviewer acts on no task and asks the model nothing. Each look of the grace is a
+  hold of every task, so after the grace the time with no sign counts from the last look of the
+  grace, as it does after any hold. A run that gives no sign then is stalled again at `2 × N`.
+- A failed start that came due during the sleep waits for the end of the grace, then the reviewer
+  acts on it as before.
+- While the reviewer is off, no gap counts: turned on after a sleep, it looks as it did before.
+- The log says when it holds, with the cause (`resume` or `gap`), the minutes since the last look and
+  the number of looks. It has no name or text of a task.
+
+With the switch off, a sleep changes nothing: the reviewer acts as it did before the switch existed.
+`src/main/task-watch.test.ts` drives the grace with a clock that the test moves.
+
 ## The model
 
 For a slow task only, the reviewer can ask the model that the person chose for the Guard
@@ -295,6 +320,8 @@ carries `taskWatch` (the preference, `active`, `modelReady` and `recent`).
   no running task points to that turn, so the reviewer does not see it. The Stop of the running row
   in the panel ends it.
 - The reviewer watches channel tasks only, not the chat of an agent.
+- "Resume by itself" has no grace after a sleep: it acts on stopped work at its own interval, which
+  a sleep does not change. The grace of `fiscal-resume-grace` is the reviewer's only.
 - The reviewer runs in the host process of each server. The window sets the reviewer of this computer
   only. A joined server, or a second server on this computer, has its own reviewer and its own file,
   and no Team API route reads or sets them. While the window shows such a server, the Settings page

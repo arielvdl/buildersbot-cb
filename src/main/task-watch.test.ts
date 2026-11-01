@@ -68,6 +68,8 @@ interface Setup {
   commands: string[];
   questions: TaskWatchJudgeInput[];
   failures: string[];
+  /** The lines of the log, with their fields. */
+  logs: { message: string; fields: Record<string, string | number | boolean> }[];
   state: { watch: TaskWatchPreference; recovery: AutoRecoveryPreference; dropped: boolean };
 }
 
@@ -79,6 +81,8 @@ function setup(
     candidate?: string | null;
     failCommand?: boolean;
     ledger?: RecoveryLedger;
+    /** The switch `fiscal-resume-grace`. Omitted: the reviewer has no switch, as before. */
+    sleepGrace?: boolean;
   } = {},
 ): Setup {
   const clock = { now: NOW };
@@ -87,6 +91,7 @@ function setup(
   const commands: string[] = [];
   const questions: TaskWatchJudgeInput[] = [];
   const failures: string[] = [];
+  const logs: Setup["logs"] = [];
   const state = {
     watch: { enabled: true, quietMinutes: 15 },
     recovery: { enabled: true, intervalMinutes: 30, reassign: options.reassign ?? true },
@@ -120,9 +125,10 @@ function setup(
     agentNameOf: (agentId) => agentId.toUpperCase(),
     now: () => clock.now,
     onFailure: (kind, _channelId, taskId) => failures.push(`${kind} ${taskId}`),
-    log: { info: () => {} },
+    log: { info: (message, fields) => logs.push({ message, fields }) },
+    ...(options.sleepGrace === undefined ? {} : { sleepGrace: () => options.sleepGrace === true }),
   };
-  return { watch: new TaskWatch(deps), ledger, clock, tasks, commands, questions, failures, state };
+  return { watch: new TaskWatch(deps), ledger, clock, tasks, commands, questions, failures, logs, state };
 }
 
 const answering = (decision: TaskWatchDecision | null): TaskWatchJudge => ({
@@ -282,9 +288,10 @@ describe("what the reviewer does with a task", () => {
     expect(watchAction("start-failed", { resumes: 3, reassigns: 3, startActions: done }, true, pick)).toEqual({
       type: "give-up",
     });
-    expect(
-      watchAction("start-failed", { resumes: 3, reassigns: 2, startActions: done.slice(1) }, true, pick),
-    ).toEqual({ type: "reassign", agentId: "beta" });
+    expect(watchAction("start-failed", { resumes: 3, reassigns: 2, startActions: done.slice(1) }, true, pick)).toEqual({
+      type: "reassign",
+      agentId: "beta",
+    });
   });
 
   it("never reassigns when the person did not allow it, or when no agent can take the task", () => {
@@ -675,5 +682,87 @@ describe("a stop by the person", () => {
     stops.note(stop("stop:again"), false);
     stops.note(command("reassign", "reassign:click", "beta"), false);
     expect(stops.covers("c1", "t1", parentOf)).toBe(false);
+  });
+});
+
+describe("a sleep of the computer (fiscal-resume-grace)", () => {
+  // A run that gave a sign one minute before the computer slept for an hour. Its provider sent nothing
+  // while the computer slept, so at the wake it reads as quiet for 61 minutes: stalled at N = 15.
+  const beforeSleep = () => run({ turnStartedAt: NOW - 10 * MIN, lastEventAt: NOW - MIN });
+
+  it("acts at the first look after the wake while the switch is off, as before", async () => {
+    for (const sleepGrace of [undefined, false]) {
+      const { watch, clock, commands } = setup({
+        tasks: [beforeSleep()],
+        ...(sleepGrace === undefined ? {} : { sleepGrace }),
+      });
+      await watch.tick();
+      expect(commands).toEqual([]);
+      clock.now += 60 * MIN;
+      await watch.tick();
+      expect(commands).toEqual(["resume t1"]);
+    }
+  });
+
+  it("holds every task for two looks after a gap, then counts the time with no sign from the grace", async () => {
+    const { watch, clock, commands, logs } = setup({ tasks: [beforeSleep()], sleepGrace: true });
+    await watch.tick();
+    clock.now += 60 * MIN;
+    await watch.tick();
+    clock.now += MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    expect(watch.waits().map((wait) => wait.state)).toEqual(["watching"]);
+    // After the grace, the run is quiet for one minute only.
+    clock.now += MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    // The timer looks each minute. With no sign for twice N from the last look of the grace, it is
+    // stalled again: at 61 + 30 minutes.
+    while (commands.length === 0 && clock.now < NOW + 120 * MIN) {
+      clock.now += MIN;
+      await watch.tick();
+    }
+    expect(commands).toEqual(["resume t1"]);
+    expect((clock.now - NOW) / MIN).toBe(91);
+    const hold = logs.find((line) => line.message === "The task reviewer holds every task after a sleep.");
+    expect(hold?.fields).toEqual({ cause: "gap", gapMinutes: 60, looks: 2 });
+  });
+
+  it("holds after the wake event of the computer, also with no gap", async () => {
+    const { watch, clock, commands, logs } = setup({
+      tasks: [run({ turnStartedAt: NOW - 60 * MIN, lastEventAt: NOW - 40 * MIN })],
+      sleepGrace: true,
+    });
+    watch.noteResume();
+    await watch.tick();
+    clock.now += MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    expect(logs.some((line) => line.fields.cause === "resume")).toBe(true);
+  });
+
+  it("holds a failed start that is due, and acts on it after the grace", async () => {
+    const { watch, clock, commands } = setup({ tasks: [failedStart()], sleepGrace: true });
+    await watch.tick();
+    clock.now += 60 * MIN;
+    await watch.tick();
+    clock.now += MIN;
+    await watch.tick();
+    expect(commands).toEqual([]);
+    clock.now += MIN;
+    await watch.tick();
+    expect(commands).toEqual(["resume f1"]);
+  });
+
+  it("does not count a gap while the reviewer was off", async () => {
+    const { watch, clock, commands, state } = setup({ tasks: [beforeSleep()], sleepGrace: true });
+    await watch.tick();
+    state.watch = { ...state.watch, enabled: false };
+    clock.now += 60 * MIN;
+    await watch.tick();
+    state.watch = { ...state.watch, enabled: true };
+    await watch.tick();
+    expect(commands).toEqual(["resume t1"]);
   });
 });

@@ -1341,6 +1341,10 @@ if (!hasSingleInstanceLock) {
       crashTrace = trace;
       setIpcCallObserver((call) => trace.record({ kind: "ipc", ...call }));
       service.on("event", (event) => trace.observeAgentEvent(event));
+      // The steps of each turn start: names, numbers and status words only (`start-timings.ts`).
+      service.on("startTiming", (timing) =>
+        trace.record({ kind: "start", name: timing.stage, durationMs: timing.durationMs, outcome: timing.outcome }),
+      );
       service.on("event", (event) => forwardAgentEvent("local", event));
       // A routine or its owner can be deleted outside the events API. Its route is then revoked here.
       // Turns and channel messages also send these events, so only a deleted owner starts a sync.

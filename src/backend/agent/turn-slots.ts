@@ -21,6 +21,11 @@ export interface TurnSlotsOptions {
   isWaiting(lane: string): boolean;
   /** The delivery at the head of the lane's queue. */
   head(lane: string): QueueDelivery | null;
+  /**
+   * Whether a delivery from the person can use one place more than the cap on agents (the switch
+   * `queue-priority-user`). Omitted: no. It never adds a place under `limit`, the turns of the memory.
+   */
+  personPlace?(): boolean;
 }
 
 /**
@@ -30,6 +35,11 @@ export interface TurnSlotsOptions {
  * only when both caps have room, so the cap that is reached first holds it. When the slots are full, the
  * waiting lanes go by the head of their queue: a message from a person first, then routine runs and
  * teammate messages, and the oldest first in each group. A delivery that waits stays queued. It never imports the service.
+ *
+ * With `personPlace` on, the cap on agents has one place more for a lane whose head is a message of the
+ * person: a person who writes while routines fill the cap does not wait for one of them to end. Only
+ * one such place exists, and the oldest message of the person takes it first. The other lanes still
+ * see the cap as the person set it.
  *
  * No slot waits on another slot: a teammate request ends the turn that sends it, and the answer
  * arrives as a new delivery.
@@ -45,8 +55,16 @@ export class TurnSlots {
     const turns = this.#options.limit();
     const agents = this.#options.agentLimit();
     if (turns !== null && !this.#fits(lane, turns, (key) => key)) return false;
-    if (agents !== null && !this.#fits(lane, agents, this.#options.agentOf)) return false;
+    if (agents !== null && !this.#fits(lane, agents, this.#options.agentOf) && !this.#personFits(lane, agents))
+      return false;
     return true;
+  }
+
+  /** Whether the head of `lane` is a message of the person that the one extra place of the cap takes. */
+  #personFits(lane: string, agents: number): boolean {
+    if (!this.#options.personPlace?.()) return false;
+    if (this.#options.head(lane)?.sender.kind !== "user") return false;
+    return this.#fits(lane, agents + 1, this.#options.agentOf);
   }
 
   /**

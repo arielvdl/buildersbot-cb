@@ -112,6 +112,17 @@ open sessions and CLI processes that `AgentService.providerFolders()` counts for
 free percentage and used swap of `MacMemory` at the sample, or null where nothing reads it. These
 values are counts and levels only; the analytics summary does not send them.
 
+The trace (`trace.ndjson`, `TraceFile`) also has a `start` span for each step of a turn start, from
+the moment the queue drain takes a message to the first output of its turn
+(`src/backend/agent/start-timings.ts`): `client`, `prepare`, `thread`, `review` (the security review
+of the person's messages), `scan` (the prompt guard), `turn-start` (the answer of `turn/start`, with
+`open`, `woke` or `unknown` for a session that the client closed for being idle), `accepted` (the
+whole start), `first-output` (from `turn/started` to the first text, thinking or tool step) and
+`message-to-output` (from the send of the message, with the queue). A span has the step name, the
+milliseconds and a status word, never a text, an id or a path. The diagnostics export summarizes them
+by step with the other spans (`TraceFile.summarize`). They are always on: they change nothing that the
+app does. `scripts/turn-start-timings-e2e.ts` measures them with a fake provider.
+
 `index.ts` writes one `exit` span and one line in `logs/main/main.log` when OpenBot starts to quit.
 The name is the first reason: `main_window_closed` (Windows and Linux, where closing the main
 window quits), `signal`, `session_end` or `quit` (the menu, the tray, an update or a restart). The

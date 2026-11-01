@@ -3066,6 +3066,12 @@ export async function createApplicationServices({
             recoveryLogger.warn("The last actions of the task reviewer were not saved.", toLogValue(error)),
           ),
       },
+      // Off by default: an advanced optimization (beta).
+      sleepGrace: () => optimizations.optimizationEnabled("fiscal-resume-grace"),
+      onResume: (listener) => {
+        powerMonitor.on("resume", listener);
+        return () => powerMonitor.off("resume", listener);
+      },
     },
   });
   workControl.start();
