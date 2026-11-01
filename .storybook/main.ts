@@ -42,7 +42,9 @@ const config = {
     const plugins = (mergedConfig.plugins ?? []).filter((plugin: PluginOption) => !isLegacySolidPlugin(plugin));
     return {
       ...mergedConfig,
-      plugins: [...plugins, solidPlugin()],
+      // `OPENBOT_STORYBOOK_SOLID_RELEASE=1` serves Solid's release build, without the development
+      // checks, warnings and performance tracks, for scripts that measure render time.
+      plugins: [...plugins, solidPlugin(process.env.OPENBOT_STORYBOOK_SOLID_RELEASE === "1" ? { dev: false } : {})],
     };
   },
 } satisfies StorybookConfig;

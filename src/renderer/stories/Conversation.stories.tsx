@@ -1650,6 +1650,123 @@ export const StreamingWhileReadingLongHistory: Story = {
   render: (storyArgs) => <StreamingWhileReadingHistoryConversation args={storyArgs} history={longReadingHistory} />,
 };
 
+type LongReplyKind = "markdown" | "code" | "table" | "mixed";
+
+/** Agent text of about `bytes` characters: Markdown sections, one code fence, or one table. */
+function longReplyText(kind: LongReplyKind, bytes: number): string {
+  if (kind === "mixed") {
+    const third = Math.ceil(bytes / 3);
+    return [longReplyText("markdown", third), longReplyText("code", third), longReplyText("table", third)].join("\n");
+  }
+  const parts: string[] = [];
+  let length = 0;
+  const push = (text: string) => {
+    parts.push(text);
+    length += text.length;
+  };
+  if (kind === "code") {
+    push("```ts\n");
+    for (let line = 1; length < bytes; line += 1)
+      push(`const value${line} = compute(${line}, "row ${line}"); // check the owner and the date\n`);
+    push("```\n");
+  } else if (kind === "table") {
+    push("| Step | Owner | Status | Note |\n| --- | --- | --- | --- |\n");
+    for (let row = 1; length < bytes; row += 1)
+      push(`| ${row} | Owner ${row % 17} | ${row % 3 === 0 ? "**Open**" : "Done"} | Check \`step-${row}\` first |\n`);
+  } else {
+    for (let section = 1; length < bytes; section += 1)
+      push(
+        `## Section ${section}\n\nThe plan has **${section} open risks**, a \`config-${section}.json\` change and a [rollout note](https://example.com/notes/${section}). Each owner checks the date before the next step.\n\n- Check the owner of step ${section}\n- Update the *rollout* note\n- Run the smoke test again\n\n`,
+      );
+  }
+  return parts.join("");
+}
+
+function numberParameter(parameters: URLSearchParams, name: string, fallback: number): number {
+  const value = Number(parameters.get(name) ?? fallback);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+const LONG_REPLY_STREAM_TEXT = "The agent adds one more finding to this long reply. ";
+
+/**
+ * One very long agent reply under a history. `scripts/chat-large-text-perf-e2e.ts` sets the size in
+ * the story URL: `longReply` (markdown, code, table or mixed), `longReplyBytes`, `historyCount` and
+ * `historyBytes`. With `streamSteps`, the reply streams: each `long-reply-stream` window event adds
+ * `streamSteps` steps of text, one each `streamGapMs`, and then the reply ends.
+ */
+function LongReplyConversation(props: { args: Parameters<typeof Conversation>[0] }) {
+  const parameters = new URLSearchParams(window.location.search);
+  const kindParameter = parameters.get("longReply");
+  const kind: LongReplyKind =
+    kindParameter === "code" || kindParameter === "table" || kindParameter === "mixed" ? kindParameter : "markdown";
+  const bytes = numberParameter(parameters, "longReplyBytes", 200_000);
+  const historyCount = numberParameter(parameters, "historyCount", 6);
+  const historyBytes = numberParameter(parameters, "historyBytes", 200);
+  const streamSteps = numberParameter(parameters, "streamSteps", 0);
+  const streamGapMs = numberParameter(parameters, "streamGapMs", 30);
+  const history = Array.from(
+    { length: historyCount },
+    (_, index): RendererAgentMessage => ({
+      id: `long-reply-history-${index + 1}`,
+      author: index % 2 === 0 ? "you" : "agent",
+      body: index % 2 === 0 ? `Can you check step ${index + 1}?` : longReplyText("markdown", historyBytes),
+      time: "10:00",
+      kind: "text",
+    }),
+  );
+  const [step, setStep] = createSignal(0);
+  const [streaming, setStreaming] = createSignal(streamSteps > 0);
+  const base = longReplyText(kind, bytes);
+  const reply: RendererAgentMessage = { id: "long-reply", author: "agent", body: base, time: "10:01", kind: "text" };
+  Object.defineProperties(reply, {
+    body: { configurable: true, enumerable: true, get: () => base + LONG_REPLY_STREAM_TEXT.repeat(step()) },
+    streaming: { configurable: true, enumerable: true, get: () => streaming() },
+  });
+  let timer: number | undefined;
+  const stream = () => {
+    window.clearInterval(timer);
+    const end = step() + streamSteps;
+    performance.mark("long-reply:stream-start");
+    timer = window.setInterval(() => {
+      const next = step() + 1;
+      setStep(next);
+      if (next < end) return;
+      window.clearInterval(timer);
+      setStreaming(false);
+      requestAnimationFrame(() => setTimeout(() => performance.mark("long-reply:stream-end")));
+    }, streamGapMs);
+  };
+  window.addEventListener("long-reply-stream", stream);
+  onCleanup(() => {
+    window.removeEventListener("long-reply-stream", stream);
+    window.clearInterval(timer);
+  });
+  // Storybook renders a story a second time once its arguments settle, and the first copy's cleanup
+  // puts back the API it found. Mounting a frame later leaves only the second copy's mock in place.
+  const [mounted, setMounted] = createSignal(false);
+  const frame = requestAnimationFrame(() => {
+    performance.mark("long-reply:mount");
+    setMounted(true);
+  });
+  onCleanup(() => cancelAnimationFrame(frame));
+  return (
+    <Show when={mounted()}>
+      <MockedConversation
+        args={{ ...props.args, activeTurnId: streamSteps > 0 ? "long-reply-turn" : null }}
+        messages={[...history, reply]}
+      />
+    </Show>
+  );
+}
+
+export const VeryLongReply: Story = {
+  args: { unreadCount: 0, firstUnreadMessageId: null },
+  // The fixture arguments, not the story's: the size comes from the URL, and the script that reads
+  // this story opens it with no Storybook controls.
+  render: () => <LongReplyConversation args={{ ...args, unreadCount: 0, firstUnreadMessageId: null }} />,
+};
+
 /**
  * A new agent message arrives every 400ms for as long as the story is open, and the newest one is still
  * streaming, as when several agents report in a row. The reader can scroll up and read.
