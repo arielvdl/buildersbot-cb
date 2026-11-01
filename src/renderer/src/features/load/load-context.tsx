@@ -17,10 +17,16 @@ export function createLoadStore(port: () => LoadPort, railShown: () => boolean) 
   const [watchers, setWatchers] = createSignal(0);
   const controller = createLoadController(port, () => railShown() || watchers() > 0);
   const [panelOpen, setPanelOpenSignal] = createSignal(false);
-  // A ring that leaves the rail, such as on a switch to a joined server, takes its open panel with it:
-  // it must not open by itself when it comes back.
-  createEffect(railShown, (shown) => {
-    if (shown || !untrack(panelOpen)) return;
+  createEffect(railShown, (shown, was) => {
+    if (shown) {
+      // The ring comes back, such as on a switch back from a joined server: read at once, so that it
+      // does not show the load of the moment the person left until the next timed read.
+      if (was === false) void controller.read();
+      return;
+    }
+    // A ring that leaves the rail takes its open panel with it: it must not open by itself when it
+    // comes back.
+    if (!untrack(panelOpen)) return;
     setPanelOpenSignal(false);
     controller.setOpen(false);
   });
