@@ -129,7 +129,9 @@ export class ToolGuard {
       const off = decideGuard({ level, direction: item.direction, triage: CLEAN, judge: { kind: "not-needed" } });
       return { ...off, durationMs: 0, judge: "not-needed", fingerprint: null } satisfies GuardResult;
     }
-    const triage = item.direction === "inbound" ? triageContent(item.content) : triageAction(item.action);
+    // The tool name selects the rules of one kind of content, such as the vendor rules of a connection result.
+    const triage =
+      item.direction === "inbound" ? triageContent(item.content, { tool: item.tool }) : triageAction(item.action);
     const judge: GuardJudgeOutcome = guardNeedsJudge(level, item.direction, triage)
       ? yield* this.#review(preference.judge, item, triage)
       : { kind: "not-needed" };

@@ -15,6 +15,7 @@ import {
 } from "@openbot/contracts/hub-connections";
 import { isBoolean, isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { findSecretValue } from "@openbot/logging";
+import { cookieOrToken } from "../guard/guard-triage";
 import { isPublicAddress } from "../network-address";
 
 export const INPUT_RULES = [
@@ -91,19 +92,17 @@ export function isCredentialName(name: string): boolean {
   return CREDENTIAL_NAMES.has(plain) || CREDENTIAL_PARTS.some((part) => plain.includes(part));
 }
 
-/** Two or more `name=value` pairs split by `;`, as a `Cookie` header has them. */
-const COOKIE_PAIRS = /(?:^|[;\s])[A-Za-z0-9_.$-]{1,64}=[^;\s]{0,4096};\s*[A-Za-z0-9_.$-]{1,64}=/u;
-/** One cookie of the session kind, alone. */
-const SESSION_COOKIE = /(?:^|[\s;])(?:li_at|sessionid|jsessionid|phpsessid|csrftoken|connect\.sid|auth_token|sid)=/iu;
-/** A JSON Web Token, also an unsigned one. */
-const JWT = /(?:^|[^A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}\./u;
 /** A bearer or basic credential written in a value. */
 const SCHEME_CREDENTIAL = /\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/iu;
 
-/** The rule that a string value breaks, or null. */
+/**
+ * The rule that a string value breaks, or null. The cookie and token shapes are the Guard's own
+ * (`cookieOrToken`), so this lock and the Guard's lock refuse the same values.
+ */
 export function valueRule(value: string): InputRule | null {
-  if (JWT.test(value)) return "token_value";
-  if (COOKIE_PAIRS.test(value) || SESSION_COOKIE.test(value)) return "cookie_value";
+  const shape = cookieOrToken(value);
+  if (shape === "token") return "token_value";
+  if (shape === "cookie") return "cookie_value";
   if (SCHEME_CREDENTIAL.test(value) || findSecretValue(value) !== null) return "credential_value";
   return null;
 }

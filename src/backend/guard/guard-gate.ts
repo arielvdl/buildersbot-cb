@@ -231,15 +231,19 @@ export const GUARD_TOOL_EGRESS: Readonly<Record<string, GuardToolEgress>> = {
   "openbot_connections.call": CHECKED,
 };
 
-/** Every string of a value, depth first, for the Guard to read what a connection call sends. */
-function strings(value: unknown, out: string[] = [], depth = 0): string[] {
+/**
+ * Every string of a value, depth first, for the Guard to read what a connection call sends. `keys`
+ * adds the field names. The input of a call is at most 16 KB and 8 levels deep, so the limits here
+ * are never reached by a real call.
+ */
+function strings(value: unknown, keys: boolean, out: string[] = [], depth = 0): string[] {
   if (depth > 16 || out.length > 512) return out;
   if (isString(value)) out.push(value);
-  else if (Array.isArray(value)) for (const item of value) strings(item, out, depth + 1);
+  else if (Array.isArray(value)) for (const item of value) strings(item, keys, out, depth + 1);
   else if (isDynamicRecord(value))
     for (const [key, item] of Object.entries(value)) {
-      out.push(key);
-      strings(item, out, depth + 1);
+      if (keys) out.push(key);
+      strings(item, keys, out, depth + 1);
     }
   return out;
 }
@@ -316,10 +320,17 @@ export function guardOutboundItem(namespace: string | null, tool: string, args: 
     case `${CONNECTIONS}.call`: {
       // All of the input leaves the computer: a search text, an endpoint id, its query and its body.
       const input = isDynamicRecord(args) ? args.input : undefined;
-      const parts = strings(input);
+      const parts = strings(input, true);
       const urls = parts.filter((part) => /^https?:\/\//iu.test(part.trim())).map((part) => part.trim());
       const text = JSON.stringify(input ?? null) ?? "";
-      return { tool: name, payload: text, ...(urls.length > 0 ? { urls } : {}) };
+      // Each value on its own too: a cookie, a pasted chat or a block of data in one field (G2, G11).
+      const fields = strings(input, false);
+      return {
+        tool: name,
+        payload: text,
+        ...(urls.length > 0 ? { urls } : {}),
+        ...(fields.length > 0 ? { fields } : {}),
+      };
     }
     case `${OPENBOT}.save_mcp_server`: {
       const url = stringField(args, "url");
@@ -650,6 +661,13 @@ function withheld(reason: string | null): DynamicToolResult {
   );
 }
 
+/** What the agent reads when the Guard stops an action by itself: no one may allow it. */
+function stopped(reason: string | null): DynamicToolResult {
+  return refusal(
+    `Builders Bot Guard stopped this action before it ran.${reason ? ` ${reason}` : ""} No one can allow it. Do not send the same data another way; tell the person what you could not do.`,
+  );
+}
+
 function declined(reason: string | null): DynamicToolResult {
   return refusal(
     `The person declined this action after a Builders Bot Guard check.${reason ? ` ${reason}` : ""} Do not try it again another way unless the person asks.`,
@@ -750,7 +768,7 @@ export class GuardGate<Client = AgentClient> {
     }
     const checked = yield* guard.check({ direction: "outbound", subject: item.tool, action: item });
     if (checked.action === "allow" || checked.action === "annotate") return run;
-    if (checked.action === "block") return { proceed: false, result: declined(checked.reason) } satisfies GuardBefore;
+    if (checked.action === "block") return { proceed: false, result: stopped(checked.reason) } satisfies GuardBefore;
     // The same action, with the same real files, that the person allowed a short time ago.
     const key = this.#answerKey(agentId, params, null, checked);
     if (this.#remembered(key)) return run;

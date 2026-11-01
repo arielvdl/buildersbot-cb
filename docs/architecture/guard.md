@@ -25,9 +25,10 @@ level runs as Light until it exists (`guardEffectiveLevel`).
 
 At Light, the concern is prompt injection: content from a page, a file, a tool or a third party that
 carries instructions for the agent, and actions that send secrets or data out, or run code from the
-network. Light never stops the work by itself; the one exception is a call of the shared browser
-that would ask the person, because the broker cannot show the card. The person can turn the Guard
-off.
+network. Light never stops the work by itself, with two exceptions: a call of the shared browser
+that would ask the person, because the broker cannot show the card; and a call of a Cultura Builder
+connection that would send a cookie, a session or a sign-in token (see
+[Connection tools](#connection-tools)). The person can turn the Guard off.
 
 1. **Local check** (`src/backend/guard/guard-triage.ts`). It runs first, with no network. It reads
    the whole item up to 4,000,000 characters; a longer item is read at its start and its end and is
@@ -91,11 +92,11 @@ The router of Builders Bot tools (`src/backend/agent/openbot-tool-router.ts`) ca
 - **Before a call**: `beforeTool`, for each tool that `GUARD_TOOL_EGRESS` marks `checked`: browser
   open, navigate, type, fill_fields, evaluate, run_script, act and upload_files; messaging_post,
   attach_files_to_response, publish_site, replace_site, html_preview, html_render and
-  save_mcp_server. A provider's command approval gets `commandMark`.
+  save_mcp_server; and openbot_connections.call. A provider's command approval gets `commandMark`.
 - **After a call**: `afterTool`, for each tool that `GUARD_TOOL_INBOUND` marks `checked`: the
-  browser results that are page content, messaging_history, messaging_list_places, and the reports
+  browser results that are page content, messaging_history, messaging_list_places, the reports
   of save_mcp_server and test_mcp_server, which hold the tool names and the error text of a remote
-  server.
+  server, and each result of openbot_connections.list and openbot_connections.call.
 - **The shared Playwright browser** (`src/main/playwright-broker.ts`):
   - Before a call: each `tools/call` that sends a URL, a script, a typed or filled text, a dialog
     answer, a cookie or storage value, or files (`browser_navigate`, `browser_tabs`,
@@ -124,6 +125,7 @@ Tests fail when a tool of the catalog is not in `GUARD_TOOL_EGRESS` or `GUARD_TO
 | --- | --- |
 | Builders Bot browser (`openbot_browser`) | Yes |
 | Builders Bot tools with outside content | Yes |
+| Cultura Builder connections (`openbot_connections`) | Yes, calls and results |
 | Shared Playwright browser (broker) | Yes, calls and results |
 | Slack, Discord and Telegram messages | By the message reviewer |
 | Playwright in its own process (no broker) | No |
@@ -363,6 +365,30 @@ line. A heading such as "## New instructions:" is strong. The note is a fake ver
   `.envrc`, `.dev.vars`, `master.key`, Terraform state and variables, `.vault-token`, `.s3cfg`,
   `.boto`, `.my.cnf` and shell history.
 
+## Connection tools
+
+`openbot_connections.call` sends its input to the Cultura Builder Hub and, for a call, to treg.to
+and the provider of the endpoint; its results and the `search` and `describe` answers come from them
+(the treg design, `.buildersbot-build/treg/DESIGN.md` §4.6). The router runs the input checks of
+[Hub connections](hub-connections.md) first, then the Guard, then the call, then the Guard on the
+result.
+
+| Rule | What the Guard does |
+| --- | --- |
+| G1 | Both tools are in `GUARD_TOOL_EGRESS` and `GUARD_TOOL_INBOUND`, and `GUARD_INBOUND_PATHS` has `hub-connections`. The map tests fail when a tool is missing. |
+| G2 | The input is read as text sent (`payload`), its URLs as URLs, and each string value on its own (`fields`): a secret value, a password in a URL, a block of data in a URL and a paste site are findings as for any action. A field with more than 2,000 characters of free text (`text-in-transfer`) or a run of 512 base64 or hex characters (`blob-in-transfer`) weighs high: the person decides. |
+| G4 | The router wraps each result in `<connection_output untrusted="true" …>` with `<` and `>` escaped. |
+| G5 | A result of a connection tool also gets the vendor rules (`CONNECTION_RULES`, finding `vendor-instruction`): a pipe from a download to a shell (also a known installer), a request to star a project, "reach for … first", a step that the vendor names, an install of a vendor's CLI, skill or MCP server, a sign-up, a top-up, and the text `[vendor instruction removed]` that the app writes where it took a vendor line out. The finding is a note: alone it gives the result a `<guard_notice>` with no reviewer, and the reviewer cannot clear it; next to a strong finding of another kind the item is high. On other content these phrases are ordinary, so the rules do not run there. |
+| G11 | A field with a cookie (two `name=value` pairs, or one session cookie such as `li_at=` or `JSESSIONID=`) or a JSON Web Token is `cookie-in-transfer`. The policy stops the call at every level that runs, with no card (`triageDenies`): the owner's rule is that cookies and sessions never go to a third party. The input checks refuse the same values first, with the same rule (`cookieOrToken`), also when the Guard is off. |
+
+G3 (a card before the first call about people in a conversation), G6 (call limits), G7 (only read
+endpoints), G8 (the URL policy) and G9 (the note on found emails and phones) are in the connection
+tools, not in the Guard: see [Hub connections](hub-connections.md).
+
+The rules of one field read at most the 16 KB of a call input, and the vendor rules read a result of
+at most 200,000 characters. `scripts/hub-connections-safety-e2e.ts` times both against the 150 ms
+budget of one check and writes the times to its report.
+
 ## Known limits of the Light level
 
 Light is a speed bump against prompt injection and plain leaks, not a sandbox. An agent with Full
@@ -390,6 +416,8 @@ text that no pattern and no small model sees.
 
 ### What Light does not catch
 
+- A vendor instruction in a connection result in words that the vendor rules do not name, such as
+  a sign-up with no site after it.
 - The paths marked "No" in [Where the Guard runs](#where-the-guard-runs): tools that a provider runs
   in its own process (web fetch and search, file reads, shell output), MCP servers that the provider
   reaches itself, and Playwright in its own process.

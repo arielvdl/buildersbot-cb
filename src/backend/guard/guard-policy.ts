@@ -7,6 +7,7 @@ import {
   type GuardTriage,
   guardFindingNeedsReview,
   strongerCategory,
+  triageDenies,
   triageNamesSecretLeak,
   triageReason,
 } from "./guard-triage";
@@ -16,7 +17,9 @@ import {
  * - `allow`: it passes as it is.
  * - `annotate`: content passes with a note to the agent that it is data, not instructions.
  * - `ask`: the person approves or declines first, on the approval card.
- * - `block`: it stops. No level that this version runs blocks by itself.
+ * - `block`: it stops. Only one finding blocks by itself: a cookie, a session or a sign-in token that
+ *   an action would send to a third party (`triageDenies`). The owner's rule is that these never leave
+ *   this computer, so no card can let one go.
  */
 export type GuardAction = "allow" | "annotate" | "ask" | "block";
 
@@ -82,6 +85,8 @@ export const GUARD_ALLOW: GuardDecision = {
 
 /**
  * The Light level. Its concern is prompt injection, and it must not stop the work:
+ * - An action that sends a cookie, a session or a sign-in token to a third party: it stops, and no
+ *   model or card can let it go.
  * - Clean: the item passes, and no model is asked.
  * - High: the person decides on the approval card. No model is asked, so it is fast, and a model
  *   that the same content could fool cannot clear it.
@@ -106,6 +111,7 @@ export function decideGuard(input: {
   const reason = triageReason(triage);
   const ownerOnly = triageNamesSecretLeak(triage);
   const local = { category: triage.category, reason, ownerOnly, modelReason: null } as const;
+  if (input.direction === "outbound" && triageDenies(triage)) return { action: "block", ...local, by: "local" };
   if (triage.level === "high") return { action: "ask", ...local, by: "local" };
   const outbound = input.direction === "outbound";
   if (outbound && triage.incomplete) return { action: "ask", ...local, by: "local" };
