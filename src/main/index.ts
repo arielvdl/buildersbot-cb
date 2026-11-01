@@ -116,8 +116,8 @@ import { installLinuxDesktopEntry } from "./linux-desktop-entry";
 import { configureLinuxGpu } from "./linux-gpu-mode";
 import { configureLinuxPasswordStore } from "./linux-password-store";
 import {
-  hideLocalServerFromMacOS,
   LOCAL_SERVER_QUIT_REQUEST,
+  setMacApplicationTypeAtStart,
   takeLocalServerChildEnvironment,
 } from "./local-server-child";
 import { MacHapticFeedback } from "./mac-haptic-feedback";
@@ -222,8 +222,9 @@ const serverMode = takeServerModeEnvironment(process.env, app.isPackaged, proces
 const localServerChildEnvironment = takeLocalServerChildEnvironment(process.env, commandLineUserDataDirectory);
 const localServerChild = serverMode || hostedServer ? null : localServerChildEnvironment;
 if (serverMode || hostedServer || localServerChild) hideExceptionErrorBox();
-// A local server has no window, so it has no Dock tile and is not one more app in the lists of macOS.
-if (localServerChild) hideLocalServerFromMacOS(process.platform, (policy) => app.setActivationPolicy(policy));
+// The bundle starts each process as a UI element. The app becomes a regular app here; a local server has
+// no window, so it has no Dock tile and is not one more app in the lists of macOS.
+setMacApplicationTypeAtStart(process.platform, localServerChild !== null, (policy) => app.setActivationPolicy(policy));
 const inviteLinkOptions = {
   allowLocalDevelopmentApiUrl: developmentRemoteRole !== null,
   selfHostedApiOrigin: selfHostedApiOrigin(process.env.OPENBOT_AUTH_API_URL),

@@ -142,6 +142,12 @@ mac:
   extendInfo:
     CFBundleIconName: Icon
     ElectronTeamID: ZTRDTUL87R
+    # Each process of the bundle registers with LaunchServices as a UI element, before its script runs.
+    # The desktop app becomes a regular app with a Dock tile at its first line, and a server on this
+    # computer becomes background-only (`setMacApplicationTypeAtStart`). Without this key, each start of
+    # a server registered as a regular app, and an open Force Quit or low-memory panel listed it as a
+    # second "Builders Bot". `scripts/local-server-window-e2e.ts` checks it.
+    LSUIElement: true
     # Agent commands are child processes, and macOS gives them the grant of the app. Say so until
     # they ask for the microphone in their own name (voice-anywhere design, section 7.10).
     NSMicrophoneUsageDescription: Builders Bot uses the microphone for dictation and voice conversations. Commands that agents run from Builders Bot can also use it. The audio stays on this Mac unless you choose a cloud voice model or your own voice server in Settings.

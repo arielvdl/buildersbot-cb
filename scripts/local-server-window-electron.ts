@@ -5,16 +5,18 @@
 //   that something else loads into the window, so that `ready-to-show` comes.
 // - `app`: the startup load of the desktop app. The window must show; this proves that the check
 //   sees a window that shows.
-// Both scenarios also write how LaunchServices registers the process (`lsappinfo`), and the child loads
-// a page in an agent browser view of its hidden window and runs script in it, as the agent browser of a local server does.
+// Both scenarios also write how LaunchServices registers the process (`lsappinfo`): the type it has at
+// the first line of script (the type it registered with), after the startup policy of
+// `src/main/index.ts`, and after the window steps. The child also loads a page in an agent browser view
+// of its hidden window and runs script in it, as the agent browser of a local server does.
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { translateFor } from "@openbot/i18n";
 import { app, type BrowserWindow, WebContentsView } from "electron";
 import {
-  hideLocalServerFromMacOS,
   LOCAL_SERVER_ENVIRONMENT,
+  setMacApplicationTypeAtStart,
   takeLocalServerChildEnvironment,
 } from "../src/main/local-server-child";
 import { createMainWindowController, createMainWindowHolder, showMainWindow } from "../src/main/main-window";
@@ -25,6 +27,8 @@ function argument(name: string): string {
   return value.slice(name.length + 3);
 }
 
+// The type that LaunchServices registered this process with, before any script changed it.
+const checkInType = macApplicationType();
 // A closed output must not stop the test app with an error dialog.
 process.stdout.on("error", () => undefined);
 process.stderr.on("error", () => undefined);
@@ -38,10 +42,11 @@ const userDataDirectory = app.commandLine.getSwitchValue("user-data-dir").trim()
 const localServerChild = takeLocalServerChildEnvironment(process.env, userDataDirectory);
 const environmentRemoved = Object.values(LOCAL_SERVER_ENVIRONMENT).every((name) => process.env[name] === undefined);
 app.setPath("userData", userDataDirectory);
-// The child as `src/main/index.ts` makes it. The app scenario has no Dock tile and no activation: a
-// window that shows must not take the user's focus.
-if (localServerChild) hideLocalServerFromMacOS(process.platform, (policy) => app.setActivationPolicy(policy));
-else if (process.platform === "darwin") app.setActivationPolicy("accessory");
+// The startup policy of `src/main/index.ts`. After it is read, the app scenario has no Dock tile and no
+// activation: a window that shows must not take the user's focus.
+setMacApplicationTypeAtStart(process.platform, localServerChild !== null, (policy) => app.setActivationPolicy(policy));
+const startType = macApplicationType();
+if (!localServerChild && process.platform === "darwin") app.setActivationPolicy("accessory");
 
 let quitting = false;
 let loadStarts = 0;
@@ -173,6 +178,8 @@ void app.whenReady().then(async () => {
       environmentRemoved,
       pageUrl,
       steps,
+      checkInType,
+      startType,
       applicationType,
       errors,
       failure,

@@ -10,21 +10,28 @@
 // 4. A page that something else loads into the window does not show it at `ready-to-show`.
 // 5. An agent browser view in the hidden window loads a page and runs script, and the window stays
 //    hidden.
-// 6. On macOS, LaunchServices registers the child as a background-only process. As a UI element (the
-//    `app.dock.hide()` it had before), the low-memory panel of macOS listed it as a second Builders Bot.
+// 6. On macOS, the child never registers with LaunchServices as a regular (Foreground) app, and it is
+//    background-only after the startup policy. A Force Quit panel that is open, also the low-memory
+//    panel, adds each process that registers as a regular app and keeps it after a later change of
+//    type: each start of a local server added a second Builders Bot. The type that a process registers
+//    with comes from the bundle's Info.plist, before its script runs, so on macOS both scenarios run
+//    from a copy of the development Electron.app with the `mac.extendInfo` keys of
+//    electron-builder.yml, as the packaged app has them.
 // The app scenario loads the renderer and must show its window, so the check can see a shown window.
+// On macOS it must also become a regular app at start, so it keeps its Dock tile and its Force Quit entry.
 //
 // Run: bun scripts/local-server-window-e2e.ts
 // It writes .openbot-build/local-server-window-e2e/report.json and exits non-zero on a failure.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, rmSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
+import { parse as parseYaml } from "yaml";
 import { LOCAL_SERVER_ENVIRONMENT } from "../src/main/local-server-child";
 import { withoutElectronRuntimeFlags } from "./electron-spawn-env";
 
@@ -33,7 +40,7 @@ const OUT = join(ROOT, ".openbot-build", "local-server-window-e2e");
 // A bound on failure only: each scenario ends by itself when its window steps are done.
 const SCENARIO_DEADLINE_MS = 60_000;
 // The Electron binary itself, not the `.bin/electron` Node wrapper.
-const electronPath = join(
+const stockElectronPath = join(
   ROOT,
   "node_modules",
   "electron",
@@ -72,8 +79,9 @@ try {
     `--outfile=${bundle}`,
   ]);
   assert.equal(build.status, 0, `bun build failed: ${build.stderr.toString()}`);
+  const electronPath = process.platform === "darwin" ? packagedTypeBundle() : stockElectronPath;
 
-  const child = await run("child", `http://127.0.0.1:${address.port}/?scenario=child`);
+  const child = await run(electronPath, "child", `http://127.0.0.1:${address.port}/?scenario=child`);
   results.child = child;
   assert.equal(child.failure, undefined, `the child scenario failed: ${String(child.failure)}`);
   assert.equal(child.headless, true, "the local server environment makes a headless controller");
@@ -98,10 +106,17 @@ try {
   );
   // The pages that the check itself loaded in steps 4 and 5.
   assert.equal(pageRequests.child, 2, "the child asked for the renderer page and the agent page");
-  if (process.platform === "darwin")
+  if (process.platform === "darwin") {
+    assert.notEqual(
+      child.checkInType,
+      "Foreground",
+      "the local server does not register as a regular app, so an open Force Quit panel does not add it",
+    );
+    assert.equal(child.startType, "BackgroundOnly", "the local server is background-only from its first line");
     assert.equal(child.applicationType, "BackgroundOnly", "macOS does not list the local server as an app");
+  }
 
-  const desktop = await run("app", `http://127.0.0.1:${address.port}/?scenario=app`);
+  const desktop = await run(electronPath, "app", `http://127.0.0.1:${address.port}/?scenario=app`);
   results.app = desktop;
   assert.equal(desktop.failure, undefined, `the app scenario failed: ${String(desktop.failure)}`);
   assert.equal(desktop.headless, false, "the desktop app makes a controller with a window");
@@ -113,8 +128,11 @@ try {
     "the desktop app loads its renderer and shows its window",
   );
   assert.equal(pageRequests.app, 1, "the desktop app asked for the renderer page once");
-  if (process.platform === "darwin")
+  if (process.platform === "darwin") {
+    assert.equal(desktop.checkInType, "UIElement", "the bundle of the check starts each process as a UI element");
+    assert.equal(desktop.startType, "Foreground", "the desktop app becomes a regular app with a Dock tile");
     assert.equal(desktop.applicationType, "UIElement", "the check reads the registration of a process with a window");
+  }
   passed = true;
 } catch (cause) {
   error = cause instanceof Error ? cause.message : String(cause);
@@ -128,8 +146,35 @@ try {
   if (!passed) process.exitCode = 1;
 }
 
+/**
+ * A copy of the development Electron.app with the `mac.extendInfo` keys of electron-builder.yml in its
+ * Info.plist, signed again ad hoc. LaunchServices reads the start type of a process from there. The copy
+ * is an APFS clone where the volume allows it. Returns its executable.
+ */
+function packagedTypeBundle(): string {
+  const stockBundle = resolve(stockElectronPath, "..", "..", "..");
+  const appBundle = join(root, "Electron.app");
+  const clone = spawnSync("/bin/cp", ["-c", "-R", stockBundle, appBundle]);
+  if (clone.status !== 0) {
+    rmSync(appBundle, { recursive: true, force: true });
+    command("/bin/cp", ["-R", stockBundle, appBundle]);
+  }
+  const config = record(parseYaml(readFileSync(join(ROOT, "electron-builder.yml"), "utf8")));
+  const extendInfo = record(record(config.mac).extendInfo);
+  const plist = join(appBundle, "Contents", "Info.plist");
+  for (const [key, value] of Object.entries(extendInfo))
+    command("/usr/bin/plutil", ["-replace", key, "-json", JSON.stringify(value), plist]);
+  command("/usr/bin/codesign", ["--force", "--sign", "-", appBundle]);
+  return join(appBundle, "Contents", "MacOS", "Electron");
+}
+
+function command(file: string, args: string[]): void {
+  const result = spawnSync(file, args);
+  assert.equal(result.status, 0, `${file} failed: ${result.stderr.toString()}`);
+}
+
 /** Starts one Electron process for a scenario and returns what it wrote. */
-async function run(scenario: Scenario, pageUrl: string): Promise<DynamicRecord> {
+async function run(electronPath: string, scenario: Scenario, pageUrl: string): Promise<DynamicRecord> {
   const userData = join(root, scenario, "local-servers", randomUUID());
   await mkdir(userData, { recursive: true });
   const resultFile = join(root, `${scenario}.json`);
