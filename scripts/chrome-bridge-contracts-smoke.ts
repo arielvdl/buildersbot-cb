@@ -94,6 +94,7 @@ const operationHandlers: OperationHandlers<string> = {
   "stop.all": record("stop.all"),
   resync: record("resync"),
   ping: record("ping"),
+  "pair.done": record("pair.done"),
 };
 
 const leaseId = opaque();
@@ -188,6 +189,7 @@ const appHandlers: AppMessageHandlers<string> = {
     "stop.all": result("stop.all"),
     resync: result("resync"),
     ping: result("ping"),
+    "pair.done": result("pair.done"),
   },
   error: (error) => `error:${error.code}`,
 };

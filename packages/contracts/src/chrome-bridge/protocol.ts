@@ -310,6 +310,11 @@ const operationShapes = {
     tabs: list(record({ handle, tabId: chromeId, groupId: chromeId, projectKey, leaseId }), MAX_TAB_LIMITS.tabsTotal),
   }),
   ping: record({}),
+  /**
+   * The app pinned the extension's key after the person chose the right words in the app and the
+   * extension sent `pair.chrome-ok`. The extension then makes its own pin of the app's key final.
+   */
+  "pair.done": record({}),
 } as const;
 
 export type ChromeBridgeOperation = keyof typeof operationShapes;
@@ -345,6 +350,7 @@ export const OPERATION_FEATURES: Readonly<Record<ChromeBridgeOperation, ChromeBr
   "stop.all": "core",
   resync: "core",
   ping: "core",
+  "pair.done": "core",
 };
 
 const cdpResultValue = json(BRIDGE_LIMITS.maxMessageBytes);
@@ -380,6 +386,7 @@ const resultShapes = {
   "stop.all": record({}),
   resync: record({ adopted: list(handle, MAX_TAB_LIMITS.tabsTotal), refused: list(handle, MAX_TAB_LIMITS.tabsTotal) }),
   ping: record({}),
+  "pair.done": record({}),
 } as const satisfies { readonly [O in ChromeBridgeOperation]: Decoder<unknown> };
 
 export type ResultBodies = {
@@ -550,6 +557,28 @@ export function decodeOperationBody<O extends ChromeBridgeOperation>(
   body: unknown,
 ): Decoded<OperationBodies[O]> {
   return operationDecoders[op](body, "body");
+}
+
+/** Checks the body of a successful response against the operation it answers. */
+export function decodeResultBody<O extends ChromeBridgeOperation>(op: O, body: unknown): Decoded<ResultBodies[O]> {
+  return resultDecoders[op](body, "message.body");
+}
+
+/**
+ * The envelope of a response, without its body checked: the side that sent the request checks the body
+ * against the operation it remembers for `id` (`decodeResultBody`), once.
+ */
+export function decodeResponseEnvelope(
+  value: unknown,
+): Decoded<{ id: number; body?: unknown; err?: { code: ChromeBridgeErrorCode; message: string } }> {
+  // The message came from JSON.parse of a sealed message, so its size is bound already; the body is
+  // checked by `decodeResultBody`, which bounds it again by operation.
+  const anyBody: Decoder<unknown> = (body) => ({ ok: true, value: body });
+  const envelope = record({ t: literal(["res"]), id: MESSAGE_ID }, { body: anyBody, err: errorBody })(value, "message");
+  if (!envelope.ok) return envelope;
+  if (envelope.value.err !== undefined && envelope.value.body !== undefined)
+    return { ok: false, error: "message: has both body and err" };
+  return envelope;
 }
 
 /**
