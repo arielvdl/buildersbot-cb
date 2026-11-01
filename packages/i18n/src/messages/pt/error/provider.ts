@@ -323,6 +323,8 @@ export const messages = {
   "error.provider.customAgentTooMany": "Você pode salvar no máximo {count} agentes personalizados.",
   "error.provider.customAgentEnvValueMissing": "Digite um valor para {name}.",
   "error.provider.off": "{provider} está desligado no Builders Bot. Ligue-o nas configurações de provedor primeiro.",
+  "error.provider.offByServerPolicy":
+    "O administrador deste servidor mantém {provider} desligado. Peça ao administrador para liberá-lo na política de modelos do servidor.",
   "error.provider.inUse": "Um agente usa {provider}. Mude o modelo dele antes de desligar este provedor.",
   "error.provider.useBusy": "Aguarde a verificação ou o login do provedor terminar e tente de novo.",
   "error.provider.useSettingsReadOnly":

@@ -9,6 +9,7 @@
 // the shape of one CLI's config is a concern of its own, and it is the half worth unit testing.
 
 import type { CustomProviderHarness, CustomProviderHeader, CustomProviderModel } from "@openbot/contracts/ipc";
+import type { CulturaBuilderGatewayModel } from "./cultura-builder-auth";
 
 /** One endpoint, as the main process stores it. Carries the secrets, so it never crosses IPC. */
 export interface CustomProviderConfig {
@@ -388,18 +389,50 @@ const CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES: Readonly<Record<string, OpenCo
 );
 
 /**
+ * The models of the gateway catalog of the account (`readCulturaBuilderModels`), as OpenCode entries.
+ * The window follows the same rule as the built-in models: 262,144 tokens at most, unless the person
+ * chose the full window, and then the window of the gateway.
+ */
+function culturaBuilderAccountModelEntries(
+  models: readonly CulturaBuilderGatewayModel[],
+  fullContext: boolean,
+): Record<string, OpenCodeModelEntry> {
+  return Object.fromEntries(
+    models.map((model) => [
+      model.id,
+      {
+        name: model.name,
+        ...(model.vision ? { attachment: true, modalities: { input: ["text", "image"], output: ["text"] } } : {}),
+        ...(model.reasoning ? { reasoning: true } : {}),
+        ...(model.tools ? { tool_call: true } : {}),
+        limit: {
+          context: fullContext ? model.contextLength : Math.min(model.contextLength, CULTURA_BUILDER_CONTEXT_TOKENS),
+          output: model.maxOutputTokens,
+        },
+      },
+    ]),
+  );
+}
+
+/**
  * The spawn environment of a Cultura Builder client: one provider on the Hub gateway, carrying the
  * access token, and nothing else listed. `vendorOff` is as for `openCodeConfigEnv`. A tokenless spawn still writes the provider so the row can
  * show its models while signed out; OpenCode answers with a refused request, which is the sign-in
  * prompt. With `fullContext`, the models that the gateway serves with 1,048,576 tokens declare that
  * window instead of 262,144.
+ *
+ * `accountModels` is the gateway catalog of the account, on a server with a model policy. With it,
+ * the provider declares those models in place of the built-in ones. Null, empty or absent: the
+ * built-in models.
  */
 export function culturaBuilderConfigEnv(
   baseUrl: string,
   accessToken: string | null,
   fullContext = false,
   vendorOff: readonly string[] = [],
+  accountModels: readonly CulturaBuilderGatewayModel[] | null = null,
 ): Record<string, string> {
+  const builtIn = fullContext ? CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES : CULTURA_BUILDER_MODELS;
   const config: OpenCodeConfig = {
     mcp: ownMcpOff(vendorOff),
     enabled_providers: ["cultura-builder"],
@@ -411,7 +444,7 @@ export function culturaBuilderConfigEnv(
           baseURL: baseUrl,
           ...(accessToken ? { apiKey: accessToken } : {}),
         },
-        models: fullContext ? CULTURA_BUILDER_FULL_CONTEXT_MODEL_ENTRIES : CULTURA_BUILDER_MODELS,
+        models: accountModels?.length ? culturaBuilderAccountModelEntries(accountModels, fullContext) : builtIn,
       },
     },
   };
