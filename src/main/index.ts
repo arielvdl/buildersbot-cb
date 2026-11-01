@@ -467,6 +467,7 @@ const windows = createMainWindowController({
     attachQuitOnMainWindowClose(window);
   },
   reportError: (message, error) => logger.error(message, toLogValue(error)),
+  headless: localServerChild !== null,
 });
 
 let appIconColorImage: NativeImage | undefined;
@@ -1220,10 +1221,15 @@ if (!hasSingleInstanceLock) {
       // provider checks and store loads below are the longest stretch of startup with nothing on
       // screen. Its first load runs while the stores are still opening, so it is reloaded once they
       // are (below), from a warm process.
-      const rendererLoaded = windows.loadRenderer(mainWindow).catch((error: unknown) => {
-        logger.error("Could not load the main window:", toLogValue(error));
-        if (!mainWindow.isDestroyed()) mainWindow.destroy();
-      });
+      // Not in a local server. Its startup order is: hidden window, services, IPC handlers, return
+      // (below), with no reload. A renderer loaded here read the account before the handlers existed
+      // and showed "could not load the account service" on top of the app until the next quit.
+      const rendererLoaded = localServerChild
+        ? null
+        : windows.loadRenderer(mainWindow).catch((error: unknown) => {
+            logger.error("Could not load the main window:", toLogValue(error));
+            if (!mainWindow.isDestroyed()) mainWindow.destroy();
+          });
 
       const built = await createApplicationServices({
         mainWindow,
@@ -1400,7 +1406,7 @@ if (!hasSingleInstanceLock) {
       // be in place before the first request can arrive.
       registerIpcHandlers(built);
       if (localServerChild) {
-        // No window, menu, tray, Dynamic Island or renderer: the desktop app is the interface.
+        // No visible window, menu, tray, Dynamic Island or renderer: the desktop app is the interface.
         const childRoutineWake = new RoutineWake({ routines: service, isOnline: () => net.isOnline() });
         powerMonitor.on("suspend", () => childRoutineWake.suspend());
         powerMonitor.on("resume", () => childRoutineWake.resume());
