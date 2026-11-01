@@ -1131,7 +1131,7 @@ export class TeamApiServer {
       agents: this.#options.agents,
       skills: this.#options.skills,
       sidebarLayout: this.#options.sidebarLayout,
-      duplicateAgent: (agentId, operationId) => this.#duplicateAgent(agentId, operationId),
+      duplicateAgent: (agentId, operationId, memberId) => this.#duplicateAgent(agentId, operationId, memberId),
     });
   }
 
@@ -1817,6 +1817,7 @@ export class TeamApiServer {
   #duplicateAgent(
     sourceAgentId: string,
     operationId: string,
+    memberId: string,
   ): Effect.Effect<DuplicateAgentResult, AgentDuplicationFailed> {
     return Effect.suspend(() => {
       const committed = this.#options.agents.committedAgentDuplication(operationId, sourceAgentId);
@@ -1842,6 +1843,7 @@ export class TeamApiServer {
         sourceAgentId,
         operationId,
         (agentId) => this.copyAgentAccess(sourceAgentId, agentId),
+        this.#options.agents.memberOrigin(memberId),
       ).pipe(
         Effect.onExit((exit) => {
           this.#duplicateRequests.delete(operationId);

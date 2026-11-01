@@ -67,7 +67,6 @@ export interface MailboxProjectionState {
   reactions: MailboxProjectionReaction[];
   /** The origins of routine runs and flows, for the Hub connections. Kept in the metadata row. */
   routineOrigins?: Record<string, string>;
-  routineOriginsSince?: string;
 }
 
 /**
@@ -245,7 +244,6 @@ export class MailboxProjection {
           JSON.stringify({
             idempotency: state.idempotency,
             ...(state.routineOrigins ? { routineOrigins: state.routineOrigins } : {}),
-            ...(state.routineOriginsSince ? { routineOriginsSince: state.routineOriginsSince } : {}),
           }),
           sequence,
         );
@@ -334,7 +332,6 @@ export class MailboxProjection {
       idempotency: metadata.idempotency ?? {},
       reactions,
       ...(metadata.routineOrigins ? { routineOrigins: metadata.routineOrigins } : {}),
-      ...(metadata.routineOriginsSince ? { routineOriginsSince: metadata.routineOriginsSince } : {}),
     };
   }
 }
@@ -623,7 +620,6 @@ function deleteRowsNotIn(
 function parseMailboxMetadata(value: string): {
   idempotency?: Record<string, string>;
   routineOrigins?: Record<string, string>;
-  routineOriginsSince?: string;
 } {
   const parsed = JSON.parse(value);
   if (!isDynamicRecord(parsed)) throw new Error("Invalid mailbox metadata.");
@@ -633,10 +629,7 @@ function parseMailboxMetadata(value: string): {
         Object.entries(parsed.routineOrigins).map(([key, origin]) => [key, isString(origin) ? origin : "unknown"]),
       )
     : undefined;
-  const origins = {
-    ...(routineOrigins ? { routineOrigins } : {}),
-    ...(isString(parsed.routineOriginsSince) ? { routineOriginsSince: parsed.routineOriginsSince } : {}),
-  };
+  const origins = routineOrigins ? { routineOrigins } : {};
   const idempotency = parsed.idempotency;
   if (idempotency === undefined) return origins;
   if (!isDynamicRecord(idempotency)) throw new Error("Invalid mailbox idempotency metadata.");

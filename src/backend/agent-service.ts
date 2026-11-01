@@ -2849,12 +2849,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#store.committedAgentDuplication(operationId, sourceAgentId);
   }
 
+  /** `by` is the Hub connection origin of who copies the agent; absent copies its routines closed. */
   duplicateAgent(
     sourceAgentId: string,
     operationId: string = randomUUID(),
+    by?: HubTurnOrigin,
   ): Effect.Effect<AgentSummary, AgentLifecycleFailed> {
     return this.#duplication
-      .duplicate(sourceAgentId, operationId)
+      .duplicate(sourceAgentId, operationId, by)
       .pipe(
         Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "duplicateAgent", cause: failure.cause })),
       );

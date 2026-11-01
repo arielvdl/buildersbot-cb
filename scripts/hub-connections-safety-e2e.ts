@@ -197,6 +197,51 @@ const { PAID_DATA_RULE } = await import("../src/backend/agent/developer-instruct
 const { CONTACT_DATA_NOTE } = await import("../src/backend/hub-connections/hub-connection-tools");
 const { CURSOR_ACP_FLAVOR } = await import("../src/backend/acp-flavor");
 const { cursorDisabledFile } = await import("../src/backend/cursor-mcp-disabled");
+const { duplicateAgentIntoLayout } = await import("../src/backend/agent/duplication-gate");
+const { SidebarLayoutStore } = await import("../src/backend/sidebar-layout-store");
+/** A routine of `agentId` whose runs make `calls`. With no `origin`, nothing records who saved it, as an import saves one. */
+function makeRoutine(agentId: string, name: string, calls: Call[], origin?: "owner_ui" | "team_member") {
+  return agents.createRoutine(
+    {
+      agentId,
+      name,
+      instruction: callsText(MARK, calls),
+      active: false,
+      timezone: "UTC",
+      schedule: { kind: "daily", time: "09:00" },
+    },
+    origin ? { origin } : {},
+  );
+}
+
+/** Waits for `count` tool results of what `start` sets off, and for every agent to end its turns. */
+async function resultsOf(count: number, start: () => Promise<unknown>): Promise<Seen[]> {
+  const before = harness.resultCount();
+  await start();
+  const seen = await harness.resultsAfter(before, count);
+  await harness.allIdle();
+  return seen;
+}
+
+/** The person tests a routine: the results of its run. */
+const testRun = (agentId: string, routineId: string, count = 2) =>
+  resultsOf(count, () => runCauseEffect(agents.testRoutine({ agentId, routineId })));
+
+/** Whether a run had no connection tools and no call reached the Hub. */
+function assertClosed(seen: readonly Seen[], hubBefore: number, label: string): void {
+  assert.equal(hasTools(seen.find((item) => item.tool === "tool_search")), false, `${label}: the run has the tools`);
+  const called = seen.find((item) => item.tool === "openbot_connections.call");
+  assert.equal(called?.success, false, `${label}: ${called?.text.slice(0, 300)}`);
+  assert.equal(hubCalls().length, hubBefore, `${label}: a call reached the Hub`);
+}
+
+/** Whether a run had the tools and its call reached the Hub with `origin`. */
+function assertOpen(seen: readonly Seen[], origin: string, label: string): void {
+  assert.ok(hasTools(seen.find((item) => item.tool === "tool_search")), `${label}: the run lost the tools`);
+  const called = seen.find((item) => item.tool === "openbot_connections.call");
+  assert.ok(called?.success, `${label}: ${called?.text.slice(0, 300)}`);
+  assert.equal(callOrigins().at(-1), origin, label);
+}
 
 const op = (operation: string, input: HubJsonObject): Call => ({
   tool: "openbot_connections.call",
@@ -580,6 +625,71 @@ try {
     assert.equal(callOrigins().at(-1), "agent");
     return { memberResultCall: called?.fields };
   });
+
+  await step("Routine origin: a routine with no record of who saved it runs closed (security finding 4)", async () => {
+    const before = hubCalls().length;
+    // As an import, a template or the marketplace saves one: no origin.
+    const imported = makeRoutine(harness.agentId, "Imported routine", [discover(), pageMeta()]);
+    assertClosed(await testRun(harness.agentId, imported.id), before, "imported");
+    // The person's own save, in the app: the run has the tools.
+    const own = makeRoutine(harness.agentId, "Own routine", [discover(), pageMeta()], "owner_ui");
+    assertOpen(await testRun(harness.agentId, own.id), "routine", "own");
+  });
+
+  await step(
+    "Routine origin: a copy of an agent keeps its routines' origins, narrowed to who copies (finding 4)",
+    async () => {
+      const source = await runCauseEffect(
+        agents.createAgent({
+          name: "Copy source",
+          description: "Has routines to copy.",
+          avatarSeed: "copy-source",
+          avatarHue: null,
+          initialMessage: "Hello.",
+        }),
+      );
+      await harness.allIdle();
+      makeRoutine(source.id, "Member text", [discover(), pageMeta()], "team_member");
+      makeRoutine(source.id, "Person text", [discover(), pageMeta()], "owner_ui");
+      const sidebar = new SidebarLayoutStore(join(root, "sidebar-layout.json"));
+      await runCauseEffect(sidebar.initialize());
+      const copy = async (by: "owner_ui" | "team_member") =>
+        (await runCauseEffect(duplicateAgentIntoLayout(agents, sidebar, source.id, undefined, undefined, by))).agent;
+      const routineOf = (agentId: string, name: string) => {
+        const found = agents.listRoutines(agentId).find((routine) => routine.name === name);
+        assert.ok(found, `no routine ${name}`);
+        return found.id;
+      };
+      const byPerson = await copy("owner_ui");
+      let before = hubCalls().length;
+      assertClosed(await testRun(byPerson.id, routineOf(byPerson.id, "Member text")), before, "member's text, copied");
+      assertOpen(await testRun(byPerson.id, routineOf(byPerson.id, "Person text")), "routine", "person's, copied");
+      // A team member's copy of the person's routine runs closed.
+      const byMember = await copy("team_member");
+      before = hubCalls().length;
+      assertClosed(await testRun(byMember.id, routineOf(byMember.id, "Person text")), before, "copied by a member");
+    },
+  );
+
+  await step(
+    "Routine origin: a change of other fields never opens a routine that a team member wrote (finding 6)",
+    async () => {
+      const calls = [discover(), pageMeta()];
+      const routine = makeRoutine(harness.agentId, "Member wrote", calls, "team_member");
+      const update = (fields: { name?: string; instruction?: string }, origin: "owner_ui" | "agent") =>
+        agents.updateRoutine({ agentId: harness.agentId, routineId: routine.id, ...fields }, { origin });
+      const before = hubCalls().length;
+      // The person renames it: the text is still the member's.
+      update({ name: "Member wrote (renamed)" }, "owner_ui");
+      assertClosed(await testRun(harness.agentId, routine.id), before, "renamed by the person");
+      // An agent's turn writes a text: an agent's origin does not open a member's routine.
+      update({ instruction: callsText(MARK, calls) }, "agent");
+      assertClosed(await testRun(harness.agentId, routine.id), before, "text by an agent");
+      // The person saves the whole text in the app: now it is the person's routine.
+      update({ instruction: callsText(MARK, calls) }, "owner_ui");
+      assertOpen(await testRun(harness.agentId, routine.id), "routine", "the person's text");
+    },
+  );
 
   await step("G5: vendor lines split by a line break, a tab or two spaces are masked and noted", async () => {
     const [split] = await turn([call("web.hint-split", { q: "links" })]);

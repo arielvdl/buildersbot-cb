@@ -5,6 +5,7 @@ import { Deferred, Effect, Result, Schema } from "effect";
 import type { AgentService } from "../agent-service";
 import { type AgentStore, duplicationProfileSignature } from "../agent-store";
 import { causeHelpers } from "../effect-boundary";
+import type { HubTurnOrigin } from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import type { SidebarLayoutStore } from "../sidebar-layout-store";
 import type { AgentMemories } from "./agent-memories";
@@ -94,10 +95,12 @@ export class DuplicationGate {
     return agents.filter((agent) => !this.#pendingAgents.has(agent.id));
   }
 
+  /** `by` is the Hub connection origin of who copies the agent: the copied routines get at most its origin. */
   readonly duplicate = Effect.fn("Agent.duplicate")(function* (
     this: DuplicationGate,
     sourceAgentId: string,
     operationId: string = randomUUID(),
+    by: HubTurnOrigin = "unknown",
   ) {
     const releaseDuplication = yield* this.#acquireCommitLock();
     let releaseOnExit = true;
@@ -119,7 +122,7 @@ export class DuplicationGate {
         this.#pendingOperations.set(copied.id, { operationId, sourceAgentId });
         this.#assertSourceUnchanged(sourceAgentId, signature);
         this.#memories.duplicate(sourceAgentId, copied.id);
-        const routines = this.#routines.duplicate(sourceAgentId, copied.id, new Date());
+        const routines = this.#routines.duplicate(sourceAgentId, copied.id, new Date(), by);
         this.#assertSourceUnchanged(sourceAgentId, signature);
         if (source.marketplaceSource) {
           completedDuplicate = this.#store.setMarketplaceSource(copied.id, {
@@ -316,8 +319,10 @@ export const duplicateAgentIntoLayout = Effect.fn("Agent.duplicateIntoLayout")(f
   operationId?: string,
   // Runs before the commit shows the copy to clients, for example to copy the source's access.
   beforeCommit?: (agentId: string) => Effect.Effect<void>,
+  // The Hub connection origin of who copies the agent. Absent: nothing proves it, so the copied routines run closed.
+  by?: HubTurnOrigin,
 ) {
-  const agent = yield* agents.duplicateAgent(sourceAgentId, operationId).pipe(toAgentDuplicationFailed);
+  const agent = yield* agents.duplicateAgent(sourceAgentId, operationId, by).pipe(toAgentDuplicationFailed);
   return yield* Effect.gen(function* () {
     if (beforeCommit) yield* beforeCommit(agent.id);
     const layout = yield* sidebar

@@ -194,16 +194,11 @@ interface StoredState {
   idempotency: Record<string, string>;
   reactions: StoredReaction[];
   /**
-   * The origin of the runs of each routine (`routine:<id>`) and the most closed origin of the changes
-   * to its flow (`flow:<id>`), for the Hub connections. A routine without an entry runs closed.
-   * Absent on every mailbox stored before the field existed.
+   * For the Hub connections: the origin of the runs of each routine (`routine:<id>`) and the most
+   * closed origin of the changes to its flow (`flow:<id>`). A routine without a `routine:` entry runs
+   * closed. Absent on every mailbox stored before the field existed.
    */
   routineOrigins?: Record<string, HubTurnOrigin>;
-  /**
-   * When this version first loaded the mailbox. A routine saved before it has no entry because nobody
-   * recorded who saved it, so it runs closed until the person saves it again.
-   */
-  routineOriginsSince?: string;
 }
 
 interface StoredReaction {
@@ -332,11 +327,6 @@ export class MailboxStore {
         this.#state = normalizeStoredState(yield* this.#readStateEffect());
         yield* this.#database.backupLegacyFile(this.#statePath);
         this.#persist("mailbox.legacy-imported", "legacy-import:mailbox:v1", [], true);
-      }
-      if (this.#state.routineOriginsSince === undefined) {
-        // From now on every save of a routine is recorded; the routines saved before are not known.
-        this.#state.routineOriginsSince = new Date().toISOString();
-        this.#persist("mailbox.routine-origins-started");
       }
       const activeEdits = new Set(
         this.#state.deliveries
@@ -870,17 +860,7 @@ export class MailboxStore {
       .flatMap((delivery) => {
         // A delivery whose message is gone says nothing about its sender, so it does not count.
         const message = messages.get(delivery.messageId);
-        if (!message) return [];
-        return [
-          {
-            sender: message.sender.kind,
-            messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
-            channel: message.channelId !== undefined,
-            memberId: message.senderMember?.id ?? null,
-            editorId: message.editorMemberId ?? null,
-            stamp: message.origin ?? null,
-          },
-        ];
+        return message ? [senderOrigin(message)] : [];
       });
   }
 
@@ -890,28 +870,16 @@ export class MailboxStore {
     const message = delivery
       ? this.#state.messages.find((candidate) => candidate.id === delivery.messageId)
       : undefined;
-    if (!message) return null;
-    return {
-      sender: message.sender.kind,
-      messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
-      channel: message.channelId !== undefined,
-      memberId: message.senderMember?.id ?? null,
-      editorId: message.editorMemberId ?? null,
-      stamp: message.origin ?? null,
-    };
+    return message ? senderOrigin(message) : null;
   }
 
   /**
-   * The origin of the runs of a routine (docs/architecture/hub-connections.md, "Routines"). A routine
-   * that a turn other than the person's own saved keeps that turn's narrowed origin. A routine with no
-   * entry is the person's, unless nobody saved it since this version started to keep the entries
-   * (`savedAt` before `routineOriginsSince`): then who saved it is not known, and it runs closed.
+   * The origin of the runs of a routine (docs/architecture/hub-connections.md, "Routines"): the
+   * origin recorded when it was saved. A routine with no entry runs closed (`unknown`): nothing proves
+   * who saved it, as for a routine that an import, a template or an earlier version made.
    */
-  routineOrigin(routineId: string, savedAt: string | null): HubTurnOrigin {
-    const recorded = this.#state.routineOrigins?.[`routine:${routineId}`];
-    if (recorded) return recorded;
-    const since = this.#state.routineOriginsSince;
-    return savedAt !== null && since !== undefined && savedAt >= since ? "routine" : "unknown";
+  routineOrigin(routineId: string): HubTurnOrigin {
+    return this.#state.routineOrigins?.[`routine:${routineId}`] ?? "unknown";
   }
 
   /** The most closed origin of the changes to a routine's flow since the person last changed it, or null. */
@@ -931,12 +899,25 @@ export class MailboxStore {
   }
 
   /**
-   * Records who saved a routine: its runs get `routineOriginOf(savedBy)` from now on. The person's own
-   * save (`owner_ui`) removes an earlier entry. The flow entry changes only with `narrowFlowOrigin`
-   * and `clearFlowOrigin`.
+   * Records who saved a routine: its runs get this origin (`routineOriginOf` of who saved it). The
+   * entry is kept for every origin, the person's (`routine`) too: a routine with no entry runs closed.
+   * The flow entry changes only with `narrowFlowOrigin` and `clearFlowOrigin`.
    */
   setRoutineOrigin(routineId: string, origin: HubTurnOrigin): void {
-    this.#writeRoutineOrigin(`routine:${routineId}`, origin === "routine" ? null : origin);
+    this.#writeRoutineOrigin(`routine:${routineId}`, origin);
+  }
+
+  /**
+   * Gives each copy of a routine the entries of its source, narrowed to `origin`: the origin that the
+   * copy's runs get from who copied it (`routineOriginOf`). A source with no entry gives a closed copy.
+   */
+  copyRoutineOrigins(copies: ReadonlyMap<string, string>, origin: HubTurnOrigin): void {
+    for (const [sourceId, copyId] of copies) {
+      this.setRoutineOrigin(copyId, narrowerOrigin(this.routineOrigin(sourceId), origin));
+      const flow = this.flowOrigin(sourceId);
+      if (flow !== null) this.#writeRoutineOrigin(`flow:${copyId}`, flow);
+      this.narrowFlowOrigin(copyId, origin);
+    }
   }
 
   /** Forgets a deleted routine. */
@@ -3292,6 +3273,18 @@ function toCurrentGeneratedAttachment(value: unknown): DynamicRecord | null {
   return isRecord(value) ? withCurrentAgentKeys(value, { ownerBotId: "ownerAgentId" }) : null;
 }
 
+/** What one stored message says about who started it, for the Hub connections (`hub-connections/turn-origin.ts`). */
+function senderOrigin(message: StoredMessage): HubDeliveryOrigin {
+  return {
+    sender: message.sender.kind,
+    messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
+    channel: message.channelId !== undefined,
+    memberId: message.senderMember?.id ?? null,
+    editorId: message.editorMemberId ?? null,
+    stamp: message.origin ?? null,
+  };
+}
+
 function setSenderMember(message: StoredMessage, sender: ConversationMessageSender | undefined): void {
   if (sender) message.senderMember = sender;
   else delete message.senderMember;
@@ -3359,8 +3352,7 @@ function isStoredState(value: unknown): value is StoredState {
     Array.isArray(value.reactions) &&
     value.reactions.every(isStoredReaction) &&
     (value.routineOrigins === undefined ||
-      (isRecord(value.routineOrigins) && Object.values(value.routineOrigins).every(isHubTurnOrigin))) &&
-    (value.routineOriginsSince === undefined || isString(value.routineOriginsSince))
+      (isRecord(value.routineOrigins) && Object.values(value.routineOrigins).every(isHubTurnOrigin)))
   );
 }
 

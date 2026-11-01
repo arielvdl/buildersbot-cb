@@ -288,8 +288,31 @@ export class RoutineScheduler implements RoutineDueSource {
     if (oldest !== undefined) this.#previewsBeforeRun.delete(oldest);
   }
 
-  duplicate(sourceAgentId: string, targetAgentId: string, now: Date): Map<string, Routine> {
-    return this.#routines.duplicate(sourceAgentId, targetAgentId, now);
+  /**
+   * Copies an agent's routines. `by` is the origin of who copies them: each copy keeps its source's
+   * Hub connection origin, narrowed to `routineOriginOf(by)`.
+   */
+  duplicate(sourceAgentId: string, targetAgentId: string, now: Date, by: HubTurnOrigin): Map<string, Routine> {
+    const copies = this.#routines.duplicate(sourceAgentId, targetAgentId, now);
+    this.#mailbox.copyRoutineOrigins(
+      new Map([...copies].map(([sourceId, copy]) => [sourceId, copy.id])),
+      routineOriginOf(by),
+    );
+    return copies;
+  }
+
+  /**
+   * Records who changed a saved routine. Only the person's own save of the whole text (`replaces`)
+   * sets a more open origin: a change of other fields, or any change by another origin, keeps the most
+   * closed of the recorded origin and the new one. So a change of a name or a schedule never opens a
+   * routine whose text someone else wrote.
+   */
+  #recordUpdate(routineId: string, by: HubTurnOrigin, replaces: boolean): void {
+    const saved = routineOriginOf(by);
+    this.#mailbox.setRoutineOrigin(
+      routineId,
+      by === "owner_ui" && replaces ? saved : narrowerOrigin(this.#mailbox.routineOrigin(routineId), saved),
+    );
   }
 
   skipMissed(now: Date, held?: RoutineHoldWindow): void {
@@ -336,7 +359,7 @@ export class RoutineScheduler implements RoutineDueSource {
             undefined,
             options.sideThreadId,
           );
-    if (options.origin) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(options.origin));
+    if (options.origin) this.#recordUpdate(routine.id, options.origin, input.instruction !== undefined);
     this.stateChanged(input.agentId);
     this.arm();
     return routine;
@@ -379,7 +402,9 @@ export class RoutineScheduler implements RoutineDueSource {
             (saved) => saved,
           )
         : this.#routines.saveRecord(agentId, routineId, input);
-    if (savedBy) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(savedBy));
+    // A saved record is whole: the text, and for a webhook the filters, are the saver's.
+    if (savedBy && routineId === undefined) this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(savedBy));
+    else if (savedBy) this.#recordUpdate(routine.id, savedBy, true);
     this.stateChanged(agentId);
     this.arm();
     return routine;
@@ -745,7 +770,8 @@ export class RoutineScheduler implements RoutineDueSource {
         ...webhookToolTrigger(args, current.trigger),
         ...(limitPolicy === undefined ? {} : { limitPolicy }),
       });
-      this.#mailbox.setRoutineOrigin(routine.id, routineOriginOf(origin));
+      // The filters choose which events run it, so only a new text and new filters replace the routine.
+      this.#recordUpdate(routine.id, origin, args.instruction !== undefined && args.filters !== undefined);
       const turnId = agentId === senderAgentId ? params.turnId : undefined;
       const recorded = this.#recordWebhookEvent(agentId, "updated", routine, turnId);
       return openBotToolResult(webhookRoutineToolResult(routine, recorded && turnId !== undefined, true));
@@ -1053,8 +1079,7 @@ export class RoutineScheduler implements RoutineDueSource {
     return yield* Effect.gen({ self: this }, function* () {
       yield* routineStep(validateRecipient);
       // The run gets the origin of who saved the routine (hub-connections/turn-origin.ts).
-      const savedAt = this.#routines.getRecord(run.agentId, run.routineId)?.updatedAt ?? null;
-      const origin = narrowerOrigin(this.#mailbox.routineOrigin(run.routineId, savedAt), narrowTo);
+      const origin = narrowerOrigin(this.#mailbox.routineOrigin(run.routineId), narrowTo);
       const receipt = yield* this.#mailbox
         .enqueue({
           sender: {

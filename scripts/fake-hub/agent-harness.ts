@@ -400,14 +400,18 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
     const before = readLog(log).filter((entry) => entry.kind === "result").length;
     const text = callsText(options.mark, calls);
     if (turnOptions.routine) {
-      const routine = agents.createRoutine({
-        agentId,
-        name: `Routine ${randomUUID().slice(0, 8)}`,
-        instruction: text,
-        active: false,
-        timezone: "UTC",
-        schedule: { kind: "daily", time: "09:00" },
-      });
+      // Saved as the person saves one in the app.
+      const routine = agents.createRoutine(
+        {
+          agentId,
+          name: `Routine ${randomUUID().slice(0, 8)}`,
+          instruction: text,
+          active: false,
+          timezone: "UTC",
+          schedule: { kind: "daily", time: "09:00" },
+        },
+        { origin: "owner_ui" },
+      );
       await runCauseEffect(agents.testRoutine({ agentId, routineId: routine.id }));
     } else {
       await runCauseEffect(agents.sendMessage({ agentId, text, attachmentDraftIds: [] }, turnOptions.member));

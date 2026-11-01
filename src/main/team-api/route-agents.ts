@@ -69,7 +69,12 @@ export interface AgentRouteDependencies {
   agents: TeamApiAgents;
   skills?: TeamApiOptions["skills"];
   sidebarLayout: Pick<TeamApiSidebarLayout, "getSnapshot" | "mutate" | "removeAgent" | "withProfileAssignment">;
-  duplicateAgent: (agentId: string, operationId: string) => Effect.Effect<DuplicateAgentResult, AgentDuplicationFailed>;
+  /** `memberId` is who copies the agent: the copied routines get at most the member's Hub connection origin. */
+  duplicateAgent: (
+    agentId: string,
+    operationId: string,
+    memberId: string,
+  ) => Effect.Effect<DuplicateAgentResult, AgentDuplicationFailed>;
 }
 
 export async function routeAgents(
@@ -249,7 +254,7 @@ export async function routeAgents(
     }
     if (method === "POST" && action === "duplicate") {
       const body = await readJson(request);
-      return json(201, await runCauseEffect(duplicateAgent(agentId, stringField(body, "operationId"))));
+      return json(201, await runCauseEffect(duplicateAgent(agentId, stringField(body, "operationId"), member.id)));
     }
     if (method === "DELETE" && !action) {
       if (!canAdministerServer(member.role))
