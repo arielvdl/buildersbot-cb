@@ -490,6 +490,7 @@ import type {
   SubmitSkillInput,
   UninstallSkillInput,
 } from "./ipc-skills";
+import type { CustomSound, NativeSoundPreview, SoundCenterState, SoundPlayReport, SoundPreference } from "./ipc-sounds";
 import type {
   CleanupCandidates,
   CleanupRemoval,
@@ -1529,6 +1530,22 @@ export const IPC_ENDPOINTS = {
     // system that has no such page.
     openSettings: request<undefined, void>()("notifications:open-settings"),
     opened: event<NotificationOpenedEvent>()("notifications:opened-event"),
+    // The sound center (`ipc-sounds.ts`). Main keeps the preference, the custom sound files and the
+    // Recent sounds list, and sends the state to each window when it changes.
+    getSounds: request<undefined, SoundCenterState>()("notifications:get-sounds"),
+    setSounds: request<SoundPreference, SoundCenterState>()("notifications:set-sounds"),
+    // A window tells main what it played or kept quiet, for Recent sounds. It names no message text.
+    reportSound: request<SoundPlayReport, void>()("notifications:report-sound"),
+    // Opens a file dialog. Main checks the type and the size, and copies the file into the app folder.
+    // Null: the person closed the dialog.
+    addCustomSound: request<undefined, CustomSound | null>()("notifications:add-custom-sound"),
+    // The bytes of a copied custom sound, by its id. Main reads only its own sound folder.
+    readCustomSound: request<string, Uint8Array>()("notifications:read-custom-sound"),
+    // The alert sound of the operating system.
+    playSystemSound: request<undefined, void>()("notifications:play-system-sound"),
+    // Shows a notification with a macOS sound, so the person hears a choice of a macOS notification.
+    previewNativeSound: request<NativeSoundPreview, void>()("notifications:preview-native-sound"),
+    soundsChanged: event<SoundCenterState>()("notifications:sounds-changed"),
   },
   agent: {
     getStatus: scopedQuery<AgentStatus>()("agent:get-status"),

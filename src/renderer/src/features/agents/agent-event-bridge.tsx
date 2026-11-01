@@ -111,6 +111,7 @@ export function AgentEventBridge() {
   };
   const playAgentEventSound = createAgentEventSounds(
     (agentId) => soundLevel() !== "nothing" && agentList().some((agent) => agent.id === agentId && agent.notifications),
+    (agentId) => agentList().find((agent) => agent.id === agentId)?.name ?? null,
   );
   let readRefresh = 0;
   let modelRefresh = 0;

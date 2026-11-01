@@ -88,6 +88,7 @@ export * from "./ipc-sidebar-layout";
 export * from "./ipc-sidebar-markers";
 export * from "./ipc-sidebar-section-icon";
 export * from "./ipc-skills";
+export * from "./ipc-sounds";
 export * from "./ipc-storage";
 export * from "./ipc-team-host";
 export * from "./ipc-vault";

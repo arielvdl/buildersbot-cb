@@ -34,6 +34,7 @@ export const messages = {
   "notification.machineAlert.body":
     "Passou do nível de alerta de {level}. Veja Configurações do servidor > Armazenamento.",
   "notification.test": "As notificações estão funcionando.",
+  "notification.soundPreview": "Este é o som que você escolheu.",
   "notification.welcome": "O Builders Bot avisará aqui quando um agente precisar de você.",
   "notification.toast.region": "Notificações",
   "notification.toast.close": "Fechar notificação",

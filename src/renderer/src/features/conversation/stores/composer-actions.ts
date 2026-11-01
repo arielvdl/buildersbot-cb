@@ -21,7 +21,7 @@ import {
   expandComposerMentions,
 } from "@openbot/ui/features/conversation/ComposerEditor";
 import { currentText } from "@openbot/ui/text";
-import { playActionSound } from "../../../action-sounds";
+import { playSound } from "../../../sound-center";
 import { claimDictatedSend, forgetDictatedMessage } from "../../speech/speech-replies";
 import { rememberAttachmentKinds } from "../attachment-analytics";
 import { type PastedComposerCopy, rememberComposerFile } from "../composer-clipboard";
@@ -800,7 +800,7 @@ export function createComposerActions(deps: ComposerActionsDeps) {
         pending.voiceRecordingDraftId ?? undefined,
       );
       if ("error" in result) {
-        playActionSound("error");
+        playSound("interface.actions", { cue: "error" });
         voice?.onFailed();
       } else {
         dictatedSent?.(result.messageId);

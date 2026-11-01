@@ -3,8 +3,7 @@ import { VOICE_LIMIT_WARNING_SECONDS } from "@openbot/ui/features/conversation/V
 import { currentText } from "@openbot/ui/text";
 import { onCleanup } from "solid-js";
 import { desktopAnalytics } from "../../../analytics";
-import { unlockCompletionSound } from "../../../completion-sound";
-import { playVoiceLimitStop, playVoiceLimitWarning } from "../../../voice-limit-sound";
+import { playSound, unlockSounds } from "../../../sound-center";
 import { appendVoiceTranscript, encodePcm16, recordingToSamples, recordingToWav } from "../../../voice-recording";
 import { forgetDictatedMessage, noteDictatedMessage, stopSpokenReply } from "../../speech/speech-replies";
 import { ensureMicrophoneAccess, microphoneBlockText } from "../../voice/microphone-access";
@@ -143,7 +142,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
     // The user speaks again: the reply that is read aloud stops.
     stopSpokenReply();
     // The limit cues play up to two minutes after this click, and audio starts surely only from one.
-    unlockCompletionSound();
+    unlockSounds();
     const target = { agentId, serverId };
     const destination = { ...target, threadKey };
     // The agent's own chat is covered by the thread, so a thread recording reports its errors there.
@@ -361,7 +360,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
   /** The recording reached the time limit: a chime says so, as the user may not look at the screen. */
   function stopVoiceRecordingAtLimit(): void {
     if (deps.voicePhase() !== "recording" || !resources.voiceRecorder) return;
-    playVoiceLimitStop();
+    playSound("voice.limit-stop");
     stoppedAtLimit = true;
     stopVoiceRecording();
   }
@@ -601,7 +600,7 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
       deps.setVoiceElapsedSeconds(elapsed);
       if (!warned && elapsed >= VOICE_AUDIO_LIMITS.maximumSeconds - VOICE_LIMIT_WARNING_SECONDS) {
         warned = true;
-        playVoiceLimitWarning();
+        playSound("voice.limit-warning");
       }
     }, 250);
   }

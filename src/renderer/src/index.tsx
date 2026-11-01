@@ -3,11 +3,11 @@ import { render } from "@solidjs/web";
 // Copying a selection with a formula in it gives its LaTeX source, not the typeset glyphs twice.
 import "katex/contrib/copy-tex";
 import { App } from "./App";
-import { startActionSounds } from "./action-sounds";
 import { syncAppearance } from "./appearance-choice";
 import { removeStaleReportQueue } from "./error-reports";
 import { readChatWindowTarget } from "./features/window/chat-window";
 import { syncLogoColor } from "./logo-color";
+import { startSoundCenter } from "./sound-center";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -21,7 +21,7 @@ performance.mark("openbot:renderer-start");
 installPointerFocusGuard();
 syncAppearance({ windowGlass: true });
 syncLogoColor();
-startActionSounds();
+void startSoundCenter();
 removeStaleReportQueue();
 
 // `App` must stay a static import. Main sends the first runtime snapshot on `did-finish-load`,
