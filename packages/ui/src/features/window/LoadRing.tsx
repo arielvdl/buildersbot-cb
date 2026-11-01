@@ -72,8 +72,11 @@ export interface LoadRailProps {
   onAgentLimitChange: (preference: AgentLimitPreference) => void;
   /** The task reviewer: its switch and its threshold. */
   onTaskWatchChange: (preference: TaskWatchPreference) => void;
-  /** Opens the page of the task reviewer in Settings. Absent where the window has no Settings. */
-  onOpenTaskReviewerSettings?: (() => void) | undefined;
+  /**
+   * Opens the page of the task reviewer in Settings. Absent where the window has no Settings. `ring` is
+   * the button of the ring: the panel closes, so the ring takes the focus back when Settings closes.
+   */
+  onOpenTaskReviewerSettings?: ((ring: HTMLElement | null) => void) | undefined;
 }
 
 /**
@@ -120,10 +123,18 @@ export function LoadRing(props: LoadRailProps) {
       ? t("app.rail.load.summary", { agents: agentsText(), stopped: stopped(), used: used.used, total: used.total })
       : t("app.rail.load.summaryQuiet", { agents: agentsText(), used: used.used, total: used.total });
   };
+  let ring: HTMLElement | undefined;
+  const openTaskReviewerSettings = () => {
+    const open = props.onOpenTaskReviewerSettings;
+    return open ? () => open(ring ?? null) : undefined;
+  };
   return (
     <Popover.Root placement="right-end" gutter={8} open={props.open} onOpenChange={props.onOpenChange}>
       <Popover.Trigger
         as={Button}
+        ref={(element: HTMLElement) => {
+          ring = element;
+        }}
         variant="ghost"
         type="button"
         class="window-rail-button window-rail-usage window-rail-load"
@@ -165,14 +176,20 @@ export function LoadRing(props: LoadRailProps) {
       <Popover.Portal>
         <Popover.Content class="ui-popover-menu-surface window-rail-load-panel">
           <Popover.Title class="account-usage-popover-title">{t("app.rail.load.title")}</Popover.Title>
-          <Show when={props.snapshot}>{(snapshot) => <LoadPanel {...props} snapshot={snapshot()} />}</Show>
+          <Show when={props.snapshot}>
+            {(snapshot) => (
+              <LoadPanel {...props} snapshot={snapshot()} openTaskReviewerSettings={openTaskReviewerSettings()} />
+            )}
+          </Show>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
   );
 }
 
-function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
+function LoadPanel(
+  props: LoadRailProps & { snapshot: LoadSnapshot; openTaskReviewerSettings: (() => void) | undefined },
+) {
   const { t } = useText();
   const memory = () => props.snapshot.memory;
   const rows = () => loadLaneRows(props.snapshot);
@@ -345,7 +362,7 @@ function LoadPanel(props: LoadRailProps & { snapshot: LoadSnapshot }) {
         recent={loadRecentEvents(props.snapshot)}
         onChange={props.onRecoveryChange}
         onTaskWatchChange={props.onTaskWatchChange}
-        onOpenTaskReviewerSettings={props.onOpenTaskReviewerSettings}
+        onOpenTaskReviewerSettings={props.openTaskReviewerSettings}
       />
     </div>
   );
@@ -612,7 +629,7 @@ function AgentLimitSettings(props: {
 
 /**
  * The switches and the interval of the automatic recovery, the task reviewer that looks only while it is
- * on, and what both did lately.
+ * on, and what both did lately. The switch of the task reviewer shows also while the recovery is off.
  */
 function RecoverySettings(props: {
   recovery: LoadSnapshot["recovery"];
@@ -667,33 +684,33 @@ function RecoverySettings(props: {
           label={t("app.rail.load.recoveryReassign")}
           description={t("app.rail.load.recoveryReassignHint")}
         />
-        <TaskWatchSettings
-          taskWatch={props.taskWatch}
-          onChange={props.onTaskWatchChange}
-          onOpenSettings={props.onOpenTaskReviewerSettings}
-        />
-        <Show when={props.recent.length > 0}>
-          <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
-          <ul class="window-rail-load-recent">
-            <For
-              each={props.recent}
-              keyed={(item) => `${item.by}:${item.event.at}:${item.event.action}:${item.event.channelName}`}
-            >
-              {(item) => {
-                const entry = item();
-                return entry.by === "recovery" ? (
-                  <li>{recoveryEventText(entry.event, t)}</li>
-                ) : (
-                  <li
-                    title={t(entry.event.by === "model" ? "app.rail.load.watchByModel" : "app.rail.load.watchByLocal")}
-                  >
-                    {taskWatchEventText(entry.event, t)}
-                  </li>
-                );
-              }}
-            </For>
-          </ul>
-        </Show>
+      </Show>
+      {/* Always shown: the switch says that it acts only with "Resume by itself" on, and the Settings
+          page can turn the reviewer on while "Resume by itself" is off. */}
+      <TaskWatchSettings
+        taskWatch={props.taskWatch}
+        onChange={props.onTaskWatchChange}
+        onOpenSettings={props.onOpenTaskReviewerSettings}
+      />
+      <Show when={props.recovery.enabled && props.recent.length > 0}>
+        <h3 class="window-rail-load-subhead">{t("app.rail.load.recoveryRecent")}</h3>
+        <ul class="window-rail-load-recent">
+          <For
+            each={props.recent}
+            keyed={(item) => `${item.by}:${item.event.at}:${item.event.action}:${item.event.channelName}`}
+          >
+            {(item) => {
+              const entry = item();
+              return entry.by === "recovery" ? (
+                <li>{recoveryEventText(entry.event, t)}</li>
+              ) : (
+                <li title={t(entry.event.by === "model" ? "app.rail.load.watchByModel" : "app.rail.load.watchByLocal")}>
+                  {taskWatchEventText(entry.event, t)}
+                </li>
+              );
+            }}
+          </For>
+        </ul>
       </Show>
     </section>
   );

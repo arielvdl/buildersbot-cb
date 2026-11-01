@@ -113,9 +113,10 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
                 onRecoveryChange: (preference) => void load.setRecovery(preference),
                 onAgentLimitChange: (preference) => void load.setAgentLimit(preference),
                 onTaskWatchChange: (preference) => void load.setTaskWatch(preference),
-                onOpenTaskReviewerSettings: () => {
+                // The button in the panel goes away with the panel, so the ring takes the focus back.
+                onOpenTaskReviewerSettings: (ring) => {
                   load.setPanelOpen(false);
-                  openAppSettings(null, "task-reviewer");
+                  openAppSettings(ring, "task-reviewer");
                 },
               }
             : undefined
