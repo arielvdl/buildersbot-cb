@@ -6,13 +6,20 @@
 //    rule of the siren uses them at all; and a `prefers-reduced-motion: reduce` block exists.
 // 2. The stories in Storybook, with the real components and CSS, in a headless browser:
 //    - each siren runs three animations at most, and they animate only `transform` and `opacity`;
-//    - a siren that turns causes no style recalculation, no layout and no paint on the main thread, on a
-//      page with only the rendered siren and the real stylesheets;
+//    - on a page with only the rendered siren and the real stylesheets, a siren that turns causes no
+//      style recalculation, no layout and no paint on the main thread; next to an animation that the
+//      main thread draws on each frame (a conversation that changes), it adds no layout and no style
+//      recalculation to the ones of that animation alone;
 //    - with reduced motion nothing animates; a hidden document pauses every animation;
-//    - the card of a Guard question shows the compact siren, at the alarm, hidden from screen readers;
-//    - the Guard page shows the siren at the top, follows the level list (Light, Off, Light) and says
-//      the state in text; the text has a contrast of at least 4.5 (3 for the large level name) in
-//      the dark and the light theme.
+//    - the card of a Guard question shows the compact siren, which turns, hidden from screen readers;
+//    - the Guard page shows the siren at the top and the level cards under it. A card sets the level
+//      (Off), the level list follows, and the list sets it back (Light) while the cards follow; the
+//      arrow keys move between the levels that can be chosen; the stricter levels cannot be chosen.
+//      The page says the state in text, with a contrast of at least 4.5 (3 for the large level name)
+//      in the dark and the light theme;
+//    - while the page reads the Guard, it names no level and the cards cannot be chosen;
+//    - a question of the Guard sounds the alarm of the page, but not a question of a joined server.
+// The checks read the text, the state of the controls and the animations, not the markup.
 // Pass the URL that `bun run storybook` reports:
 //
 //   bun scripts/guard-siren-e2e.ts --storybook=http://localhost:6006 [--css=<path>] [--browser-executable=<path>]
@@ -40,17 +47,13 @@ interface Report {
   css: { path: string; keyframes: string[]; animatedRules: string[]; passed: boolean };
   stories: {
     animations: { sirens: number; perSiren: number[]; properties: string[] } | null;
-    cost: {
-      animations: number;
-      recalcStyle: number;
-      layout: number;
-      mainThreadPaint: number;
-      advancedMs: number;
-    } | null;
+    cost: { alone: CostSample; control: CostSample; withControl: CostSample } | null;
     reducedMotion: { animations: number; beamsShown: number } | null;
     hidden: { paused: string[]; resumed: string[] } | null;
-    card: { mode: string; animations: number; ariaHidden: string | null; title: string } | null;
+    card: { animations: number; ariaHidden: string | null; title: string } | null;
     page: { theme: Theme; locale: Locale; steps: string[]; contrast: { level: number; status: number } }[];
+    loading: { status: string; levelNames: string[]; disabledRadios: number; checkedRadios: number } | null;
+    asking: { story: string; status: string; animations: number }[];
   };
   screenshots: string[];
   errors: string[];
@@ -58,9 +61,26 @@ interface Report {
   passed: boolean;
 }
 
+interface CostSample {
+  animations: number;
+  recalcStyle: number;
+  layout: number;
+  mainThreadPaint: number;
+  advancedMs: number;
+}
+
 const report: Report = {
   css: { path: cssPath, keyframes: [], animatedRules: [], passed: false },
-  stories: { animations: null, cost: null, reducedMotion: null, hidden: null, card: null, page: [] },
+  stories: {
+    animations: null,
+    cost: null,
+    reducedMotion: null,
+    hidden: null,
+    card: null,
+    page: [],
+    loading: null,
+    asking: [],
+  },
   screenshots: [],
   errors: [],
   failures: [],
@@ -176,6 +196,8 @@ async function openStory(
     width?: number;
     height?: number;
     args?: string;
+    /** Text that shows when the story is ready. Without it, the story is ready when a siren shows. */
+    waitFor?: string;
   } = {},
 ): Promise<{ context: BrowserContext; page: Page }> {
   const context = await browser.newContext({
@@ -192,7 +214,9 @@ async function openStory(
     waitUntil: "domcontentloaded",
     timeout: 300_000,
   });
-  await page.locator(".guard-siren").first().waitFor({ timeout: 240_000 });
+  await (options.waitFor ? page.getByText(options.waitFor, { exact: true }) : page.locator(".guard-siren"))
+    .first()
+    .waitFor({ timeout: 240_000 });
   await page.evaluate(async () => {
     await Promise.all(document.getAnimations().map((animation) => animation.ready));
     await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
@@ -317,20 +341,31 @@ const STYLESHEETS = [
 ];
 
 /**
- * The cost of a siren that turns, on a page with only the siren: the markup that the story rendered
- * and the real stylesheets, so the work of Storybook does not count.
+ * An animation that the main thread draws on each frame, as a conversation does while its text
+ * arrives: a background color that changes. Without it, a page that does not change draws no frame
+ * on the main thread, and a part of the siren that makes each such frame lay out the page again costs
+ * nothing.
  */
-async function measureCost(browser: Browser, markup: string): Promise<void> {
+const CONTROL = `<div class="cost-control"></div><style>@keyframes cost-control { to { background-color: var(--openbot-guard-siren-red); } }
+.cost-control { width: 40px; height: 40px; background: var(--openbot-bg-surface); animation: cost-control 1s linear infinite alternate; }</style>`;
+
+/** Writes a page with the real stylesheets of the siren and `body`, so the work of Storybook does not count. */
+function costPage(name: string, body: string): string {
   const links = STYLESHEETS.map(
     (path) => `<link rel="stylesheet" href="${pathToFileURL(resolve(ROOT, path)).href}" />`,
   );
-  const file = resolve(OUT, "cost.html");
+  const file = resolve(OUT, `${name}.html`);
   writeFileSync(
     file,
     `<!doctype html><html data-openbot-color-scheme="dark"><head><meta charset="utf-8" />${links.join("")}
 <style>body { margin: 0; padding: 24px; width: 760px; background: var(--openbot-bg-canvas); }</style></head>
-<body>${markup}</body></html>`,
+<body>${body}</body></html>`,
   );
+  return file;
+}
+
+/** The style recalculations, layouts and main thread paints of a page during a time window. */
+async function measureWindow(browser: Browser, file: string): Promise<CostSample> {
   const context = await browser.newContext({ viewport: { width: 820, height: 520 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
   page.on("pageerror", (error) => report.errors.push(`cost page: ${error.message}`));
@@ -365,23 +400,41 @@ async function measureCost(browser: Browser, markup: string): Promise<void> {
         event.name === "Paint" && event.ph !== "E" && threads.get(`${event.pid}:${event.tid}`) === "CrRendererMain",
     ).length;
     const delta = (name: string) => (after[name] ?? 0) - (before[name] ?? 0);
-    const animations = await page.evaluate(() => document.getAnimations().length);
-    report.stories.cost = {
-      animations,
+    return {
+      animations: await page.evaluate(() => document.getAnimations().length),
       recalcStyle: delta("RecalcStyleCount"),
       layout: delta("LayoutCount"),
       mainThreadPaint,
       advancedMs: Math.round(end - start),
     };
-    if (animations !== 3) fail(`The isolated asking siren runs ${animations} animations, not 3.`);
-    if (report.stories.cost.advancedMs < windowMs / 2)
-      fail(`The siren did not turn: ${report.stories.cost.advancedMs} ms.`);
-    if (report.stories.cost.recalcStyle !== 0)
-      fail(`The siren caused ${report.stories.cost.recalcStyle} style recalculations.`);
-    if (report.stories.cost.layout !== 0) fail(`The siren caused ${report.stories.cost.layout} layouts.`);
-    if (mainThreadPaint !== 0) fail(`The siren caused ${mainThreadPaint} paints on the main thread.`);
   } finally {
     await context.close();
+  }
+}
+
+/**
+ * The cost of a siren that turns: alone on a page, the control animation alone, and the two together.
+ * With the control, the siren may add no layout and no style recalculation; two frames of difference
+ * between the two windows are allowed.
+ */
+async function measureCost(browser: Browser, markup: string): Promise<void> {
+  const alone = await measureWindow(browser, costPage("cost", markup));
+  const control = await measureWindow(browser, costPage("cost-control", CONTROL));
+  const withControl = await measureWindow(browser, costPage("cost-with-control", `${markup}${CONTROL}`));
+  report.stories.cost = { alone, control, withControl };
+  if (alone.animations !== 3) fail(`The isolated asking siren runs ${alone.animations} animations, not 3.`);
+  if (alone.advancedMs < 1000) fail(`The siren did not turn: ${alone.advancedMs} ms.`);
+  if (alone.recalcStyle !== 0) fail(`The siren caused ${alone.recalcStyle} style recalculations.`);
+  if (alone.layout !== 0) fail(`The siren caused ${alone.layout} layouts.`);
+  if (alone.mainThreadPaint !== 0) fail(`The siren caused ${alone.mainThreadPaint} paints on the main thread.`);
+  if (control.recalcStyle < 30) fail(`The control drew ${control.recalcStyle} frames; the measure reads nothing.`);
+  if (withControl.layout > control.layout + 2) {
+    fail(`Next to the control, the siren caused ${withControl.layout} layouts, not ${control.layout}.`);
+  }
+  if (withControl.recalcStyle > control.recalcStyle + 2) {
+    fail(
+      `Next to the control, the siren caused ${withControl.recalcStyle} style recalculations, not ${control.recalcStyle}.`,
+    );
   }
 }
 
@@ -450,14 +503,13 @@ async function checkCard(browser: Browser): Promise<void> {
           return target ? (siren?.contains(target) ?? false) : false;
         });
         return {
-          mode: siren?.getAttribute("data-mode") ?? "missing",
           animations: animations.length,
           ariaHidden: siren?.getAttribute("aria-hidden") ?? null,
           title: document.querySelector(".approval-card-header strong")?.textContent ?? "",
         };
       });
       if (theme === "dark" && width === 760) report.stories.card = card;
-      if (card.mode !== "alarm") fail(`The siren of a Guard question is ${card.mode}, not the alarm.`);
+      // The alarm is the one mode with three animations: the beams, the reflector and the halo.
       if (card.animations !== 3) fail(`The siren of a Guard question runs ${card.animations} animations, not 3.`);
       if (card.ariaHidden !== "true") fail("The siren of a Guard question is not hidden from screen readers.");
       if (card.title !== "The Guard asks you to confirm") fail(`The card title is "${card.title}".`);
@@ -471,18 +523,34 @@ async function checkCard(browser: Browser): Promise<void> {
 
 const PAGE_TEXT = {
   en: {
+    siren: "The Guard's siren",
+    choose: "Choose the level",
     level: "Level",
+    names: ["Off", "Light", "Strict", "Very strict", "Custom"],
     light: "Light",
-    off: "Off (asleep)",
+    off: "Off",
+    offOption: "Off (asleep)",
+    later: ["Strict", "Very strict", "Custom"],
+    soon: "Soon",
+    loading: "Reading the state of the Guard…",
     signedOut: "Calm. Only the local check runs: you are not signed in to Cultura Builder.",
-    asleep: "Asleep. The Guard checks nothing.",
+    asleep: "Nothing is checked until you choose Light.",
+    asking: "Asking you now. Answer on the card in the conversation.",
   },
   pt: {
+    siren: "A sirene do Guarda",
+    choose: "Escolha o nível",
     level: "Nível",
+    names: ["Desligado", "Leve", "Exigente", "Muito exigente", "Personalizado"],
     light: "Leve",
-    off: "Desligado (dormindo)",
+    off: "Desligado",
+    offOption: "Desligado (dormindo)",
+    later: ["Exigente", "Muito exigente", "Personalizado"],
+    soon: "Em breve",
+    loading: "Lendo o estado do Guarda…",
     signedOut: "Calmo. Só a verificação local roda: você não entrou no Cultura Builder.",
-    asleep: "Dormindo. O Guarda não confere nada.",
+    asleep: "Nada é conferido até você escolher Leve.",
+    asking: "Perguntando a você agora. Responda no cartão da conversa.",
   },
 } as const;
 
@@ -525,6 +593,18 @@ async function chooseLevel(page: Page, levelName: string, option: string): Promi
   await page.locator("[data-popper-positioner]").waitFor({ state: "detached", timeout: 5_000 });
 }
 
+/** The text of the siren region, the level name and the state, as the catalog writes it (not in capitals). */
+async function sirenText(page: Page, locale: Locale): Promise<string> {
+  return (await page.getByRole("region", { name: PAGE_TEXT[locale].siren }).textContent()) ?? "";
+}
+
+/** Waits until the state of the siren region is `status`, and gives the text of the region. */
+async function waitForStatus(page: Page, locale: Locale, status: string): Promise<string> {
+  const region = page.getByRole("region", { name: PAGE_TEXT[locale].siren });
+  await region.getByRole("status").filter({ hasText: status }).waitFor({ timeout: 15_000 });
+  return sirenText(page, locale);
+}
+
 async function checkPage(browser: Browser): Promise<void> {
   for (const [theme, locale, width, height] of [
     ["dark", "pt", 1200, 820],
@@ -541,16 +621,19 @@ async function checkPage(browser: Browser): Promise<void> {
     });
     const steps: string[] = [];
     try {
-      const hero = page.locator(".guard-siren-hero");
-      await hero.waitFor({ timeout: 60_000 });
-      await page.waitForFunction(
-        (expected) => document.querySelector(".guard-siren-status")?.textContent === expected,
-        text.signedOut,
-        { timeout: 15_000 },
-      );
-      assert.equal(await hero.getAttribute("data-level"), "light", "The Guard page siren is not at Light.");
-      assert.equal(await page.locator(".guard-siren-hero .guard-siren").getAttribute("data-mode"), "calm");
-      steps.push("Light: calm siren, signed-out status");
+      const cards = page.getByRole("radiogroup", { name: text.choose });
+      const card = (name: string) => cards.getByRole("radio", { name, exact: true });
+      const levelList = page.locator(`.ui-select-trigger[aria-label="${text.level}"]`);
+      const light = await waitForStatus(page, locale, text.signedOut);
+      if (!light.includes(text.light)) fail(`${theme} ${locale}: the siren does not name ${text.light}: "${light}".`);
+      assert.equal(await card(text.light).isChecked(), true, "The Light card is not chosen.");
+      for (const name of text.later) {
+        if (!(await card(name).isDisabled())) fail(`${theme} ${locale}: the ${name} card can be chosen.`);
+        const ids = (await card(name).getAttribute("aria-describedby"))?.split(" ").filter(Boolean) ?? [];
+        const soon = (await Promise.all(ids.map((id) => page.locator(`[id="${id}"]`).innerText()))).join(" ");
+        if (soon !== text.soon) fail(`${theme} ${locale}: the ${name} card says "${soon}", not "${text.soon}".`);
+      }
+      steps.push("Light: the siren names Light, the Light card is chosen, the stricter cards say Soon");
       const contrast = {
         level: await textContrast(page, ".guard-siren-level"),
         status: await textContrast(page, ".guard-siren-status"),
@@ -559,31 +642,109 @@ async function checkPage(browser: Browser): Promise<void> {
       if (contrast.status < 4.5) fail(`${theme}: the status text has a contrast of ${contrast.status}.`);
       await screenshot(page, `page-light-${theme}-${locale}-${width}`);
 
-      await chooseLevel(page, text.level, text.off);
+      // A card sets the level, and the level list follows.
+      await cards.getByText(text.off, { exact: true }).click();
+      const off = await waitForStatus(page, locale, text.asleep);
+      if (!off.includes(text.off)) fail(`${theme} ${locale}: the siren does not name ${text.off}: "${off}".`);
       await page.waitForFunction(
-        (expected) =>
-          document.querySelector(".guard-siren-hero")?.getAttribute("data-level") === "off" &&
-          document.querySelector(".guard-siren-hero .guard-siren")?.getAttribute("data-mode") === "asleep" &&
-          document.querySelector(".guard-siren-status")?.textContent === expected,
-        text.asleep,
+        ({ label, option }) =>
+          document.querySelector(`.ui-select-trigger[aria-label="${label}"]`)?.textContent?.includes(option) ?? false,
+        { label: text.level, option: text.offOption },
         { timeout: 15_000 },
       );
-      steps.push("Off: asleep siren, asleep status");
-      // The siren goes down into the box: the screenshot waits for that motion to end.
+      assert.equal(await card(text.off).isChecked(), true, "The Off card is not chosen.");
+      steps.push("Off card: the siren says nothing is checked, the level list shows Off");
+      // The siren goes down into the box and the card lifts: the screenshot waits for those motions to end.
       await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
       await screenshot(page, `page-off-${theme}-${locale}-${width}`);
 
+      // The level list sets the level, and the cards follow.
       await chooseLevel(page, text.level, text.light);
-      await page.waitForFunction(
-        () => document.querySelector(".guard-siren-hero")?.getAttribute("data-level") === "light",
-        undefined,
-        { timeout: 15_000 },
-      );
-      steps.push("Light again");
+      await waitForStatus(page, locale, text.signedOut);
+      assert.equal(await card(text.light).isChecked(), true, "The Light card does not follow the level list.");
+      steps.push("Light from the level list: the Light card is chosen");
+
+      // The arrow keys move between the levels that can be chosen, and set the level.
+      await card(text.light).focus();
+      await page.keyboard.press("ArrowLeft");
+      await waitForStatus(page, locale, text.asleep);
+      await page.keyboard.press("ArrowRight");
+      await waitForStatus(page, locale, text.signedOut);
+      if (!(await levelList.innerText()).includes(text.light))
+        fail(`${theme} ${locale}: the list does not show Light.`);
+      steps.push("Arrow keys: Off, then Light");
       report.stories.page.push({ theme, locale, steps, contrast });
     } catch (error) {
       fail(`Guard page ${theme} ${locale} ${width}: ${error instanceof Error ? error.message : String(error)}`);
       await screenshot(page, `page-failure-${theme}-${locale}-${width}`).catch(() => undefined);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+/** Before main answers, the page names no level and the cards cannot be chosen. */
+async function checkLoading(browser: Browser): Promise<void> {
+  for (const locale of ["en", "pt"] as const) {
+    const text = PAGE_TEXT[locale];
+    const { context, page } = await openStory(browser, "settings-settingsmodal--guard-loading", {
+      locale,
+      waitFor: text.loading,
+    });
+    try {
+      const region = await sirenText(page, locale);
+      const levelNames = text.names.filter((name) => region.includes(name));
+      const radios = page.getByRole("radiogroup", { name: text.choose }).getByRole("radio");
+      let disabledRadios = 0;
+      let checkedRadios = 0;
+      for (const radio of await radios.all()) {
+        if (await radio.isDisabled()) disabledRadios += 1;
+        if (await radio.isChecked()) checkedRadios += 1;
+      }
+      if (locale === "en") {
+        report.stories.loading = { status: region, levelNames, disabledRadios, checkedRadios };
+        await screenshot(page, "page-loading-dark-en-1200");
+      }
+      if (levelNames.length > 0) fail(`${locale}: while it loads, the siren names ${levelNames.join(", ")}.`);
+      if (disabledRadios !== 5) fail(`${locale}: while it loads, ${5 - disabledRadios} level cards can be chosen.`);
+      if (checkedRadios !== 0) fail(`${locale}: while it loads, ${checkedRadios} level cards are chosen.`);
+    } catch (error) {
+      fail(`Guard page while it loads (${locale}): ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+/**
+ * A question of the Guard sounds the alarm of the page: the state says so and the siren turns. A
+ * question of a joined server does not: the page shows the Guard of this computer.
+ */
+async function checkAsking(browser: Browser): Promise<void> {
+  for (const [story, status, animations] of [
+    ["guard-asking", PAGE_TEXT.en.asking, 3],
+    ["guard-joined-server-asking", PAGE_TEXT.en.signedOut, 0],
+  ] as const) {
+    const { context, page } = await openStory(browser, `settings-settingsmodal--${story}`, { waitFor: status });
+    try {
+      const region = page.getByRole("region", { name: PAGE_TEXT.en.siren });
+      const shown = (await region.getByRole("status").innerText()).trim();
+      const turning = await region.evaluate(
+        (element) =>
+          document.getAnimations().filter((animation) => {
+            const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+            return target ? element.contains(target) && animation.effect?.getTiming().iterations === Infinity : false;
+          }).length,
+      );
+      report.stories.asking.push({ story, status: shown, animations: turning });
+      if (shown !== status) fail(`${story}: the siren says "${shown}", not "${status}".`);
+      if (turning !== animations) fail(`${story}: the siren runs ${turning} animations, not ${animations}.`);
+      if (story === "guard-asking") {
+        await freeze(page, 0.35);
+        await screenshot(page, "page-asking-dark-en-1200");
+      }
+    } catch (error) {
+      fail(`${story}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       await context.close();
     }
@@ -595,13 +756,14 @@ async function checkStories(): Promise<void> {
     browserExecutable ? { executablePath: resolve(browserExecutable), headless: true } : { headless: true },
   );
   try {
-    await checkLevels(browser);
-    await checkCost(browser);
-    await checkReducedMotion(browser);
-    await checkCard(browser);
-    await checkPage(browser);
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error));
+    // Each check runs also when one before it fails, so one run shows every failure.
+    for (const check of [checkLevels, checkCost, checkReducedMotion, checkCard, checkPage, checkLoading, checkAsking]) {
+      try {
+        await check(browser);
+      } catch (error) {
+        fail(`${check.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   } finally {
     await browser.close();
   }
