@@ -187,6 +187,12 @@ try {
   assert.equal(await nav.getByRole("button", { name: TEXT.en.name }).count(), 1);
   steps.push("in use: the curated list and the side panel show it, with its state");
 
+  // Paused by Cultura Builder with no spend yet: still installed, so the curated list keeps it.
+  await open(page, marketplace("connections-paused"));
+  await page.locator(".marketplace-app-row").first().waitFor();
+  assert.ok((await rowNames(page)).includes(TEXT.en.name), "a paused connection that the person has is hidden");
+  steps.push("paused with no spend: the curated list still shows it");
+
   // An organization profile names it: shown, also when it is not on.
   await open(page, marketplace("connections-profile"));
   await page.locator(".marketplace-app-row").first().waitFor();

@@ -66,14 +66,18 @@ export function shownAccess(view: HubConnectionView): HubConnectionAccessView | 
  * The status of a connection in the Apps list and on its page:
  * - `connected`: the person can use it, and its cap is not near the end.
  * - `attention`: in use, but something needs the person: 80 % or more of the cap, the cap reached, a
- *   payer to choose, a consent to give on the Hub, or a pause while it has spend in this period.
+ *   payer to choose, a consent to give on the Hub, or a pause of a connection that the person could
+ *   pay for or has spend in this period.
  * - `idle`: the organization did not turn it on for the person, and it has no spend in this period.
- * A connection that is not `idle` is in use, so the curated list always shows it.
+ * A connection that is not `idle` is in use (installed), so the curated list always shows it, also
+ * while the Hub pauses it.
  */
 export function connectionStatus(view: HubConnectionView): MarketplaceAppStatus {
   const charged = view.access.some((row) => row.settledMicros > 0 || row.reservedMicros > 0);
   const allowed = view.access.filter((row) => row.org === "enabled" && row.user === "allowed");
-  if (!view.enabled || allowed.length === 0) return charged ? "attention" : "idle";
+  // Paused by the Hub: installed (a row that can pay, or spend) needs the person; else it is idle.
+  if (!view.enabled) return charged || allowed.some((row) => row.consented) ? "attention" : "idle";
+  if (allowed.length === 0) return charged ? "attention" : "idle";
   if (!allowed.some((row) => row.consented)) return "attention";
   if (view.payer === "choose_org") return "attention";
   const row = shownAccess(view);

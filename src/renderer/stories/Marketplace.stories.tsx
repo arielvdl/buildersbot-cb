@@ -901,6 +901,12 @@ export const ConnectionsInUse: Story = {
   beforeEach: before({ kind: "signed-out" }),
 };
 
+/** Cultura Builder paused the tool catalog, and the person spent nothing yet: installed, so still listed. */
+export const ConnectionsPaused: Story = {
+  args: curatedApps({ connection: "pausedUnused" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
 export const ConnectionsInUseNarrow: Story = {
   ...ConnectionsInUse,
   parameters: { viewport: { defaultViewport: "marketplaceNarrow" } },

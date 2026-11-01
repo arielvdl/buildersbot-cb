@@ -7,7 +7,15 @@ import type {
 } from "@openbot/contracts/ipc";
 
 /** The states of the tool catalog that the preview and the stories show. */
-export type StoryConnectionState = "ok" | "warning" | "reached" | "notEnabled" | "choose" | "paused" | "consent";
+export type StoryConnectionState =
+  | "ok"
+  | "warning"
+  | "reached"
+  | "notEnabled"
+  | "choose"
+  | "paused"
+  | "pausedUnused"
+  | "consent";
 
 const TEXT = {
   en: {
@@ -76,11 +84,14 @@ export function storyToolCatalogView(state: StoryConnectionState, locale: "en" |
           ? [empresaA, accessRow("org_b", "Empresa B", 0, {}, locale)]
           : state === "paused"
             ? [accessRow("org_a", "Empresa A", spent, { org: "paused" }, locale)]
-            : [empresaA];
+            : // The Hub paused it for everyone, and the person spent nothing yet this month.
+              state === "pausedUnused"
+              ? [accessRow("org_a", "Empresa A", 0, {}, locale)]
+              : [empresaA];
   const payer =
     state === "choose"
       ? "choose_org"
-      : state === "notEnabled" || state === "paused" || state === "consent"
+      : state === "notEnabled" || state === "paused" || state === "pausedUnused" || state === "consent"
         ? "none"
         : "pay";
   return {
@@ -94,7 +105,7 @@ export function storyToolCatalogView(state: StoryConnectionState, locale: "en" |
     access,
     payer,
     payerOrgId: payer === "pay" ? "org_a" : null,
-    enabled: state !== "paused",
+    enabled: state !== "paused" && state !== "pausedUnused",
   };
 }
 
