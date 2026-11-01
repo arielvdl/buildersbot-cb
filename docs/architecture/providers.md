@@ -241,22 +241,33 @@ The inline section shows these parts, from top to bottom:
 1. The providers that can run now, by name. The agent's own provider is always there.
 2. The version line of the chosen provider, its runtime message and the button for it (Download,
    Connect, Retry or Cancel).
-3. The models of the chosen provider. The search shows only for a list of 9 or more models. A very
-   long catalog scrolls in a box of `min(360px, 45dvh)`.
+3. The models of the chosen provider. The search shows only for a list of 9 or more models. Enter in
+   the search chooses the first model found and does not send the form. A very long catalog scrolls
+   in a box of `min(360px, 45dvh)`. When the provider no longer lists the agent's model, that model
+   shows first, chosen, with "Not listed".
 4. The reasoning effort as segments on a line of their own, and the default effort of the model.
 5. "Other providers": the providers to download, to sign in to, or that Builders Bot still checks.
    They are under one toggle, each with its state and its button. A provider moves up when it can
    run. An empty Custom tab is not listed.
 
 The row shows the provider mark, the model and the effort. Escape closes the section only, not the
-dialog, and gives the focus back to the row. A press outside does not close the section: the next
-fields would move, and the press would end on another control. When the section opens or grows,
-the picker scrolls only its nearest scroll container (`revealInScrollParent`). `scrollIntoView`
-also scrolls an ancestor that clips its overflow, such as the frame of a dialog.
+dialog, and gives the focus back to the row. A second Escape closes the dialog. A press outside does
+not close the section: the next fields would move, and the press would end on another control.
+
+When the section opens, the picker scrolls only its nearest scroll container
+(`revealInScrollParent`). `scrollIntoView` also scrolls an ancestor that clips its overflow, such as
+the frame of a dialog. When the section grows, as when the provider check answers, the picker
+scrolls again only while the row or the focus in the section shows. A person who went on to the
+next fields stays there. When a provider of "Other providers" can run, its row leaves the list. If
+the focus was in that row, it goes to the new tab of the provider.
+
+The new-agent dialog starts at the top of the window, not in the middle. It grows down when the
+section opens, so the row stays under the pointer.
 
 `scripts/agent-model-picker-e2e.ts` checks the dialog and the stories in Storybook. It uses window
 sizes with interface sizes of 100, 110 and 130 percent, English and Portuguese, light and dark. It
-also checks the popover of the other places that use the picker.
+also opens, in the app of the preview, the popover of the composer, of the agent settings and of a
+new agent from the sidebar.
 
 ## Provider CLI updates
 
