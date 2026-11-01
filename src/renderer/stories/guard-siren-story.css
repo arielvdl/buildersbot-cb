@@ -1,0 +1,34 @@
+.guard-siren-story-narrow {
+  width: 320px;
+  max-width: 100%;
+}
+
+.guard-siren-story-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--openbot-space-4);
+}
+
+/* Each cell is a small stage: the beams stop at its edge, as on the Guard page. */
+.guard-siren-story-cell {
+  display: grid;
+  margin: 0;
+  overflow: hidden;
+  place-items: center;
+  gap: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  padding: var(--openbot-space-3);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.guard-siren-story-siren {
+  --guard-siren-size: 150px;
+}
+
+.guard-siren-story-row {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-4);
+}

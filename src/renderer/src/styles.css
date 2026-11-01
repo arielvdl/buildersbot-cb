@@ -51,6 +51,7 @@
 @import "@openbot/ui/features/files/files.css";
 @import "@openbot/ui/features/import/agent-import.css";
 @import "@openbot/ui/features/transfer/instance-transfer.css";
+@import "@openbot/ui/features/guard/guard-siren.css";
 @import "@openbot/ui/features/settings/settings-modal.css";
 @import "./features/settings/settings-modal.css";
 @import "@openbot/ui/features/window/page-rail.css";

@@ -290,6 +290,8 @@
     "./features/diagrams/diagram-model": "./src/features/diagrams/diagram-model.ts",
     "./features/diagrams/diagram-text": "./src/features/diagrams/diagram-text.ts",
     "./features/diagrams/diagrams.css": "./src/features/diagrams/diagrams.css",
+    "./features/guard/GuardSiren": "./src/features/guard/GuardSiren.tsx",
+    "./features/guard/guard-siren.css": "./src/features/guard/guard-siren.css",
     "./features/workflows/workflow-model": "./src/features/workflows/workflow-model.ts",
     "./features/workflows/workflow-run-view": "./src/features/workflows/workflow-run-view.ts",
     "./features/workflows/workflow-board": "./src/features/workflows/workflow-board.tsx",

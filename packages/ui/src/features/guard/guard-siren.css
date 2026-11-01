@@ -1,0 +1,345 @@
+/* The Guard's siren (GuardSiren.tsx): the box of the Guard with a dome on its lid, a reflector that
+   turns inside the dome, and two beams that sweep round it. It is the P1 "giroflex" of the Guard
+   mockups.
+
+   Only `transform` and `opacity` move, and only three parts: the beams (one turning layer that holds
+   both), the reflector and the halo. No part uses `filter`, a shadow or `backdrop-filter`: a glow is a
+   gradient or a shape at a low opacity. Each rule that moves something is in the
+   `prefers-reduced-motion: no-preference` block, and reads `--guard-siren-play`, which is `paused`
+   while the document is hidden or the owner stops the siren. With reduced motion the beams go and the
+   dome keeps its light. `scripts/guard-siren-e2e.ts` checks these rules in a headless browser. */
+.guard-siren {
+  --guard-siren-size: 200px;
+  --guard-siren-color: var(--openbot-guard-siren-glass);
+  --guard-siren-beam-length: calc(var(--guard-siren-size) * 2.6);
+  /* One turn of the beams and one sweep of the reflector. */
+  --guard-siren-turn: 2.6s;
+  --guard-siren-sweep: 1.3s;
+
+  position: relative;
+  width: var(--guard-siren-size);
+  height: var(--guard-siren-size);
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.guard-siren[data-mode="watch"] {
+  --guard-siren-color: var(--openbot-guard-siren-amber);
+}
+
+/* The alarm turns at 1.15 s: two beams pass less than twice per second. */
+.guard-siren[data-mode="alarm"] {
+  --guard-siren-color: var(--openbot-guard-siren-red);
+  --guard-siren-turn: 1.15s;
+  --guard-siren-sweep: 0.575s;
+}
+
+.guard-siren-box,
+.guard-siren-lamp {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The beams turn round the middle of the dome when it is up: 22.5% down the box. */
+.guard-siren-beams {
+  position: absolute;
+  left: 50%;
+  top: 22.5%;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: opacity var(--openbot-duration-overlay) var(--openbot-ease-out);
+}
+
+.guard-siren-beam {
+  position: absolute;
+  left: 0;
+  top: calc(var(--guard-siren-beam-length) * -0.17);
+  width: var(--guard-siren-beam-length);
+  height: calc(var(--guard-siren-beam-length) * 0.34);
+  transform-origin: 0 50%;
+  clip-path: polygon(0 47%, 100% 0, 100% 100%, 0 53%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--guard-siren-color) 70%, transparent), transparent 85%);
+}
+
+.guard-siren-beam + .guard-siren-beam {
+  transform: rotate(180deg);
+}
+
+.guard-siren[data-mode="watch"] .guard-siren-beams {
+  opacity: 0.45;
+}
+
+.guard-siren[data-mode="alarm"] .guard-siren-beams {
+  opacity: 0.75;
+}
+
+/* The light on the floor under the box. */
+.guard-siren-floor {
+  position: absolute;
+  left: 50%;
+  top: 86%;
+  width: 130%;
+  height: 26%;
+  transform: translate(-50%, -50%);
+  border-radius: var(--openbot-radius-pill);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--guard-siren-color) 45%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity var(--openbot-duration-overlay) var(--openbot-ease-out);
+}
+
+.guard-siren[data-mode="watch"] .guard-siren-floor {
+  opacity: 0.5;
+}
+
+.guard-siren[data-mode="alarm"] .guard-siren-floor {
+  opacity: 0.85;
+}
+
+/* The siren comes up out of the lid. Off, it is down in the box and cannot be seen. */
+.guard-siren-rise {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition:
+    transform var(--openbot-duration-overlay) var(--openbot-ease-out),
+    opacity var(--openbot-duration-overlay) var(--openbot-ease-out);
+}
+
+.guard-siren[data-mode="asleep"] .guard-siren-rise {
+  transform: translateY(24px) scale(0.25);
+  opacity: 0;
+}
+
+.guard-siren:is([data-mode="calm"], [data-mode="neutral"]) .guard-siren-rise {
+  transform: translateY(8px) scale(0.76);
+}
+
+.guard-siren-halo {
+  fill: var(--guard-siren-color);
+  opacity: 0;
+}
+
+.guard-siren[data-mode="watch"] .guard-siren-halo {
+  opacity: 0.22;
+}
+
+.guard-siren[data-mode="alarm"] .guard-siren-halo {
+  opacity: 0.36;
+}
+
+.guard-siren-socket {
+  fill: var(--openbot-guard-siren-socket);
+  stroke: color-mix(in oklab, var(--openbot-guard-siren-glint) 18%, transparent);
+  stroke-width: 1.2;
+}
+
+.guard-siren-collar {
+  fill: var(--openbot-guard-siren-metal);
+  stroke: var(--openbot-guard-siren-metal-edge);
+  stroke-width: 1.2;
+}
+
+.guard-siren-dome {
+  fill: var(--guard-siren-color);
+  fill-opacity: 0.62;
+  stroke: color-mix(in oklab, var(--guard-siren-color) 55%, var(--openbot-guard-siren-socket));
+  stroke-width: 1.6;
+}
+
+/* A siren that is off is dark glass. */
+.guard-siren:is([data-mode="calm"], [data-mode="neutral"]) .guard-siren-dome {
+  fill-opacity: 0.38;
+}
+
+.guard-siren-reflector {
+  fill: var(--openbot-guard-siren-glint);
+  opacity: 0.85;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.guard-siren:is([data-mode="calm"], [data-mode="neutral"]) .guard-siren-reflector {
+  opacity: 0.22;
+}
+
+.guard-siren-glint {
+  fill: none;
+  stroke: var(--openbot-guard-siren-glint);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.guard-siren-cap {
+  fill: var(--openbot-guard-siren-metal);
+}
+
+/* The compact siren fits the header of a card: a disc that the beams sweep inside. */
+.guard-siren[data-size="compact"] {
+  --guard-siren-size: 48px;
+  --guard-siren-beam-length: var(--guard-siren-size);
+
+  overflow: hidden;
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in oklab, var(--guard-siren-color) 14%, transparent);
+}
+
+/* The box and the siren fill more of the disc; the disc still holds every corner of the box. */
+.guard-siren[data-size="compact"] :is(.guard-siren-box, .guard-siren-lamp) {
+  transform: translateY(6%) scale(1.3);
+}
+
+/* The middle of the dome after that scale. */
+.guard-siren[data-size="compact"] .guard-siren-beams {
+  top: 20%;
+}
+
+.guard-siren[data-size="compact"] .guard-siren-floor {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-beams {
+    animation: guard-siren-turn var(--guard-siren-turn) linear infinite;
+    animation-play-state: var(--guard-siren-play, running);
+  }
+
+  .guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-reflector {
+    animation: guard-siren-sweep var(--guard-siren-sweep) linear infinite;
+    animation-play-state: var(--guard-siren-play, running);
+  }
+
+  .guard-siren[data-mode="alarm"] .guard-siren-halo {
+    animation: guard-siren-throb var(--guard-siren-sweep) ease-in-out infinite alternate;
+    animation-play-state: var(--guard-siren-play, running);
+  }
+}
+
+/* Nothing turns: the beams go, and the dome and the floor keep their light. */
+@media (prefers-reduced-motion: reduce) {
+  .guard-siren-beams {
+    display: none;
+  }
+
+  .guard-siren-rise,
+  .guard-siren-beams,
+  .guard-siren-floor {
+    transition: none;
+  }
+
+  .guard-siren:is([data-mode="watch"], [data-mode="alarm"]) .guard-siren-reflector {
+    opacity: 0.7;
+  }
+}
+
+@keyframes guard-siren-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes guard-siren-sweep {
+  0% {
+    transform: translateX(-24px) scaleX(0.4);
+    opacity: 0.2;
+  }
+
+  50% {
+    transform: translateX(0) scaleX(1.25);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(24px) scaleX(0.4);
+    opacity: 0.2;
+  }
+}
+
+@keyframes guard-siren-throb {
+  from {
+    opacity: 0.22;
+  }
+
+  to {
+    opacity: 0.5;
+  }
+}
+
+/* The top of the Guard page: the siren on a stage that the beams sweep, the level and the state. */
+.guard-siren-hero {
+  --guard-siren-hero-tint: var(--openbot-guard-light);
+
+  display: grid;
+  gap: var(--openbot-space-3);
+  justify-items: center;
+  margin-bottom: var(--openbot-space-6);
+}
+
+/* A settings card, with the light of the level from below. The beams stop at its edge. */
+.guard-siren-stage {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: clamp(200px, 32vh, 280px);
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--openbot-radius-lg);
+  background:
+    radial-gradient(
+      ellipse at 50% 70%,
+      color-mix(in oklab, var(--guard-siren-hero-tint) 16%, transparent),
+      transparent 70%
+    ),
+    var(--openbot-bg-surface);
+}
+
+.guard-siren-hero .guard-siren {
+  --guard-siren-size: clamp(150px, 26vh, 210px);
+}
+
+.guard-siren-hero[data-level="off"] {
+  --guard-siren-hero-tint: var(--openbot-guard-off);
+}
+
+.guard-siren-hero[data-level="strict"] {
+  --guard-siren-hero-tint: var(--openbot-guard-strict);
+}
+
+.guard-siren-hero[data-level="very-strict"] {
+  --guard-siren-hero-tint: var(--openbot-guard-very-strict);
+}
+
+.guard-siren-hero[data-level="custom"] {
+  --guard-siren-hero-tint: var(--openbot-guard-custom);
+}
+
+.guard-siren-caption {
+  display: grid;
+  gap: var(--openbot-space-1);
+  justify-items: center;
+  max-width: 560px;
+  text-align: center;
+}
+
+/* The level, in the color of the box, mixed with the text color so it reads on both themes. */
+.guard-siren-level {
+  color: color-mix(in oklab, var(--guard-siren-hero-tint) 62%, var(--openbot-text-primary));
+  font-size: var(--openbot-text-xl);
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: var(--openbot-leading-xl);
+  text-transform: uppercase;
+}
+
+.guard-siren-status {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}

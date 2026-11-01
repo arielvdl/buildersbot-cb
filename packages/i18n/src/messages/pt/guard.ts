@@ -56,4 +56,12 @@ export const messages = {
     "{server} é outro servidor, com o próprio Guarda. Esta página muda só o Guarda deste computador: este app ainda não muda o de {server}.",
   "guard.loadFailed": "A configuração do Guarda não carregou.",
   "guard.saveFailed": "A configuração do Guarda não foi salva.",
+  "guard.siren.label": "A sirene do Guarda",
+  "guard.siren.status.loading": "Lendo o estado do Guarda…",
+  "guard.siren.status.off": "Dormindo. O Guarda não confere nada.",
+  "guard.siren.status.asking": "Perguntando a você agora. Responda no cartão da conversa.",
+  "guard.siren.status.localOnly": "Calmo. A verificação local lê tudo, e nada sai pela rede.",
+  "guard.siren.status.signedOut": "Calmo. Só a verificação local roda: você não entrou no Cultura Builder.",
+  "guard.siren.status.unavailable": "Calmo. Só a verificação local roda: o modelo de revisão não está disponível.",
+  "guard.siren.status.ready": "Calmo. A verificação local lê tudo, e o modelo revisa o que parece suspeito.",
 } as const satisfies PartialTranslation<typeof source>;
