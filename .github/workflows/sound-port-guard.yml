@@ -1,0 +1,45 @@
+name: Sound port guard
+
+# Every sound of the desktop app goes through the sound center, so that the person can find, change
+# and silence it in Settings › Notifications › Sounds (docs/architecture/sounds.md).
+# `scripts/sound-port-guard.ts` needs no build and no network, so it runs on each pull request and on
+# each push to the Builders Bot branches.
+on:
+  pull_request:
+  push:
+    branches: [builders-bot, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sound-port-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Sound port guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          install: ignore-scripts
+
+      - name: Check that no code makes a sound outside the sound center
+        run: bun scripts/sound-port-guard.ts
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sound-port-guard
+          path: .openbot-build/sound-port-guard/report.json
+          if-no-files-found: warn

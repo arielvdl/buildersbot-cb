@@ -63,8 +63,8 @@ mock. The separate web preview implements the browser runtime with that same moc
   pins (`openbot:rail-pins`). Settings opens a page with the desktop Profile tab
   (with Sign out), Preferences (the interface language and the completion sound), and a Billing
   button below the tabs. The server menu opens the Server settings page of the connected host.
-  This browser keeps both preferences, also before sign-in (`web-language-preference.ts`,
-  `completion-sound.ts`). A browser session is listed as Desktop, and it can disconnect any other
+  This browser keeps both preferences, also before sign-in (`web-language-preference.ts`, and the
+  sound center of [Sounds](architecture/sounds.md#preference-and-sync)). A browser session is listed as Desktop, and it can disconnect any other
   session of the account, as the desktop app can. Providers & permissions and app updates stay
   desktop only.
 - Sign-in credentials are cookie-only. The browser receives a short connection ticket for the
