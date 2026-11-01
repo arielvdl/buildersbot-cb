@@ -1221,7 +1221,10 @@ export async function createApplicationServices({
   // closes the idle provider threads when it is critical. A server has its own reading above.
   const macMemory =
     hostMemory === null && process.platform === "darwin"
-      ? new MacMemory({ onError: (message, error) => logger.warn(message, toLogValue(error)) })
+      ? new MacMemory({
+          onError: (message, error) => logger.warn(message, toLogValue(error)),
+          onLevelChange: (level, sample) => logger.info("The memory level of this Mac changed.", { level, ...sample }),
+        })
       : null;
   if (macMemory) {
     macMemory.start();

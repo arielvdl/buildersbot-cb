@@ -175,20 +175,29 @@ servers, filled the memory until macOS asked the person to close apps. `MacMemor
 (`src/backend/agent/memory-hold.ts`).
 
 - It runs only on macOS, and only when there is no server reading (`hostMemory` is null).
-- Every 10 s it reads the free percentage of `memory_pressure` and the used swap of
-  `sysctl vm.swapusage`. When macOS gives no free percentage, or a command fails, the level stays
-  as it was and the log gets one warning.
+- Every 10 s it reads the free percentage of `memory_pressure`, the used swap of
+  `sysctl vm.swapusage` and the kernel pressure level of `sysctl kern.memorystatus_vm_pressure_level`
+  (1 normal, 2 warn, 4 critical: the colours of the Memory Pressure graph of Activity Monitor). When
+  macOS gives no free percentage, or a command fails, the level stays as it was and the log gets one
+  warning. A macOS with no kernel level keeps the other rules. Each level change goes to the main
+  log ("The memory level of this Mac changed.", with the sample).
+- The free percentage alone missed a full Mac. On 1 November 2026 macOS showed its low-memory panel
+  ("Your system has run out of application memory") while the reading gave 35 to 44% free, 7 to 9.7
+  GB of swap and a kernel level of warn, so the level stayed `ok` and held nothing.
 
 | Level | When | What `MemoryHold` does |
 | --- | --- | --- |
-| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. A provider process, shared or a Workspace only agent's own, stops with its MCP servers at the second idle check in a row (60 s apart) that finds no turn on it, and only when nothing used it in the last 60 s (`ProviderHooks.memoryLow`, `LOW_MEMORY_IDLE_CHECKS`). It stops 1 to 2 minutes after its last turn, not 10. The next turn starts it again and resumes its sessions. Work that lives only in that process after its turn stops too, such as Codex background terminals, programs that an OpenCode command left running, and MCP servers for each folder. Claude keeps its process while a background task runs (`canReleaseProcess`). |
-| `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
+| `low` | Less than 14% free, or more than 6000 MB of swap with less than 25% free, or a kernel level of warn with more than 9000 MB of swap. | A new turn waits in the queue. Each held agent gets the notice `error.agent.lowMemoryDesktop` one time in each low period. A provider process, shared or a Workspace only agent's own, stops with its MCP servers at the second idle check in a row (60 s apart) that finds no turn on it, and only when nothing used it in the last 60 s (`ProviderHooks.memoryLow`, `LOW_MEMORY_IDLE_CHECKS`). It stops 1 to 2 minutes after its last turn, not 10. The next turn starts it again and resumes its sessions. Work that lives only in that process after its turn stops too, such as Codex background terminals, programs that an OpenCode command left running, and MCP servers for each folder. Claude keeps its process while a background task runs (`canReleaseProcess`). |
+| `critical` | Less than 8% free, or more than 9000 MB of swap with less than 15% free, or a kernel level of critical. | As `low`. Also, the provider threads with no turn close one time. They open again from their session. |
 | `ok` | Other times. | Turns start. The held agents start again. |
 
 A level goes up at once. It goes down only when the free percentage is 6 points above the
-threshold that it went past (`RECOVER_MARGIN_PERCENT`). The swap counts only together with little
-free memory, because macOS keeps the used swap high after the pressure stops. These numbers are a
-first guess. They are not tuned on other machines.
+threshold that it went past (`RECOVER_MARGIN_PERCENT`). The kernel rules have no margin, because the
+kernel level has its own; they end when the kernel level goes back to normal. The swap counts only
+together with little free memory or a kernel level of warn, because macOS keeps the used swap high
+after the pressure stops, and a busy Mac can stay at warn for hours with memory to spare. These
+numbers are a first guess. They are not tuned on other machines. `scripts/mac-memory-pressure-e2e.ts`
+checks the real reading on macOS and the samples of 1 November through `MemoryHold`.
 
 - Only this reading gives `ProviderHooks.memoryLow`. `ServerMemory` is `low` also because of its turn
   reservations, so a full server in normal use would stop its idle processes. It stops agent

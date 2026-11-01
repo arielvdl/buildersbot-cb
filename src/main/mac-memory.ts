@@ -19,9 +19,20 @@ const CRITICAL_SWAP_FREE_BELOW = 15;
 /** A level is left only this far past the threshold that entered it, so it does not flap. */
 const RECOVER_MARGIN_PERCENT = 6;
 
+/**
+ * The pressure level of the macOS kernel (`kern.memorystatus_vm_pressure_level`): 1, 2 or 4. It is the
+ * level of the Memory Pressure graph of Activity Monitor (green, yellow, red).
+ */
+export type MacKernelPressure = "normal" | "warn" | "critical";
+
 export interface MacMemorySample {
   freePercent: number;
   swapUsedMb: number;
+  /**
+   * Absent when macOS gave no level. The free percentage alone missed a full Mac: on 1 November 2026
+   * macOS showed its low-memory panel with 44% "free", 8.7 GB of swap and a kernel level of warn.
+   */
+  kernelPressure?: MacKernelPressure | null;
 }
 
 /** `System-wide memory free percentage: 82%` of `memory_pressure`, or null. */
@@ -38,15 +49,38 @@ export function parseSwapUsedMb(text: string): number | null {
   return Number.isFinite(value) ? Math.round(value) : null;
 }
 
+/** The value of `sysctl -n kern.memorystatus_vm_pressure_level`, or null. */
+export function parseKernelPressure(text: string): MacKernelPressure | null {
+  const value = text.trim();
+  if (value === "1") return "normal";
+  if (value === "2") return "warn";
+  if (value === "4") return "critical";
+  return null;
+}
+
 const ORDER: Record<HostMemoryLevel, number> = { ok: 0, low: 1, critical: 2 };
 
+/**
+ * The kernel rules. They have no margin: the kernel level has its own. A critical kernel level is
+ * critical. A warn level is low only with the swap of a full Mac, because a busy Mac can stay at warn
+ * for hours with memory to spare.
+ */
+function kernelLevel(sample: MacMemorySample): HostMemoryLevel {
+  if (sample.kernelPressure === "critical") return "critical";
+  if (sample.kernelPressure === "warn" && sample.swapUsedMb > CRITICAL_SWAP_MB) return "low";
+  return "ok";
+}
+
 function levelAt(sample: MacMemorySample, margin: number): HostMemoryLevel {
+  const kernel = kernelLevel(sample);
   if (
+    kernel === "critical" ||
     sample.freePercent < CRITICAL_BELOW + margin ||
     (sample.swapUsedMb > CRITICAL_SWAP_MB && sample.freePercent < CRITICAL_SWAP_FREE_BELOW + margin)
   )
     return "critical";
   if (
+    kernel === "low" ||
     sample.freePercent < LOW_BELOW + margin ||
     (sample.swapUsedMb > LOW_SWAP_MB && sample.freePercent < LOW_SWAP_FREE_BELOW + margin)
   )
@@ -72,19 +106,25 @@ function run(file: string, args: string[]): Promise<string> {
 
 /** Reads the memory of this Mac. Null when macOS gives no number, and the level then stays as it was. */
 export async function readMacMemory(): Promise<MacMemorySample | null> {
-  const [pressure, swap] = await Promise.all([
+  const [pressure, swap, kernel] = await Promise.all([
     run("/usr/bin/memory_pressure", []),
     run("/usr/sbin/sysctl", ["vm.swapusage"]),
+    // A macOS with no such name keeps the other two rules.
+    run("/usr/sbin/sysctl", ["-n", "kern.memorystatus_vm_pressure_level"]).catch(() => ""),
   ]);
   const freePercent = parseFreePercent(pressure);
   const swapUsedMb = parseSwapUsedMb(swap);
-  return freePercent === null ? null : { freePercent, swapUsedMb: swapUsedMb ?? 0 };
+  return freePercent === null
+    ? null
+    : { freePercent, swapUsedMb: swapUsedMb ?? 0, kernelPressure: parseKernelPressure(kernel) };
 }
 
 export interface MacMemoryOptions {
   read?: () => Promise<MacMemorySample | null>;
   /** Called one time when the memory cannot be read (the level then stays as it was). */
   onError: (message: string, error?: unknown) => void;
+  /** Called when the level changes, with the sample that changed it, so the log shows each hold. */
+  onLevelChange?: (level: HostMemoryLevel, sample: MacMemorySample) => void;
   intervalMs?: number;
 }
 
@@ -92,13 +132,16 @@ export interface MacMemoryOptions {
  * How much memory this Mac has left, for the agents. On a desktop nothing stopped a few agents, each
  * with its own MCP servers, from filling the memory until macOS asked for apps to be closed. This holds
  * a new turn while the memory is low, and at a critical level closes the idle provider threads, through
- * the same `MemoryHold` that a server uses. It reads macOS every 10 s and never throws.
+ * the same `MemoryHold` that a server uses. It reads macOS every 10 s and never throws. The free
+ * percentage of `memory_pressure` stays high while macOS compresses and swaps, so the kernel pressure
+ * level also counts (`kernelLevel`).
  */
 export class MacMemory implements HostMemory {
   readonly hostedPlan = false;
   readonly kind = "desktop" as const;
   readonly #read: () => Promise<MacMemorySample | null>;
   readonly #onError: MacMemoryOptions["onError"];
+  readonly #onLevelChange: MacMemoryOptions["onLevelChange"];
   readonly #intervalMs: number;
   readonly #listeners = new Set<() => void>();
   #level: HostMemoryLevel = "ok";
@@ -110,6 +153,7 @@ export class MacMemory implements HostMemory {
   constructor(options: MacMemoryOptions) {
     this.#read = options.read ?? readMacMemory;
     this.#onError = options.onError;
+    this.#onLevelChange = options.onLevelChange;
     this.#intervalMs = options.intervalMs ?? SAMPLE_INTERVAL_MS;
   }
 
@@ -174,7 +218,15 @@ export class MacMemory implements HostMemory {
       return;
     }
     this.#last = sample;
-    this.#level = classifyMacMemory(sample, this.#level);
+    const previous = this.#level;
+    this.#level = classifyMacMemory(sample, previous);
+    if (this.#level !== previous) {
+      try {
+        this.#onLevelChange?.(this.#level, sample);
+      } catch (error) {
+        this.#onError("A memory level listener failed.", error);
+      }
+    }
     for (const listener of [...this.#listeners]) {
       try {
         listener();
