@@ -16,6 +16,8 @@ import {
   GROK_BOT_EXPORT_URL,
   type PersonalVendorMcpNotice,
   parseSecurityGuardPreferenceChange,
+  type StartRetrySettings,
+  type StartRetryState,
   type UnreadableSecret,
 } from "@openbot/contracts/ipc";
 import { analyticsOnByDefault } from "@openbot/telemetry";
@@ -42,6 +44,7 @@ import { buildLoadSnapshot } from "../load-snapshot";
 import type { LogoColorService } from "../logo-color-service";
 import { MAC_PERMISSION_URLS } from "../mac-permission-urls";
 import { exportBuildersBotData, exportDiagnostics } from "../maintenance-service";
+import type { PreferenceStore } from "../preference-file";
 import { isTailscaleConnected } from "../private-network-detection";
 import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-preference-store";
 import type { RemoteSessionCache } from "../remote-session-cache";
@@ -75,6 +78,7 @@ import {
   parseResumeStoppedWorkInput,
   parseRunChannelNowInput,
   parseSetup,
+  parseStartRetrySettings,
   parseStoppedWorkBulkInput,
   parseStopWorkInput,
   parseTaskWatchPreference,
@@ -131,6 +135,8 @@ export interface AppIpcDependencies {
   autoRecovery: AutoRecoveryPreferenceStore;
   /** The task reviewer. Experimental and off until the person turns it on. */
   taskWatch: TaskWatchPreferenceStore;
+  /** What the app does when a provider does not start a turn. */
+  startRetry: PreferenceStore<StartRetrySettings>;
   agentLimit: AgentLimitPreferenceStore;
   workControl: WorkControl;
   agentDefaults: AgentDefaultsPreferenceStore;
@@ -172,6 +178,7 @@ export function appIpcHandlers({
   channelLane,
   autoRecovery,
   taskWatch,
+  startRetry,
   agentLimit,
   workControl,
   agentDefaults,
@@ -198,6 +205,10 @@ export function appIpcHandlers({
   resources,
   resumeOffer,
 }: AppIpcDependencies): Pick<IpcGroupHandlers, "app" | "maintenance"> {
+  // The stored settings, with the agents that run on a backup model now. Without the start retry of
+  // the backend, as in a test, the page reads the settings alone.
+  const startRetryState = (): StartRetryState =>
+    service.startRetryState() ?? { settings: startRetry.get(), breakers: [] };
   const loadSnapshot = () =>
     buildLoadSnapshot(
       resources.loadReading(),
@@ -280,6 +291,12 @@ export function appIpcHandlers({
       setTaskWatch: payloadHandler(parseTaskWatchPreference, async (parsed) => {
         await runCauseEffect(taskWatch.set(parsed));
         return loadSnapshot();
+      }),
+      // The backend reads the stored settings at each failed start, so a change applies to the next one.
+      getStartRetry: handler(() => startRetryState()),
+      setStartRetry: payloadHandler(parseStartRetrySettings, async (parsed) => {
+        await runCauseEffect(startRetry.set(parsed));
+        return startRetryState();
       }),
       getAgentLimit: handler(() => agentLimit.get()),
       // Off until the person turns it on. A changed cap tries each queue again, so a raised or removed

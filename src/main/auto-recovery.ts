@@ -112,6 +112,8 @@ export interface RecoveryRecord {
   gaveUp: boolean;
   /** It gave up at once: a resume cannot fix the task and no agent can take it. */
   needsYou?: boolean;
+  /** When the task reviewer acted on a failed start: one time for each action, until the record is forgotten. */
+  startActions?: number[];
 }
 
 /** One record of the ledger: the tries of a task, and when a look last saw it. */

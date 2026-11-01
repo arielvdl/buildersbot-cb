@@ -82,6 +82,7 @@ import type {
   LidAwakeStatus,
   ProviderRuntimeSnapshot,
   SpeechModelStatus,
+  StartRetrySettings,
   VoiceModelStatus,
   VoiceServerSettings,
   VoiceStreamTranscript,
@@ -285,6 +286,7 @@ import {
   findProgram,
   OPENCODE_CONFIG_PATH,
 } from "./playwright-broker-runtime";
+import type { PreferenceStore } from "./preference-file";
 import { PromptCacheTtlPreferenceStore } from "./prompt-cache-ttl-preference-store";
 import { ProviderAccountsHost } from "./provider-accounts-host";
 import { createProviderCliAppVersionStore } from "./provider-cli-app-version-store";
@@ -336,6 +338,12 @@ import { SkillMarketplaceService } from "./skill-marketplace-service";
 import { SLACK_DEV_CALLBACK_PATH, startSlackDevCallbackServer } from "./slack-dev-callback-server";
 import { SpeechPreferenceStore } from "./speech-preference-store";
 import { removeStaleTelemetryQueues } from "./stale-telemetry-queues";
+import {
+  createStartBreakerStore,
+  createStartRetryPreferenceStore,
+  START_BREAKERS_FILE,
+  START_RETRY_PREFERENCE_FILE,
+} from "./start-retry-preference-store";
 import { TASK_WATCH_JUDGE_TIMEOUT_MS, taskWatchJudge } from "./task-watch-judge";
 import {
   createTaskWatchHistoryStore,
@@ -649,6 +657,8 @@ export interface ApplicationServices {
   autoRecovery: AutoRecoveryPreferenceStore;
   /** The task reviewer of the load panel. Experimental and off until the person turns it on. */
   taskWatch: TaskWatchPreferenceStore;
+  /** What the app does when a provider does not start a turn: tries again, then a backup model. */
+  startRetry: PreferenceStore<StartRetrySettings>;
   /** The cap on the agents that run at the same time. Off until the person turns it on. */
   agentLimit: AgentLimitPreferenceStore;
   /** What runs and what stopped, and the automatic recovery of the stopped work. */
@@ -1393,6 +1403,8 @@ export async function createApplicationServices({
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
   const taskWatch = new TaskWatchPreferenceStore(join(app.getPath("userData"), TASK_WATCH_PREFERENCE_FILE));
   const taskWatchHistory = createTaskWatchHistoryStore(join(app.getPath("userData"), TASK_WATCH_HISTORY_FILE));
+  const startRetry = createStartRetryPreferenceStore(join(app.getPath("userData"), START_RETRY_PREFERENCE_FILE));
+  const startBreakers = createStartBreakerStore(join(app.getPath("userData"), START_BREAKERS_FILE));
   const agentLimit = new AgentLimitPreferenceStore(join(app.getPath("userData"), AGENT_LIMIT_PREFERENCE_FILE));
   // One Playwright server for every agent, and no browser started by Builders Bot. It starts the server
   // only when an agent first asks for the browser. `service` is read at that time, not now. Without its
@@ -1505,6 +1517,8 @@ export async function createApplicationServices({
       runCauseEffect(guardPreference.load()),
       runCauseEffect(taskWatch.load()),
       runCauseEffect(taskWatchHistory.load()),
+      runCauseEffect(startRetry.load()),
+      runCauseEffect(startBreakers.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -2109,6 +2123,17 @@ export async function createApplicationServices({
     busyMessageMode: () => busyMessageMode.get().mode,
     channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
+    startRetry: {
+      settings: () => startRetry.get(),
+      // The breakers stay after a restart. A write that fails loses only that copy.
+      breakers: {
+        read: () => startBreakers.get().breakers,
+        write: (breakers) =>
+          void Effect.runPromise(startBreakers.set({ breakers: [...breakers] })).catch((error: unknown) =>
+            logger.warn("The start retry breakers were not saved.", toLogValue(error)),
+          ),
+      },
+    },
     guard: () => guardPreference.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     memoryReviewInterval: () => memoryReview.get().interval,
@@ -3652,6 +3677,7 @@ export async function createApplicationServices({
     channelLane,
     autoRecovery,
     taskWatch,
+    startRetry,
     agentLimit,
     workControl,
     agentDefaults,

@@ -7,6 +7,7 @@
 import { Button, Dialog, ErrorReference, IconButton, X } from "@openbot/ui";
 import { SettingsPanel, SettingsPanelContent, SettingsPanelHeader } from "@openbot/ui/components/SettingsPanel";
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
+import { ChannelStartRetryNotice } from "@openbot/ui/features/channels/ChannelStartRetryNotice";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, createStore, createUniqueId, onSettled, Show } from "solid-js";
@@ -20,7 +21,7 @@ import { channelRoutinesPort, eventRoutinesPort } from "../conversation/routines
 import { ChannelEditor } from "./ChannelEditor";
 import { ChannelTabOverview } from "./ChannelTabOverview";
 import { ChannelTabsFor } from "./ChannelTabs";
-import { stoppedChannelTasks } from "./channel-conversation-rows";
+import { retryingChannelTasks, stoppedChannelTasks } from "./channel-conversation-rows";
 import { useChannels } from "./channels-context";
 
 /** Where the routines of a channel are kept, as for an agent. */
@@ -213,6 +214,7 @@ export function ChannelAboveComposer(props: { channelId: string }) {
     <Show when={page()}>
       {(current) => (
         <>
+          <ChannelStartRetryNotice tasks={retryingChannelTasks(current())} name={name} />
           <ChannelStoppedTasks
             tasks={stoppedChannelTasks(current())}
             members={current().channel.members}

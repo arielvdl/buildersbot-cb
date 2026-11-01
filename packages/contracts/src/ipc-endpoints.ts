@@ -490,6 +490,7 @@ import type {
   SubmitSkillInput,
   UninstallSkillInput,
 } from "./ipc-skills";
+import type { StartRetrySettings, StartRetryState } from "./ipc-start-retry";
 import type {
   CleanupCandidates,
   CleanupRemoval,
@@ -725,6 +726,9 @@ export const IPC_ENDPOINTS = {
     setAutoRecovery: request<AutoRecoveryPreference, LoadSnapshot>()("app:set-auto-recovery"),
     // The task reviewer (`ipc-load.ts`). Experimental and off until the person turns it on.
     setTaskWatch: request<TaskWatchPreference, LoadSnapshot>()("app:set-task-watch"),
+    // What the app does when a provider does not start a turn (`ipc-start-retry.ts`).
+    getStartRetry: request<undefined, StartRetryState>()("app:get-start-retry"),
+    setStartRetry: request<StartRetrySettings, StartRetryState>()("app:set-start-retry"),
     // The cap on the agents that run at the same time (`ipc-load.ts`). Off until the person turns it on.
     getAgentLimit: request<undefined, AgentLimitPreference>()("app:get-agent-limit"),
     setAgentLimit: request<AgentLimitPreference, LoadSnapshot>()("app:set-agent-limit"),

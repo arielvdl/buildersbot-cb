@@ -79,6 +79,7 @@ export const messages = {
   "error.agent.profileInvalid": "O provedor retornou um perfil inválido. Tente reformular seu pedido.",
   "error.agent.profileSectionUnavailable":
     "A seção gerada está indisponível. Tente novamente ou escolha uma seção manualmente.",
+  "error.agent.fallbackUnavailable": "O modelo de reserva deste agente não está pronto, então a tarefa não começou.",
   "error.agent.profileTimedOut": "O tempo para gerar o perfil esgotou. Tente novamente.",
   "error.agent.profileDisconnected": "O provedor se desconectou durante a geração do perfil.",
   "error.agent.profileToolUse": "O provedor tentou usar uma ferramenta. Tente reformular seu pedido.",

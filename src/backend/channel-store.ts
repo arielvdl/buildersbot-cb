@@ -15,7 +15,9 @@ import {
   decodeChannel,
   isChannelMessage,
   isChannelTask,
+  isStartRetryView,
   SIGNED_OUT_CHANNEL_MEMBER_ID,
+  type StartRetryView,
 } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
@@ -58,6 +60,33 @@ export interface ChannelAssignment {
   awaitedTaskIds: string[];
   pendingRevision: number | null;
   pendingOutcome: string | null;
+  /** The provider did not start it, and the drain tries again (`start-retry.ts`). Absent otherwise. */
+  startRetry?: StartRetryView;
+  /** Why its start failed after every try: the catalog key and the class, never the provider text. */
+  startFailure?: ChannelStartFailure;
+}
+
+/** The end of a start retry that did not start the assignment. */
+export interface ChannelStartFailure {
+  cause: string;
+  errorKey: string | null;
+  /** The starts that failed, on every model. */
+  attempts: number;
+  fallbackTried: boolean;
+}
+
+function isChannelStartFailure(value: unknown): value is ChannelStartFailure {
+  return (
+    isDynamicRecord(value) &&
+    isString(value.cause) &&
+    value.cause.length <= 64 &&
+    (value.errorKey === null || (isString(value.errorKey) && value.errorKey.length <= 200)) &&
+    typeof value.attempts === "number" &&
+    Number.isInteger(value.attempts) &&
+    value.attempts >= 0 &&
+    value.attempts <= 100 &&
+    typeof value.fallbackTried === "boolean"
+  );
 }
 
 export interface ChannelContext {
@@ -503,6 +532,27 @@ export class ChannelStore {
     });
   }
 
+  /**
+   * The tasks with the start retry of their assignment, for the screen: `startRetry` while the drain
+   * tries the start again, and `startAttempts` on a task whose start failed after its tries. Read from
+   * the assignments, so a task that changed since shows neither.
+   */
+  withStartRetries(channelId: string, tasks: ChannelTask[]): ChannelTask[] {
+    const assignments = this.assignments(channelId).filter(
+      (assignment) => assignment.startRetry !== undefined || assignment.startFailure !== undefined,
+    );
+    if (!assignments.length) return tasks;
+    return tasks.map((task) => {
+      const own = assignments.filter(
+        (assignment) => assignment.taskId === task.id && assignment.taskRevision === task.revision,
+      );
+      const retrying = task.state === "queued" ? own.find((assignment) => assignment.startRetry) : undefined;
+      if (retrying?.startRetry) return { ...task, startRetry: retrying.startRetry };
+      const failed = task.state === "failed" ? own.findLast((assignment) => assignment.state === "failed") : undefined;
+      return failed?.startFailure ? { ...task, startAttempts: failed.startFailure.attempts } : task;
+    });
+  }
+
   assignments(channelId: string): ChannelAssignment[] {
     return databaseRows(
       this.database.connection
@@ -598,7 +648,7 @@ export class ChannelStore {
     return {
       channel: this.get(channelId),
       topicId,
-      tasks: this.tasks(channelId, topicId),
+      tasks: this.withStartRetries(channelId, this.tasks(channelId, topicId)),
       messages,
       olderCursor,
       throughSequence: this.messages(channelId, topicId, undefined, 1)[0]?.sequence ?? 0,
@@ -1298,6 +1348,9 @@ function decodeAssignment(value: unknown): ChannelAssignment {
     deliveryId: value.deliveryId,
     turnId: value.turnId,
     state: value.state,
+    // A field that does not read is dropped, not the assignment: it only shows the retry.
+    ...(isStartRetryView(value.startRetry) ? { startRetry: value.startRetry } : {}),
+    ...(isChannelStartFailure(value.startFailure) ? { startFailure: value.startFailure } : {}),
   };
 }
 

@@ -133,6 +133,18 @@ never sends the conversation. With no sign-in, or with "Local check only", nothi
 computer. The Guard's log records verdicts, categories and times, never the content. The Guard sends
 nothing to the account service or analytics.
 
+## Start retry and backup models
+
+When a provider does not start a task, Builders Bot tries the same provider again a few times, then
+can run the task on a backup model: the agent's own backup model, or the default backup model of
+Settings, Agents, "Retries and backup model". The person chooses both; there is no backup model by
+default. When the backup model is of another provider or account, that provider receives the task,
+its conversation and its files, as when the person changes the agent's provider. The tries and the
+breakers that send an agent to its backup model are kept on this computer
+(`openbot-agent-start-breakers-v1.json` and the queue in SQLite) with ids, model names, counts and
+times only, never the text of a message. Nothing about them is sent to the account service or
+analytics.
+
 ## The task reviewer
 
 The task reviewer of the load panel is experimental and off by default. It watches channel tasks

@@ -92,7 +92,7 @@ export interface StoppedWork {
  * stopped it. `attention`: its agent waits for the person. `memory`: the Mac is low on memory.
  * `children`: tasks below it work. `plan`: its agent has a spent plan. For a request: `lane`, `slot`
  * (the cap on agents), `agent-busy`, `waits-for-work` (a dependency, a resource or another reason of the
- * drain).
+ * drain), `retrying` (the provider did not start it, and the app tries again: `start-retry.ts`).
  */
 export type TaskWatchHold =
   | "person"
@@ -103,7 +103,8 @@ export type TaskWatchHold =
   | "lane"
   | "slot"
   | "agent-busy"
-  | "waits-for-work";
+  | "waits-for-work"
+  | "retrying";
 
 const TASK_WATCH_HOLDS = [
   "person",
@@ -115,6 +116,7 @@ const TASK_WATCH_HOLDS = [
   "slot",
   "agent-busy",
   "waits-for-work",
+  "retrying",
 ] as const satisfies readonly TaskWatchHold[];
 
 /**

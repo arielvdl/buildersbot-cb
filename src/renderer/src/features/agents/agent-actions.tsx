@@ -72,6 +72,7 @@ const AgentActions = createSimpleContext({
       userHiddenAgents,
       userHiddenAgentIds,
       applyUserHiddenAgents,
+      updateAgent,
     } = useAgents();
     const { initializeConversation, removeConversation } = useConversation();
     const threads = useAgentThreads();
@@ -154,6 +155,12 @@ const AgentActions = createSimpleContext({
         setAgentSetupOpen(false);
         clearDirectSelection();
         setActiveAgentId(newAgent.id);
+        // The backup model of the dialog is the first automatic backup model of the agent. A save that
+        // fails shows in the agent's chat (`updateAgent`); the agent itself was made.
+        if (submitted.backupModel)
+          await updateAgent(newAgent.id, {
+            backupModels: { automatic: true, order: [submitted.backupModel] },
+          }).catch(() => {});
         const properties = analyticsAgentProperties(newAgent.id);
         analytics.track("agent_action", { action: "create", result: "succeeded", ...(properties ?? {}) });
       } catch (error) {

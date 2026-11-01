@@ -172,6 +172,12 @@ export function stoppedChannelTasks(page: ChannelPage): ChannelTask[] {
   return [...roots.values()];
 }
 
+/** The tasks whose start the app tries again, for the quiet line in place of the card. */
+export function retryingChannelTasks(page: ChannelPage): ChannelTask[] {
+  if (page.channel.archived) return [];
+  return page.tasks.filter((task) => task.state === "queued" && task.startRetry !== undefined);
+}
+
 /**
  * The runs that Stop ends: the top active task above each task that is queued, running or waiting.
  * `stop` pauses the whole run below the task it names, so one command for each run is enough. The

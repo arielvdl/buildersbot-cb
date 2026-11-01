@@ -17,8 +17,9 @@ stopped tasks again. The task reviewer covers the work that "Resume by itself" d
   the list of holds below. `ChannelService.queuedHolds` gives the reason of the drain for each
   request, with the same checks as the drain.
 - **A start that fails again.** The task failed with "The provider could not start this
-  assignment" (`error.backend.channelStartFailed`), it was started again, and it failed again. A
-  second try on the same agent does not help, so the reviewer goes to another agent, or stops.
+  assignment" (`error.backend.channelStartFailed`). The app already tried it again by itself and on
+  a backup model ([start retry](agents.md#start-retry)), so the reviewer follows the task until it
+  starts: a resume, then a reassign and a resume by turns, with a cap.
 
 ## When it runs
 
@@ -141,17 +142,26 @@ uses a command that the person also has:
 | --- | --- | --- | --- |
 | Stalled run | `resume`: stops the turn and puts the task in the queue again (Continue) | `reassign`, when "Give it to another agent if it keeps failing" is on | `stop`, and it says so |
 | Stalled request | `resume`: puts it in the queue again and wakes the channel | `reassign`, when allowed | it leaves the request and says so |
-| Failed start, not tried | `resume` | | |
-| Failed start, tried | `reassign`, when allowed and a free agent can take it; else a second `resume` | | it leaves the task and says so |
+| Failed start | `resume` | by turns: `reassign` (when allowed and a free agent can take it, else `resume`), then `resume` | after `TASK_WATCH_START_ACTIONS` (6) actions (about 2 hours with `N` at 5), it leaves the task to the person (`needs-you`) and says so |
 
-A failed start waits `startFailedWaitMs` before each try: `2 × N`, or the interval of "Resume by
-itself" when that is shorter, from the first look that saw it or the last action. With `N` at 5
-minutes and an interval of 30, the reviewer tries it at 10 minutes, then gives it to another agent 10
-minutes after that. Before 1 November 2026 it waited the whole interval of "Resume by itself" (30
-minutes), so a stopped card stayed for more than 15 minutes with the reviewer on at 5.
+A failed start waits `startFailedWaitMs` before each action: `N` for the first, then twice as long
+for each action already taken (`N`, `2 × N`, `4 × N` …), never longer than the interval of "Resume by
+itself", counted from the first look that saw it or the last action. With `N` at 5 minutes and an
+interval of 30, the reviewer acts at 5, 10, 20 and then every 30 minutes. Before 1 November 2026 it
+waited `2 × N` before each action and stopped after 2 resumes and 2 reassigns.
 
-- The tries are the tries of "Resume by itself": one `RecoveryLedger` for both, with
-  `MAX_RESUMES` (2) and `MAX_REASSIGNS` (2) for each task in all. So a task cannot loop between
+The record of a failed start belongs to the task, not to the agent: a task that the reviewer gave to
+another agent and that fails to start there too stays on the same ladder. The reviewer follows it
+until it starts; then a run or a request is watched as any other one, and a task that completes loses
+its record. The times of its actions are in `LedgerRecord.startActions` (times only).
+
+While the app tries a start again (`ChannelQueueHold` `retrying`, `TaskWatchHold` `retrying`), the
+task is a request held by `retrying`: the clock of the reviewer stops, and "Resume by itself" does not
+see it, because the task is `queued`. Only a start that failed after all its tries and its backup
+model comes to the reviewer.
+
+- The tries of a run or a request are the tries of "Resume by itself": one `RecoveryLedger` for both, with
+  `MAX_RESUMES` (2) and `MAX_REASSIGNS` (2) for each task in all. A failed start has its own cap (above). So a task cannot loop between
   the two. The reviewer writes a record when it acts, and for each failed start. It does not renew
   the record of a task that works well, so the record is forgotten `RECORD_RETENTION_MS` (6 hours)
   after the last action or stop, and a task that completed loses its record at once.

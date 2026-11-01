@@ -1,23 +1,26 @@
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import type {
-  AgentModelId,
-  AgentProviderId,
-  AgentReasoningEffort,
-  AgentStatus,
-  AvatarHue,
-  ClientAgentModelOption,
-  CustomAgentSummary,
-  CustomProviderSummary,
-  ProviderRuntimeStatus,
+import {
+  type AgentModelChoice,
+  type AgentModelId,
+  type AgentProviderId,
+  type AgentReasoningEffort,
+  type AgentStatus,
+  type AvatarHue,
+  type ClientAgentModelOption,
+  type CustomAgentSummary,
+  type CustomProviderSummary,
+  type ProviderRuntimeStatus,
+  sameAgentModelChoice,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey, AppTranslate } from "@openbot/i18n";
-import { Button, Field, Input, Textarea } from "@openbot/ui";
+import { Button, Field, Input, SearchSelect, Textarea } from "@openbot/ui";
 import { createSignal, For, onSettled, Show } from "solid-js";
 import { AVATAR_HUE_CHOICES, avatarCandidateSeeds, avatarHeadColor, avatarHueSwatch } from "../../bloub-avatar";
 import { ProviderModelPicker } from "../../components/ProviderModelPicker";
 import { currentText, useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
+import { type BackupModelOption, backupModelOptions } from "../conversation/BackupModels";
 import { AgentAvatar } from "./AgentAvatar";
 import { AVATAR_HUE_LABEL } from "./avatar-hue-label";
 import { InstructionsLimit, instructionsTooLong } from "./InstructionsLimit";
@@ -32,6 +35,11 @@ export interface FirstAgentDraft {
   model: AgentModelId;
   /** The reasoning level the user chose. Absent, the agent starts on the model's default level. */
   reasoningEffort?: AgentReasoningEffort | undefined;
+  /**
+   * The model a task runs on when this one does not start it after its tries (`start-retry.ts`).
+   * Absent: none of its own, so the default backup of Settings › Agents applies.
+   */
+  backupModel?: AgentModelChoice | undefined;
 }
 
 /**
@@ -325,13 +333,39 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
     props.value.reasoningEffort ?? modelOption(props.value.provider, props.value.model)?.defaultReasoningEffort;
 
   /** A new model keeps the chosen level when it supports it, and else starts on its own default. */
+  /** The backup models that are ready now: a model with no sign-in, no account or no plan is left out. */
+  const backupChoices = () => {
+    const options = props.modelOptions;
+    const status = props.agentStatus;
+    if (!options || !status) return [];
+    const own: AgentModelChoice = { provider: props.value.provider, model: props.value.model };
+    return backupModelOptions({ modelOptions: options, providers: status.providers }, [own]).filter(
+      (option) => option.state === "ready",
+    );
+  };
+  const backupSelected = (option: BackupModelOption) => {
+    const chosen = props.value.backupModel;
+    return chosen !== undefined && sameAgentModelChoice(chosen, option.choice);
+  };
+  const backupLabel = (option: BackupModelOption) =>
+    option.account
+      ? t("agentSettings.backupModels.withAccount", { model: option.model, account: option.account })
+      : option.model;
+  const backupName = () => {
+    const chosen = backupChoices().find((option) => backupSelected(option));
+    return chosen ? backupLabel(chosen) : (props.value.backupModel?.model ?? "");
+  };
+
   function selectModel(model: AgentModelId, provider: AgentProviderId): void {
     const kept = props.value.reasoningEffort;
+    const backup = props.value.backupModel;
     updateDraft({
       model,
       provider,
       reasoningEffort:
         kept && modelOption(provider, model)?.supportedReasoningEfforts.includes(kept) ? kept : undefined,
+      // A backup equal to the new model is no backup.
+      ...(backup && sameAgentModelChoice(backup, { provider, model }) ? { backupModel: undefined } : {}),
     });
   }
 
@@ -496,6 +530,38 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
                     />
                   )}
                 </Show>
+              )}
+            </Show>
+            <Show when={props.modelOptions && props.agentStatus ? backupChoices() : null}>
+              {(choices) => (
+                <Field label={t("agent.setup.backup.title")} description={t("agent.setup.backup.hint")}>
+                  <div class="first-agent-backup">
+                    <SearchSelect<BackupModelOption>
+                      aria-label={t("agent.setup.backup.title")}
+                      options={choices()}
+                      value={choices().find((option) => backupSelected(option)) ?? null}
+                      optionValue={(option) => option.key}
+                      label={backupLabel}
+                      optionTextValue={(option) =>
+                        `${backupLabel(option)} ${option.choice.provider} ${option.choice.model}`
+                      }
+                      onChange={(option) => updateDraft({ backupModel: option.choice })}
+                    >
+                      <span>{props.value.backupModel ? backupName() : t("agent.setup.backup.none")}</span>
+                    </SearchSelect>
+                    <Show when={props.value.backupModel}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={props.submitting}
+                        onClick={() => updateDraft({ backupModel: undefined })}
+                      >
+                        {t("agent.setup.backup.clear")}
+                      </Button>
+                    </Show>
+                  </div>
+                </Field>
               )}
             </Show>
           </div>

@@ -225,6 +225,54 @@ changed, on this computer and on a joined host.
 - Image, asset, file output and message trigger nodes are kept in the graph but do not run yet; a
   run that reaches one fails with `nodeUnsupported`.
 
+## Start retry
+
+When a provider does not start a turn, the drain tries the start again before the task stops
+(`src/backend/agent/start-retry.ts`, `DrainScheduler.#startAgain`). It covers the agent's own chat
+and channel tasks, and the summary of the channel history that runs on the lead's model before the
+turn (`error.agent.profileTimedOut`, origin of the 34 failed starts of 1 November 2026). The settings
+are in Settings › Agents › "Retries and backup model" (`openbot-agent-start-retry-v1.json`,
+`StartRetrySettings`, `app:get-start-retry` and `app:set-start-retry`).
+
+This is a domain policy of the drain, not a generic retry wrapper: it runs only when no turn exists.
+A start that the provider accepted is reconciled as before, and a `turn/start` with no answer is never
+tried again (`error.backend.turnNotStarted`, `#settleUnstarted`), because its turn can still run.
+Each try sends the same `clientUserMessageId`, so a provider that keys a turn by it does not run it twice.
+
+1. The failure gets a class (`classifyStartFailure`):
+   - `retry`: an outage (529, 5xx, "high demand"), a throttle, a network failure, a slow answer, a
+     slow summary or routing on the lead (`error.agent.profile*`), and an error that names nothing.
+     A usage limit, such as the 5-hour window of Claude, is `retry` while "Try again after a usage
+     limit" is on (the default), because some accounts move to another account by themselves.
+   - `fallback`: sign-in, permission, billing, a removed model or endpoint, a missing CLI, and a
+     usage limit while that option is off. A wait does not fix these.
+   - `terminal`: the task, the agent or the request must change (`TERMINAL_KEYS`, a refused request
+     such as "prompt is too long"). No try again and no backup.
+2. `retry`: the delivery goes back to its place in the queue with `delivery_json.startRetry`
+   (`StartRetryMarker`: phase, tries, `nextAt`, class, catalog key, models; never text). The queue
+   does not start it before `nextAt` (`MailboxStore.#mayStart`). The waits are
+   `firstDelay × 3^(n − 1)`, at most `maxDelay`, 25% up or down at random: 10, 30 and 90 seconds by
+   default for 3 tries again. A channel task stays `queued` with its assignment
+   (`ChannelService.holdForStartRetry`) and shows "Trying again (n/max)" in place of the card.
+   A wait for memory, a turn place or the lane does not spend a try.
+3. After the tries, or 15 minutes after the first failure, the backup model: the agent's own first
+   ready automatic backup (`backupModels`), else the default backup model of the settings. The own
+   model is passed over (`UsageLimitGate.failed` with the breaker wait), and the move of the agent
+   (`#usageLimitMove`, "provider-error") runs the turn there, with the switch note in the chat. The
+   backup gets one start and one try again after 30 seconds.
+4. Then the delivery fails as before: the task keeps `error.backend.channelStartFailed`, and the
+   assignment keeps `startFailure` (class, key, number of starts, whether the backup ran). The card
+   says how many starts ran, and the task reviewer takes over.
+
+The breaker (`StartBreakers`, `openbot-agent-start-breakers-v1.json`, ids and times only) is one per
+agent and own model. It opens when a start goes to the backup and waits `breakerMinutes` (5, 15, 30,
+60 minutes by default, one step per failure in a row, 20% up or down; a reset that the provider named
+counts when it is later). While it waits, new turns of the agent run on the backup with no try on its
+own model. When the wait ends, the agent goes back, and its next start is the probe: one start, no
+try again. A probe that runs closes the breaker; one that fails goes to the backup with the next,
+longer wait. A channel task that started on the backup is pinned and ends there: the agent goes back
+only when its pinned tasks ended. A restart keeps the breakers and the waits of the queued retries.
+
 ## Hidden agents
 
 A user hides an agent from its sidebar menu in place of a delete. The agent keeps its thread, files,

@@ -45,6 +45,7 @@ import type {
   SetAppLogoColorPreferenceInput,
   SetDynamicIslandInteractiveInput,
   SetEnabledSkillInput,
+  StartRetrySettings,
   StoppedWorkBulkInput,
   StopWorkInput,
   SubmitMarketplaceAgentInput,
@@ -83,6 +84,7 @@ import {
   isResumeStoppedWorkInput,
   isRunChannelNowInput,
   isSkillCategory,
+  isStartRetrySettings,
   isStoppedWorkBulkInput,
   isStopWorkInput,
   isTaskWatchPreference,
@@ -97,6 +99,7 @@ import {
   isString,
 } from "@openbot/contracts/runtime-values";
 import { validateProfileName } from "@openbot/contracts/validation";
+import { startRetrySettings } from "../start-retry-preference-store";
 import { parseAvatarImage } from "./avatar-inputs";
 import { isObject, optionalBoolean, requireString } from "./validation";
 
@@ -147,6 +150,11 @@ export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPrefere
 export function parseTaskWatchPreference(input: unknown): TaskWatchPreference {
   if (!isTaskWatchPreference(input)) throw new Error("A task reviewer preference is required.");
   return { enabled: input.enabled, quietMinutes: input.quietMinutes };
+}
+
+export function parseStartRetrySettings(input: unknown): StartRetrySettings {
+  if (!isStartRetrySettings(input)) throw new Error("Start retry settings are required.");
+  return startRetrySettings(input);
 }
 
 export function parseStopWorkInput(input: unknown): StopWorkInput {

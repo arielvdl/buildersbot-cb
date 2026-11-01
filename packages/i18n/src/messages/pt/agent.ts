@@ -13,6 +13,11 @@ export const messages = {
   "agent.setup.faceOption": "Rosto do agente {number}",
   "agent.setup.name": "Nome",
   "agent.setup.purpose": "Em que este agente deve ajudar?",
+  "agent.setup.backup.title": "Modelo de reserva (opcional)",
+  "agent.setup.backup.hint":
+    "Se este modelo não iniciar uma tarefa depois das tentativas, a tarefa roda no modelo de reserva. A conversa e os arquivos dela vão para esse provedor.",
+  "agent.setup.backup.none": "Nenhum",
+  "agent.setup.backup.clear": "Remover",
   "agent.setup.purposePlaceholder": "Planejar viagens, comparar opções ou ajudar no trabalho diário.",
   "agent.description.tooLong": "Encurte a descrição para {limit} caracteres. Uma descrição mais longa não é salva.",
   "agent.instructions.length": "{length} / {limit}",

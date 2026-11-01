@@ -12,6 +12,11 @@ export const messages = defineMessages("agent", {
   "agent.setup.faceOption": "Agent face {number}",
   "agent.setup.name": "Name",
   "agent.setup.purpose": "What should this agent help with?",
+  "agent.setup.backup.title": "Backup model (optional)",
+  "agent.setup.backup.hint":
+    "When this model does not start a task after its tries, the task runs on the backup model. Its conversation and files go to that provider.",
+  "agent.setup.backup.none": "None",
+  "agent.setup.backup.clear": "Remove",
   "agent.setup.purposePlaceholder": "Plan trips, compare options, or help with everyday work.",
   "agent.description.tooLong": "Shorten the description to {limit} characters. A longer description is not saved.",
   "agent.instructions.length": "{length} / {limit}",

@@ -8,7 +8,9 @@ import {
   DeliberateStops,
   OPEN_STEP_STALL_FACTOR,
   runningQuiet,
+  startFailedWaitMs,
   TASK_WATCH_MODEL_CALLS_PER_HOUR,
+  TASK_WATCH_START_ACTIONS,
   TaskWatch,
   type TaskWatchDeps,
   type WatchedTask,
@@ -247,26 +249,45 @@ describe("what the reviewer does with a task", () => {
     });
   });
 
-  it("gives a failed start one resume only when another agent can take it, because the same agent failed to start it already", () => {
+  it("follows a failed start with a resume, then a reassign and a resume by turns", () => {
     expect(watchAction("start-failed", { resumes: 0, reassigns: 0 }, true, pick)).toEqual({ type: "resume" });
     expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, true, pick)).toEqual({
       type: "reassign",
       agentId: "beta",
     });
+    expect(watchAction("start-failed", { resumes: 1, reassigns: 1 }, true, pick)).toEqual({ type: "resume" });
+    expect(watchAction("start-failed", { resumes: 2, reassigns: 1 }, true, pick)).toEqual({
+      type: "reassign",
+      agentId: "beta",
+    });
   });
 
-  it(`gives a failed start ${MAX_RESUMES} resumes, as "Resume by itself" does, when no other agent can take it`, () => {
+  it("resumes a failed start again when no other agent can take it, or the person did not allow a reassign", () => {
     expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, false, pick)).toEqual({ type: "resume" });
-    expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, true, () => null)).toEqual({ type: "resume" });
-    expect(watchAction("start-failed", { resumes: 1, reassigns: MAX_REASSIGNS }, true, pick)).toEqual({
+    expect(watchAction("start-failed", { resumes: 1, reassigns: 0 }, true, () => null)).toEqual({
       type: "resume",
     });
+    expect(watchAction("start-failed", { resumes: 3, reassigns: 0 }, false, pick)).toEqual({ type: "resume" });
+  });
+
+  it("waits N for the first action on a failed start, then twice as long each time, up to the interval", () => {
+    const waits = [0, 1, 2, 3, 4].map((actions) =>
+      startFailedWaitMs({ thresholdMs: 5 * MIN, intervalMs: 30 * MIN }, actions),
+    );
+    expect(waits).toEqual([5 * MIN, 10 * MIN, 20 * MIN, 30 * MIN, 30 * MIN]);
+  });
+
+  it(`gives up a failed start after ${TASK_WATCH_START_ACTIONS} actions`, () => {
+    const done = Array.from({ length: TASK_WATCH_START_ACTIONS }, (_value, index) => NOW - index * 30 * MIN);
+    expect(watchAction("start-failed", { resumes: 3, reassigns: 3, startActions: done }, true, pick)).toEqual({
+      type: "give-up",
+    });
+    expect(
+      watchAction("start-failed", { resumes: 3, reassigns: 2, startActions: done.slice(1) }, true, pick),
+    ).toEqual({ type: "reassign", agentId: "beta" });
   });
 
   it("never reassigns when the person did not allow it, or when no agent can take the task", () => {
-    expect(watchAction("start-failed", { resumes: MAX_RESUMES, reassigns: 0 }, false, pick)).toEqual({
-      type: "give-up",
-    });
     expect(watchAction("running", { resumes: MAX_RESUMES, reassigns: 0 }, true, () => null)).toEqual({
       type: "stop",
     });
@@ -335,9 +356,11 @@ describe("the task reviewer", () => {
     });
   });
 
-  it("leaves a start that fails again after its resumes, and says so, when reassigning is off", async () => {
+  it("leaves a start that fails again after its actions, and says so, when reassigning is off", async () => {
     const { watch, commands, clock, ledger } = setup({ tasks: [failedStart()], reassign: false });
-    ledger.see("c1", "f1", NOW - 60 * MIN).resumes = MAX_RESUMES;
+    const record = ledger.see("c1", "f1", NOW - 60 * MIN);
+    record.resumes = TASK_WATCH_START_ACTIONS;
+    record.startActions = Array.from({ length: TASK_WATCH_START_ACTIONS }, (_value, index) => NOW - (index + 1) * MIN);
     await watch.tick();
     expect(commands).toEqual([]);
     expect(ledger.peek("c1", "f1")?.gaveUp).toBe(true);

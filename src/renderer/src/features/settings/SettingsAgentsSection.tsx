@@ -1,7 +1,10 @@
 import {
   type BackgroundProcess,
+  type ClientAgentModelOption,
   type ClientAgentSummary,
   LOCAL_SERVER_ID,
+  type StartRetrySettings,
+  type StartRetryState,
   type UpdateAgentInput,
 } from "@openbot/contracts/ipc";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
@@ -13,6 +16,7 @@ import {
   agentDefaultSettingTitle,
   SettingsAgentsTab,
 } from "@openbot/ui/features/settings/SettingsAgentsTab";
+import { StartRetrySettingsSection } from "@openbot/ui/features/settings/StartRetrySettings";
 import { currentText, useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createStore, Show } from "solid-js";
@@ -27,6 +31,11 @@ interface AgentsSectionState {
   processes: BackgroundProcess[] | null;
   processesFailed: boolean;
   stopping: string[];
+  /** The retries and backup model of a start that fails. Null until the first answer. */
+  startRetry: StartRetryState | null;
+  models: ClientAgentModelOption[];
+  /** The backup models of the local agents, for the list of the start retry section. */
+  backups: Pick<ClientAgentSummary, "id" | "name" | "backupModels">[];
 }
 
 export interface SettingsAgentsSection {
@@ -69,6 +78,9 @@ export function createSettingsAgentsSection(options: {
     processes: null,
     processesFailed: false,
     stopping: [],
+    startRetry: null,
+    models: [],
+    backups: [],
   });
   /** Bumped for each read, so an answer of an earlier read is dropped. */
   let generation = 0;
@@ -89,6 +101,11 @@ export function createSettingsAgentsSection(options: {
         if (current !== generation) return;
         setState((draft) => {
           draft.agents = agents;
+          draft.backups = agents.map(({ id, name, backupModels }) => ({
+            id,
+            name,
+            ...(backupModels ? { backupModels } : {}),
+          }));
           draft.loadFailed = false;
         });
       })
@@ -141,6 +158,39 @@ export function createSettingsAgentsSection(options: {
       });
   }
 
+  function loadStartRetry(): void {
+    settingsPort()
+      .getStartRetry()
+      .then((startRetry) =>
+        setState((draft) => {
+          draft.startRetry = startRetry;
+        }),
+      )
+      .catch(() => {});
+    settingsPort()
+      .agent.listModels(LOCAL_SERVER_ID)
+      .then((models) =>
+        setState((draft) => {
+          draft.models = models;
+        }),
+      )
+      .catch(() => {});
+  }
+
+  function changeStartRetry(settings: StartRetrySettings): void {
+    settingsPort()
+      .setStartRetry(settings)
+      .then((startRetry) =>
+        setState((draft) => {
+          draft.startRetry = startRetry;
+        }),
+      )
+      .catch((error: unknown) => {
+        showAgentSaveFailure(error);
+        loadStartRetry();
+      });
+  }
+
   function showList(): void {
     setState((draft) => {
       draft.setting = null;
@@ -151,6 +201,7 @@ export function createSettingsAgentsSection(options: {
     if (visible) {
       load();
       loadProcesses();
+      loadStartRetry();
     } else showList();
   });
 
@@ -193,6 +244,15 @@ export function createSettingsAgentsSection(options: {
           onDefaultChange={changeDefault}
           onChoiceChange={changeChoice}
         />
+        <Show when={!state.setting}>
+          <StartRetrySettingsSection
+            state={state.startRetry}
+            models={state.models}
+            agents={state.backups}
+            selectMount={props.menuMount}
+            onChange={changeStartRetry}
+          />
+        </Show>
         <Show when={!state.setting && state.processes}>
           {(processes) => (
             <BackgroundProcessesSection

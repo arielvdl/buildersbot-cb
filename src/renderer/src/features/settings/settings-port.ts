@@ -37,10 +37,18 @@ export interface SettingsPort {
   setRemoteNetworkRoute: BuildersBotDesktopApi["setRemoteNetworkRoute"];
   setRemoteSessionReusePreference: BuildersBotDesktopApi["setRemoteSessionReusePreference"];
   setGuardPreference: BuildersBotDesktopApi["setGuardPreference"];
+  /** The retries and backup model of a start that fails, for the Agents tab. */
+  getStartRetry: BuildersBotDesktopApi["getStartRetry"];
+  setStartRetry: BuildersBotDesktopApi["setStartRetry"];
   voice: Pick<BuildersBotDesktopApi["voice"], "getDictationPreference" | "setDictationPreference">;
   agent: Pick<
     BuildersBotDesktopApi["agent"],
-    "listAgents" | "updateAgent" | "listAgentNotificationLevels" | "setAgentNotificationLevel" | "onScopedEvent"
+    | "listAgents"
+    | "listModels"
+    | "updateAgent"
+    | "listAgentNotificationLevels"
+    | "setAgentNotificationLevel"
+    | "onScopedEvent"
   >;
   backgroundProcesses: BuildersBotDesktopApi["backgroundProcesses"];
   lidAwake: BuildersBotDesktopApi["lidAwake"];

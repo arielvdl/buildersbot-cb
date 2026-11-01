@@ -116,6 +116,7 @@ export const messages = defineMessages("app", {
   "app.rail.load.hold.slot": "the cap on agents is full",
   "app.rail.load.hold.agent-busy": "the agent runs other work",
   "app.rail.load.hold.waits-for-work": "it waits for other work, such as a dependency",
+  "app.rail.load.hold.retrying": "the app tries to start it again",
   "app.rail.load.wait.kind.running": "Working",
   "app.rail.load.wait.kind.queued": "Requested",
   "app.rail.load.wait.kind.start-failed": "Did not start",

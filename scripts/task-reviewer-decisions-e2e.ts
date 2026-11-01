@@ -16,10 +16,14 @@
 //   2. A stopped request that the lead could not route, with no agent: no resume, "needs you" at once.
 //   3. A stopped task whose agent cannot take it, with another agent of the same model: it goes to that
 //      agent after the interval, with no resume first.
-//   4. A start that fails twice: the reviewer resumes it at 2 × N, then gives it to another agent.
+//   4. A start that fails twice: the reviewer resumes it at N, then gives it to another agent at 2 × N.
 //   5. Low memory: a parked request waits (held: memory); a failed start is still tried.
 //   6. 60 stopped rows that a resume cannot fix, then a stopped task in a later channel: it is resumed.
 //   7. The last actions of the reviewer stay in their file, and the log names actions, never the text.
+//   8. A start that keeps failing: the reviewer follows the task to the agents it gave it to, by turns
+//      (resume, reassign, …) at N, 2 × N, 4 × N, then each interval, and stops after 6 actions: "needs you".
+//   9. While the app tries a start again (`retrying`), the reviewer and "Resume by itself" leave it alone,
+//      and its clock stops; after the tries end, the reviewer acts at N.
 // `bun scripts/task-reviewer-decisions-e2e.ts`. Writes .openbot-build/task-reviewer-decisions-e2e/report.json
 // and exits non-zero on a failure.
 import assert from "node:assert/strict";
@@ -346,12 +350,12 @@ try {
     const plan = a.snapshot().stopped[0]?.plan;
     assert.deepEqual(
       { by: plan?.by, state: plan?.state, action: plan?.action, minutes: plan?.minutes },
-      { by: "reviewer", state: "due", action: "resume", minutes: 10 },
+      { by: "reviewer", state: "due", action: "resume", minutes: 5 },
     );
-    await a.look(9);
-    assert.equal(a.taskOf(task.id)?.state, "failed", "The reviewer tried a failed start before 2 × N.");
+    await a.look(4);
+    assert.equal(a.taskOf(task.id)?.state, "failed", "The reviewer tried a failed start before N.");
     await a.look(1);
-    assert.notEqual(a.taskOf(task.id)?.state, "failed", "The reviewer did not try the failed start at 2 × N.");
+    assert.notEqual(a.taskOf(task.id)?.state, "failed", "The reviewer did not try the failed start at N.");
     const again = a.taskOf(task.id);
     assert.ok(again);
     a.stop(again, CHANNEL_START_FAILED);
@@ -363,7 +367,7 @@ try {
       { action: "resumed", reason: "start-failed" },
     ]);
     assert.deepEqual(a.snapshot().recovery.recent, [], "Resume by itself took a failed start from the reviewer.");
-    pass("A start that fails twice is resumed at 2 × N, then given to another agent", { plan, recent });
+    pass("A start that fails twice is resumed at N, then given to another agent at 2 × N", { plan, recent });
   }
   if (want(7)) {
     const text = readFileSync(historyFile, "utf8");
@@ -380,6 +384,95 @@ try {
       file: "openbot-task-watch-history-v1.json",
       recent,
     });
+  }
+
+  // 8. A start that keeps failing, to its cap.
+  if (want(8)) {
+    const a = await app({
+      recovery: { enabled: true, intervalMinutes: 30, reassign: true },
+      watch: { enabled: true, quietMinutes: 5 },
+    });
+    const task = await a.send("alpha");
+    const failAgain = () => {
+      const current = a.taskOf(task.id);
+      assert.ok(current);
+      a.stop(current, CHANNEL_START_FAILED);
+    };
+    failAgain();
+    await a.look(0);
+    const owners: (string | null)[] = [];
+    // N, 2 × N, 4 × N, then the interval: 5, 10, 20, 30, 30, 30 minutes.
+    for (const wait of [5, 10, 20, 30, 30, 30]) {
+      await a.look(wait - 1);
+      assert.equal(a.taskOf(task.id)?.state, "failed", `The reviewer acted before ${wait} minutes.`);
+      await a.look(1);
+      assert.notEqual(a.taskOf(task.id)?.state, "failed", `The reviewer did not act at ${wait} minutes.`);
+      owners.push(a.taskOf(task.id)?.ownerAgentId ?? null);
+      failAgain();
+    }
+    const actions = a
+      .snapshot()
+      .taskWatch.recent.map((event) => event.action)
+      .reverse();
+    assert.deepEqual(actions, ["resumed", "reassigned", "resumed", "reassigned", "resumed", "reassigned"]);
+    // A free agent of the same model first (beta, then alpha again, which the reviewer did not give it to),
+    // then the same provider (gamma). Delta runs another provider.
+    assert.deepEqual(owners, ["alpha", "beta", "beta", "alpha", "alpha", "gamma"]);
+    await a.look(30);
+    assert.equal(a.taskOf(task.id)?.state, "failed", "The reviewer took a 7th action.");
+    const plan = a.snapshot().stopped.find((row) => row.taskId === task.id)?.plan;
+    assert.equal(plan?.state, "needs-you", "The stopped row does not say that the person decides.");
+    await a.look(120);
+    assert.equal(a.taskOf(task.id)?.state, "failed", "The reviewer acted after its cap.");
+    assert.deepEqual(a.snapshot().recovery.recent, [], "Resume by itself took a failed start from the reviewer.");
+    pass("A start that keeps failing is followed by turns to other agents, and left to the person after 6 actions", {
+      actions,
+      owners,
+      plan,
+    });
+  }
+
+  // 9. The app tries a start again: the reviewer waits.
+  if (want(9)) {
+    const a = await app({
+      recovery: { enabled: true, intervalMinutes: 30, reassign: true },
+      watch: { enabled: true, quietMinutes: 5 },
+    });
+    const task = await a.send("alpha");
+    const assignment = a.channels.store.assignments("c1").find((entry) => entry.taskId === task.id);
+    assert.ok(assignment?.deliveryId, "The task has no assignment with a delivery.");
+    const retry = {
+      phase: "retrying" as const,
+      attempt: 2,
+      max: 3,
+      nextAt: new Date(a.clock.now + 30_000).toISOString(),
+    };
+    assert.ok(await Effect.runPromise(a.channels.holdForStartRetry(assignment.deliveryId, retry)));
+    const revision = a.taskOf(task.id)?.revision;
+    await a.look(0);
+    const held = a.snapshot().taskWatch.waits?.find((wait) => wait.kind === "queued");
+    assert.deepEqual({ state: held?.state, hold: held?.hold }, { state: "held", hold: "retrying" });
+    for (let index = 0; index < 4; index += 1) await a.look(15);
+    assert.equal(a.taskOf(task.id)?.revision, revision, "The reviewer moved a task that the app tries again.");
+    assert.equal(a.taskOf(task.id)?.state, "queued");
+    assert.deepEqual(a.snapshot().taskWatch.recent, [], "The reviewer acted during the retry.");
+    assert.deepEqual(a.snapshot().recovery.recent, [], "Resume by itself acted during the retry.");
+    // The tries end with no start: the reviewer acts N later, not at once.
+    await Effect.runPromise(
+      a.channels.deliveryFailed(assignment.deliveryId, CHANNEL_START_FAILED, {
+        cause: "provider_unavailable",
+        errorKey: null,
+        attempts: 4,
+        fallbackTried: false,
+      }),
+    );
+    await a.look(0);
+    assert.equal(a.taskOf(task.id)?.state, "failed");
+    await a.look(4);
+    assert.equal(a.taskOf(task.id)?.state, "failed", "The reviewer acted at once after the tries.");
+    await a.look(1);
+    assert.notEqual(a.taskOf(task.id)?.state, "failed", "The reviewer did not act at N after the tries.");
+    pass("The reviewer waits while the app tries a start again, then acts at N", { held });
   }
 
   // 5. Low memory.
