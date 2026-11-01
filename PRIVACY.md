@@ -859,7 +859,22 @@ Network traffic can also occur when:
   provider of the chosen endpoint, with random organization and person tags, never an email. The Hub
   keeps the cost on its ledger, without the input or the result. `search` and `describe` read the
   Hub's own copy of the catalog, so their text goes only to the Hub. Builders Bot keeps no input,
-  result or token of a connection on disk. See `docs/architecture/hub-connections.md`;
+  result or token of a connection on disk. See `docs/architecture/hub-connections.md`.
+  What the Hub stores: the cost of each call with the endpoint and the platform, never the input,
+  the result, a URL or a query string; the random tags and their link to the organization and the
+  person until the month's reconciliation closes; and the vendor's call id, for 90 days. The tags
+  hold no personal data: never an email, a name, a Hub id or a hash of one. Builders Bot never sends
+  a cookie, a session or a sign-in token: the main process refuses such an input, and the Guard stops
+  it. A long free text or a long block of data in one field, such as a pasted chat, needs the
+  person's approval first, and so does the first lookup about people in a conversation, whose card
+  names the values that the call sends. treg.to and the provider of an endpoint process the call
+  input under their own terms; the treg design asks the Hub to turn off treg's answer archive and
+  its relay through other accounts before the first call;
+- Builders Bot reads the MCP files of other agent apps on this computer (`~/.codex/config.toml`,
+  `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and `~/.claude.json`) to find a treg
+  connection of the person's own, turn it off inside Builders Bot agents and tell the person in
+  Settings. This read stays on the computer, and it keeps only server names, file paths and URL
+  hosts, never a header or a token;
 - the local Codex App Server connects to OpenAI;
 - the local Claude Agent SDK connects to Anthropic through Claude CLI;
 - a user or an agent visits a page in the embedded browser;
