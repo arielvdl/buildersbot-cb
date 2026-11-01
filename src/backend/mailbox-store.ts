@@ -50,6 +50,12 @@ export type { ExportedAttachmentFile, GeneratedAttachmentSource } from "./attach
 
 import { isEmptyStoredFile, parseStoredJson } from "./atomic-json-file";
 import { mailboxReactionRowKey } from "./database/mailbox-projection";
+import {
+  type HubDeliveryOrigin,
+  type HubTurnOrigin,
+  isHubTurnOrigin,
+  narrowerOrigin,
+} from "./hub-connections/turn-origin";
 import { MailboxDeliveryGate } from "./mailbox-delivery-gate";
 import { BuildersBotDatabase } from "./openbot-database";
 import { isRecord } from "./protocol";
@@ -99,6 +105,17 @@ interface StoredMessage {
    * because `sender` is also the queue's and the transfer manifest's. Absent on older messages.
    */
   senderMember?: ConversationMessageSender;
+  /**
+   * The origin of the turn or the routine that sent the message, for the Hub connections
+   * (`hub-connections/turn-origin.ts`). An agent or a routine message without one is closed. Absent on
+   * a message that the person wrote, and on every message stored before the field existed.
+   */
+  origin?: HubTurnOrigin;
+  /**
+   * The person who last edited a queued agent or routine message through the host. The edited text is
+   * that person's, so a team member's edit closes the connections. A user message has `senderMember`.
+   */
+  editorMemberId?: string;
   text: string;
   attachments: StoredAttachment[];
   /**
@@ -176,6 +193,17 @@ interface StoredState {
   pausedAgentIds: string[];
   idempotency: Record<string, string>;
   reactions: StoredReaction[];
+  /**
+   * The origin of the runs of each routine (`routine:<id>`) and the most closed origin of the changes
+   * to its flow (`flow:<id>`), for the Hub connections. A routine without an entry runs closed.
+   * Absent on every mailbox stored before the field existed.
+   */
+  routineOrigins?: Record<string, HubTurnOrigin>;
+  /**
+   * When this version first loaded the mailbox. A routine saved before it has no entry because nobody
+   * recorded who saved it, so it runs closed until the person saves it again.
+   */
+  routineOriginsSince?: string;
 }
 
 interface StoredReaction {
@@ -195,6 +223,8 @@ interface EnqueueInput {
   senderTaskId?: string;
   sender: StoredMessage["sender"];
   senderMember?: ConversationMessageSender;
+  /** The origin of the sending turn or routine, for the Hub connections. Required for an agent sender to open them. */
+  origin?: HubTurnOrigin;
   recipientAgentIds: string[];
   text: string;
   replyToMessageId?: string | null;
@@ -302,6 +332,11 @@ export class MailboxStore {
         this.#state = normalizeStoredState(yield* this.#readStateEffect());
         yield* this.#database.backupLegacyFile(this.#statePath);
         this.#persist("mailbox.legacy-imported", "legacy-import:mailbox:v1", [], true);
+      }
+      if (this.#state.routineOriginsSince === undefined) {
+        // From now on every save of a routine is recorded; the routines saved before are not known.
+        this.#state.routineOriginsSince = new Date().toISOString();
+        this.#persist("mailbox.routine-origins-started");
       }
       const activeEdits = new Set(
         this.#state.deliveries
@@ -594,6 +629,7 @@ export class MailboxStore {
         id: messageId,
         sender: input.sender,
         ...(input.sender.kind === "user" && input.senderMember ? { senderMember: input.senderMember } : {}),
+        ...(input.origin ? { origin: input.origin } : {}),
         text: rewriteAttachmentReferences(text, (reference) => {
           const attachment = committedByDraftId.get(reference.attachmentId);
           return attachment ? { attachmentId: attachment.id, name: attachment.name } : null;
@@ -821,22 +857,16 @@ export class MailboxStore {
   }
 
   /**
-   * Who started the running deliveries of a turn: the sender kind, whether the message came from a
-   * chat app (also through an agent that answers there), whether it is channel work, and the person
-   * that the host stamped on a user message. The Hub connections read it to decide the turn's origin.
+   * Who started the deliveries of a turn: the sender kind, whether the message came from a chat app
+   * (also through an agent that answers there), whether it is channel work, the person that the host
+   * stamped on a user message or on an edit, and the origin that the sender stamped. The Hub
+   * connections read it to decide the turn's origin. A delivery that ended in the turn still counts: an
+   * automatic result is sent after the turn's deliveries end.
    */
-  turnSenders(
-    agentId: string,
-    turnId: string,
-  ): Array<{ sender: "user" | "agent" | "routine"; messaging: boolean; channel: boolean; memberId: string | null }> {
+  turnSenders(agentId: string, turnId: string): HubDeliveryOrigin[] {
     const messages = this.#messagesById();
     return this.#state.deliveries
-      .filter(
-        (delivery) =>
-          delivery.recipientAgentId === agentId &&
-          delivery.turnId === turnId &&
-          (delivery.status === "starting" || delivery.status === "running"),
-      )
+      .filter((delivery) => delivery.recipientAgentId === agentId && delivery.turnId === turnId)
       .flatMap((delivery) => {
         // A delivery whose message is gone says nothing about its sender, so it does not count.
         const message = messages.get(delivery.messageId);
@@ -847,9 +877,101 @@ export class MailboxStore {
             messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
             channel: message.channelId !== undefined,
             memberId: message.senderMember?.id ?? null,
+            editorId: message.editorMemberId ?? null,
+            stamp: message.origin ?? null,
           },
         ];
       });
+  }
+
+  /** The origin that the message of a delivery carries, or null for a delivery or a message that is gone. */
+  deliveryOrigin(deliveryId: string): HubDeliveryOrigin | null {
+    const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
+    const message = delivery
+      ? this.#state.messages.find((candidate) => candidate.id === delivery.messageId)
+      : undefined;
+    if (!message) return null;
+    return {
+      sender: message.sender.kind,
+      messaging: message.messaging !== undefined || message.messagingReturn !== undefined,
+      channel: message.channelId !== undefined,
+      memberId: message.senderMember?.id ?? null,
+      editorId: message.editorMemberId ?? null,
+      stamp: message.origin ?? null,
+    };
+  }
+
+  /**
+   * The origin of the runs of a routine (docs/architecture/hub-connections.md, "Routines"). A routine
+   * that a turn other than the person's own saved keeps that turn's narrowed origin. A routine with no
+   * entry is the person's, unless nobody saved it since this version started to keep the entries
+   * (`savedAt` before `routineOriginsSince`): then who saved it is not known, and it runs closed.
+   */
+  routineOrigin(routineId: string, savedAt: string | null): HubTurnOrigin {
+    const recorded = this.#state.routineOrigins?.[`routine:${routineId}`];
+    if (recorded) return recorded;
+    const since = this.#state.routineOriginsSince;
+    return savedAt !== null && since !== undefined && savedAt >= since ? "routine" : "unknown";
+  }
+
+  /** The most closed origin of the changes to a routine's flow since the person last changed it, or null. */
+  flowOrigin(routineId: string): HubTurnOrigin | null {
+    return this.#state.routineOrigins?.[`flow:${routineId}`] ?? null;
+  }
+
+  /**
+   * The origin of a routine run's own first message, which its flow's handoffs keep: null when no
+   * routine message of the run is stored.
+   */
+  routineRunOrigin(runId: string): HubTurnOrigin | null {
+    const message = this.#state.messages.find(
+      (candidate) => candidate.sender.kind === "routine" && candidate.sender.runId === runId,
+    );
+    return message ? (message.origin ?? "unknown") : null;
+  }
+
+  /**
+   * Records who saved a routine: its runs get `routineOriginOf(savedBy)` from now on. The person's own
+   * save (`owner_ui`) removes an earlier entry. The flow entry changes only with `narrowFlowOrigin`
+   * and `clearFlowOrigin`.
+   */
+  setRoutineOrigin(routineId: string, origin: HubTurnOrigin): void {
+    this.#writeRoutineOrigin(`routine:${routineId}`, origin === "routine" ? null : origin);
+  }
+
+  /** Forgets a deleted routine. */
+  forgetRoutineOrigin(routineId: string): void {
+    this.#writeRoutineOrigin(`routine:${routineId}`, null);
+    this.#writeRoutineOrigin(`flow:${routineId}`, null);
+  }
+
+  /** A change to a routine's flow by someone of this origin: the flow's handoffs get at most this origin. */
+  narrowFlowOrigin(routineId: string, origin: HubTurnOrigin): void {
+    if (origin === "routine") return;
+    const current = this.flowOrigin(routineId);
+    this.#writeRoutineOrigin(`flow:${routineId}`, current === null ? origin : narrowerOrigin(current, origin));
+  }
+
+  /** The person changed the flow on the canvas, where they see all of it: its earlier changes no longer count. */
+  clearFlowOrigin(routineId: string): void {
+    this.#writeRoutineOrigin(`flow:${routineId}`, null);
+  }
+
+  #writeRoutineOrigin(key: string, origin: HubTurnOrigin | null): void {
+    const current = this.#state.routineOrigins ?? {};
+    if ((current[key] ?? null) === origin) return;
+    const previous = this.#state.routineOrigins;
+    const next = { ...current };
+    if (origin === null) delete next[key];
+    else next[key] = origin;
+    this.#state.routineOrigins = next;
+    try {
+      this.#persist("mailbox.routine-origin");
+    } catch (error) {
+      if (previous === undefined) delete this.#state.routineOrigins;
+      else this.#state.routineOrigins = previous;
+      throw error;
+    }
   }
 
   /** The task a delivery runs in, or null for the agent's own chat. */
@@ -2179,6 +2301,9 @@ export class MailboxStore {
               // The saved text is the editor's, so the editor is its sender. A member can edit another
               // member's queued message, and the first name must not stay on words that person did not write.
               if (message.sender.kind === "user") setSenderMember(message, sender);
+              // An agent's or a routine's message keeps its sender, and the editor's id closes the connections
+              // when the editor is a team member (`hub-connections/turn-origin.ts`).
+              else if (sender) message.editorMemberId = sender.id;
               if (editId) {
                 delete delivery.editId;
                 recordFinishedQueueEdit(delivery, editId, {
@@ -2212,6 +2337,8 @@ export class MailboxStore {
           message.text = previous.text;
           message.attachments = previous.attachments;
           setSenderMember(message, previous.senderMember);
+          if (previous.editorMemberId === undefined) delete message.editorMemberId;
+          else message.editorMemberId = previous.editorMemberId;
           if (editId) {
             delivery.editId = editId;
             if (previousOutcomes) delivery.finishedEditOutcomes = previousOutcomes;
@@ -3135,8 +3262,17 @@ function compareQueueOrder(left: StoredDelivery, right: StoredDelivery): number 
 function toCurrentMailboxState(value: unknown): DynamicRecord | null {
   if (!isRecord(value)) return null;
   const state = withCurrentAgentKeys(value, { pausedBotIds: "pausedAgentIds" });
+  const origins = state.routineOrigins;
   return {
     ...state,
+    // An entry that does not decode closes its routine; it must not stop the mailbox from loading.
+    ...(isRecord(origins)
+      ? {
+          routineOrigins: Object.fromEntries(
+            Object.entries(origins).map(([key, origin]) => [key, isHubTurnOrigin(origin) ? origin : "unknown"]),
+          ),
+        }
+      : {}),
     ...(Array.isArray(state.messages) ? { messages: state.messages.map(toCurrentMailboxMessage) } : {}),
     ...(Array.isArray(state.deliveries) ? { deliveries: state.deliveries.map(toCurrentDelivery) } : {}),
     ...(Array.isArray(state.generatedAttachments)
@@ -3170,6 +3306,8 @@ function toCurrentMailboxMessage(value: unknown): DynamicRecord | null {
     ...message,
     sender: toCurrentMailboxActor(value.sender),
     ...(isConversationMessageSender(senderMember) ? { senderMember } : {}),
+    // An origin that does not decode closes the connections of its turn; it must not stop the mailbox.
+    ...(message.origin === undefined || isHubTurnOrigin(message.origin) ? {} : { origin: "unknown" }),
     // Released builds kept an agent's `replyToMessageId: ""`, which refers to no message, and every
     // conversation that showed the message then failed to read.
     ...(message.replyToMessageId === "" ? { replyToMessageId: null } : {}),
@@ -3219,7 +3357,10 @@ function isStoredState(value: unknown): value is StoredState {
     isRecord(value.idempotency) &&
     Object.values(value.idempotency).every((item) => isString(item)) &&
     Array.isArray(value.reactions) &&
-    value.reactions.every(isStoredReaction)
+    value.reactions.every(isStoredReaction) &&
+    (value.routineOrigins === undefined ||
+      (isRecord(value.routineOrigins) && Object.values(value.routineOrigins).every(isHubTurnOrigin))) &&
+    (value.routineOriginsSince === undefined || isString(value.routineOriginsSince))
   );
 }
 
@@ -3305,6 +3446,8 @@ function isStoredMessage(value: unknown): value is StoredMessage {
         isString(value.sender.routineName) &&
         isString(value.sender.scheduledFor))) &&
     (value.senderMember === undefined || isConversationMessageSender(value.senderMember)) &&
+    (value.origin === undefined || isHubTurnOrigin(value.origin)) &&
+    (value.editorMemberId === undefined || isString(value.editorMemberId)) &&
     isString(value.text) &&
     Array.isArray(value.attachments) &&
     value.attachments.every(isStoredAttachment) &&
