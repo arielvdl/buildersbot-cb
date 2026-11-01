@@ -602,6 +602,12 @@ export interface ToolCatalogDescribeAnswer {
   maxCostMicros: number;
   effect: "read";
   example: HubJson;
+  /**
+   * The endpoint takes or returns data about people who are not the caller: names, emails, phones,
+   * profiles (people and contact data, creators, people endpoints of a social network). The app then
+   * asks the person before the first call of a conversation. Absent reads as false.
+   */
+  personalData: boolean;
 }
 
 function decodeDescription(value: unknown): { description?: string } {
@@ -720,6 +726,7 @@ export function decodeToolCatalogDescribeAnswer(value: unknown): ToolCatalogDesc
       !MARKUP.test(exampleText)
         ? value.example
         : null,
+    personalData: value.personalData === true,
   };
 }
 

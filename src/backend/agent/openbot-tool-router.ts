@@ -396,7 +396,7 @@ export class BuildersBotToolRouter {
       },
       this.#remotePerson,
     );
-    return { agentId, turnId: params.turnId, origin };
+    return { agentId, threadId: publicThreadId, turnId: params.turnId, origin };
   }
 
   /** The gated tool namespaces that this agent has in this turn: the Hub connections, or none. */

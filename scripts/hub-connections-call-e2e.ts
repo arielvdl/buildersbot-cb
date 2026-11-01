@@ -13,31 +13,20 @@
 // `bun scripts/hub-connections-call-e2e.ts`. Writes .buildersbot-build/hub-connections/tool-catalog.json.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HubJson, type HubJsonObject, isHubJsonObject } from "@openbot/contracts/hub-connections";
-import { AGENT_PROVIDERS, type AgentEvent } from "@openbot/contracts/ipc";
+import type { HubJsonObject } from "@openbot/contracts/hub-connections";
 import { redactText } from "@openbot/logging";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
+import { type Call, envelope, type Seen, startAgentHarness } from "./fake-hub/agent-harness";
 import { fakeHubFetch, startFakeHub } from "./fake-hub/fake-hub";
 import { FAKE_PROVIDER_KEY, FAKE_VENDOR_KEY } from "./fake-hub/fake-treg";
 import { RESULT_INJECTION, SUMMARY_INJECTION } from "./fake-hub/mirror";
 
 const OUT = resolve(import.meta.dirname, "../.buildersbot-build/hub-connections");
 const root = await mkdtemp(join(tmpdir(), "buildersbot-hub-connections-"));
-const userData = join(root, "user-data");
-const home = join(root, "home");
-const fakeCodex = join(root, "codex");
-const fakeLog = join(root, "codex.jsonl");
-
-// Before the service modules load: the Codex process and the stores read the home folder.
-process.env.HOME = home;
-process.env.CODEX_HOME = join(home, ".codex");
-process.env.OPENBOT_CODEX_PATH = fakeCodex;
-mkdirSync(home, { recursive: true });
 
 // Every line that the app writes to stdout or stderr is kept, to prove that no secret reaches a log.
 // The app's logger (packages/logging) writes through these two streams.
@@ -52,188 +41,7 @@ function capture(stream: NodeJS.WriteStream): void {
 capture(process.stdout);
 capture(process.stderr);
 
-const { AgentService } = await import("../src/backend/agent-service");
-const { AgentStore } = await import("../src/backend/agent-store");
-const { runCauseEffect } = await import("../src/backend/effect-boundary");
-const { MailboxStore } = await import("../src/backend/mailbox-store");
-const { BuildersBotDatabase } = await import("../src/backend/openbot-database");
-const { HubConnectionClient } = await import("../src/backend/hub-connections/hub-connection-client");
-const { HUB_CONNECTION_GUIDANCE, HUB_CONNECTION_TOOL_DEFINITIONS, hasVendorPhrase } = await import(
-  "../src/backend/hub-connections/hub-connection-tool-definitions"
-);
-
 const MARK = "HUB-CALLS";
-
-/**
- * A Codex app-server with the methods that the service calls. A turn whose input has
- * `HUB-CALLS <<CALLS:<base64 JSON>>>` runs each listed call in order and waits for each result: a
- * `tool_search` or `tool_describe` item calls that discovery tool, and any other item goes through
- * `tool_call`, as a model does. It logs the thread setup, the turn input, its own environment and
- * each result, then ends the turn. Other turns answer "Done.".
- */
-const FAKE_CODEX = `#!/usr/bin/env node
-const { appendFileSync } = require("node:fs");
-if (process.argv.includes("--version")) {
-  process.stdout.write("codex-cli 0.160.1\\n");
-  process.exit(0);
-}
-const LOG = ${JSON.stringify(fakeLog)};
-const log = (entry) => appendFileSync(LOG, JSON.stringify(entry) + "\\n");
-log({ kind: "env", env: process.env });
-const config = { config: { mcp_servers: {} }, layers: [{ name: { type: "user", file: "/fake/.codex/config.toml", profile: null }, version: "1", config: { mcp_servers: {} } }] };
-let buffer = "";
-let threads = 0;
-let turns = 0;
-const waiting = new Map();
-process.stdout.on("error", (error) => {
-  if (error.code === "EPIPE") process.exit(0);
-  throw error;
-});
-const write = (message) => process.stdout.write(JSON.stringify(message) + "\\n");
-const finish = (threadId, turnId) => {
-  const item = { type: "agentMessage", id: "message-" + turnId, text: "Done.", phase: "final_answer" };
-  write({ method: "item/completed", params: { threadId, turnId, item } });
-  write({ method: "turn/completed", params: { threadId, turn: { id: turnId, status: "completed" } } });
-};
-const next = (threadId, turnId, calls, index) => {
-  if (index >= calls.length) return finish(threadId, turnId);
-  const call = calls[index];
-  const id = "tool-" + turnId + "-" + index;
-  waiting.set(id, { threadId, turnId, calls, index });
-  const discovery = call.tool === "tool_search" || call.tool === "tool_describe";
-  write({
-    id,
-    method: "item/tool/call",
-    params: {
-      threadId,
-      turnId,
-      callId: "call-" + turnId + "-" + index,
-      namespace: "openbot",
-      tool: discovery ? call.tool : "tool_call",
-      arguments: discovery ? call.arguments : { name: call.tool, arguments: call.arguments },
-    },
-  });
-};
-const answer = (message) => {
-  const params = message.params || {};
-  switch (message.method) {
-    case "initialize": return write({ id: message.id, result: {} });
-    case "account/read": return write({ id: message.id, result: { account: { type: "chatgpt", email: "codex@example.com" } } });
-    case "account/rateLimits/read": return write({ id: message.id, result: { rateLimits: { limitId: "codex", primary: null, secondary: null }, rateLimitsByLimitId: null } });
-    case "model/list": return write({ id: message.id, result: { data: [{ model: "gpt-6-luna", displayName: "GPT-6 Luna" }] } });
-    case "plugin/list": return write({ id: message.id, result: { marketplaces: [] } });
-    case "config/read": return write({ id: message.id, result: config });
-    case "config/batchWrite": return write({ id: message.id, result: {} });
-    case "thread/start":
-      log({ kind: "thread", params });
-      return write({ id: message.id, result: { thread: { id: "thread-" + (++threads), turns: [] } } });
-    case "thread/resume":
-      log({ kind: "thread", params });
-      return write({ id: message.id, result: { thread: { id: params.threadId, turns: [] } } });
-    case "thread/unsubscribe": return write({ id: message.id, result: { status: "Unsubscribed" } });
-    case "thread/turns/list":
-    case "thread/items/list": return write({ id: message.id, result: { data: [], nextCursor: null } });
-    case "thread/read": return write({ id: message.id, result: { thread: { id: params.threadId, turns: [] } } });
-    case "turn/start": {
-      const turnId = "turn-" + (++turns);
-      const text = (params.input || []).map((item) => item.text || "").join("\\n");
-      log({ kind: "input", turnId, text });
-      write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
-      write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
-      const match = text.includes(${JSON.stringify(MARK)}) ? [...text.matchAll(/<<CALLS:([A-Za-z0-9+\\/=]+)>>/g)].at(-1) : null;
-      if (!match) return setTimeout(() => finish(params.threadId, turnId), 20);
-      const calls = JSON.parse(Buffer.from(match[1], "base64").toString("utf8"));
-      return next(params.threadId, turnId, calls, 0);
-    }
-    case "turn/interrupt": {
-      write({ id: message.id, result: {} });
-      return write({ method: "turn/completed", params: { threadId: params.threadId, turn: { id: params.turnId, status: "interrupted" } } });
-    }
-    default:
-      return write({ id: message.id, error: { code: -32601, message: "Method not found: " + message.method } });
-  }
-};
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  buffer += chunk;
-  let newline = buffer.indexOf("\\n");
-  while (newline >= 0) {
-    const line = buffer.slice(0, newline);
-    buffer = buffer.slice(newline + 1);
-    if (line) {
-      const message = JSON.parse(line);
-      if (message.method && message.id !== undefined) answer(message);
-      else if (!message.method && waiting.has(message.id)) {
-        const turn = waiting.get(message.id);
-        waiting.delete(message.id);
-        log({ kind: "result", turnId: turn.turnId, index: turn.index, call: turn.calls[turn.index], result: message.result ?? null, error: message.error ?? null });
-        next(turn.threadId, turn.turnId, turn.calls, turn.index + 1);
-      }
-    }
-    newline = buffer.indexOf("\\n");
-  }
-});
-`;
-
-interface Call {
-  readonly tool: string;
-  readonly arguments: HubJsonObject;
-}
-
-interface LogEntry {
-  readonly kind: "env" | "thread" | "input" | "result";
-  readonly turnId?: string;
-  readonly index?: number;
-  readonly call?: Call;
-  readonly result?: { success: boolean; contentItems: { type: string; text: string }[] } | null;
-  readonly error?: unknown;
-  readonly text?: string;
-  readonly params?: unknown;
-  readonly env?: Record<string, string>;
-}
-
-/** One tool result as the agent reads it: the app's JSON fields, and the text with the envelope. */
-interface Seen {
-  readonly success: boolean;
-  readonly fields: HubJsonObject;
-  readonly text: string;
-}
-
-function readLog(): LogEntry[] {
-  if (!existsSync(fakeLog)) return [];
-  return readFileSync(fakeLog, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-}
-
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 30_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 20));
-  }
-}
-
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 
 const report: {
   steps: Array<{ step: string; result: unknown }>;
@@ -253,87 +61,35 @@ async function step(name: string, run: () => unknown): Promise<void> {
 
 const hub = await startFakeHub();
 let storedSession: string | null = null;
-const events: AgentEvent[] = [];
 const cards: Array<{ reason: string; guard: boolean; decision: "accept" | "decline"; hub: boolean }> = [];
 /** What the person answers on the next Hub cards (cost and payer), in order. */
 let cardPlan: Array<"accept" | "decline"> = [];
 
-await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
-const database = new BuildersBotDatabase(userData);
-const store = new AgentStore(userData, home, database);
-const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
-const agents = new AgentService({
-  store,
-  mailbox,
-  browser,
-  preferredProvider: "codex",
-  offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
-  timezone: () => "UTC",
-  credentials: {
-    apiKey: (provider) => (provider === "cultura-builder" ? storedSession : null),
-    saveApiKey: (provider, value) =>
-      Effect.sync(() => {
-        if (provider === "cultura-builder") storedSession = value;
-      }),
-    customProviders: () => [],
-    mcpServers: () => [],
-  },
-  hubConnections: { fetch: fakeHubFetch(hub) },
-});
-
 const HUB_CARD = /^(?:An agent wants to run|Who pays for|Pay for)/u;
-agents.on("event", (event) => {
-  events.push(event);
-  if (event.type !== "approval") return;
-  const reason = event.approval.reason ?? "";
-  const isHub = HUB_CARD.test(reason);
-  // A Guard question is answered "allow", so the check goes on to the Hub's own answer.
-  const decision = isHub ? (cardPlan.shift() ?? "decline") : "accept";
-  cards.push({ reason, guard: event.approval.guard === true, decision, hub: isHub });
-  void runCauseEffect(agents.respondToApproval({ requestId: event.approval.requestId, decision }));
+const harness = await startAgentHarness({
+  root,
+  mark: MARK,
+  hubFetch: fakeHubFetch(hub),
+  session: () => storedSession,
+  saveSession: (value) => {
+    storedSession = value;
+  },
+  decide: (card) => {
+    const isHub = HUB_CARD.test(card.reason);
+    // A Guard question is answered "allow", so the check goes on to the Hub's own answer.
+    const decision = isHub ? (cardPlan.shift() ?? "decline") : "accept";
+    cards.push({ ...card, decision, hub: isHub });
+    return decision;
+  },
 });
-
-let agentId = "";
-
-/** Sends one person's message whose turn runs `calls`, and returns what the agent read for each. */
-async function turn(calls: Call[], options: { routine?: boolean } = {}): Promise<Seen[]> {
-  const before = readLog().filter((entry) => entry.kind === "result").length;
-  const text = `${MARK} <<CALLS:${Buffer.from(JSON.stringify(calls)).toString("base64")}>>`;
-  if (options.routine) {
-    const routine = agents.createRoutine({
-      agentId,
-      name: `Routine ${randomUUID().slice(0, 8)}`,
-      instruction: text,
-      active: false,
-      timezone: "UTC",
-      schedule: { kind: "daily", time: "09:00" },
-    });
-    await runCauseEffect(agents.testRoutine({ agentId, routineId: routine.id }));
-  } else {
-    await runCauseEffect(agents.sendMessage({ agentId, text, attachmentDraftIds: [] }));
-  }
-  const results = await waitFor(`${calls.length} tool results`, () => {
-    const all = readLog().filter((entry) => entry.kind === "result");
-    return all.length >= before + calls.length ? all.slice(before, before + calls.length) : null;
-  });
-  await waitFor("the turn to end", () =>
-    agents
-      .listQueue(agentId)
-      .deliveries.every((delivery) => !["queued", "starting", "running"].includes(delivery.status)),
-  );
-  return results.map((entry) => {
-    const text = entry.result?.contentItems.map((item) => item.text).join("\n") ?? JSON.stringify(entry.error);
-    const firstLine = text.split("\n")[0] ?? "";
-    let fields: HubJsonObject = {};
-    try {
-      const parsed: HubJson = JSON.parse(firstLine);
-      if (isHubJsonObject(parsed)) fields = parsed;
-    } catch {
-      // A failure of the router is plain text.
-    }
-    return { success: entry.result?.success === true, fields, text };
-  });
-}
+// After the harness: the service modules read the home folder that it set.
+const { HUB_CONNECTION_GUIDANCE, HUB_CONNECTION_TOOL_DEFINITIONS } = await import(
+  "../src/backend/hub-connections/hub-connection-tool-definitions"
+);
+const { hasVendorPhrase } = await import("../src/backend/hub-connections/vendor-lines");
+const { HubConnectionClient } = await import("../src/backend/hub-connections/hub-connection-client");
+const { agents, agentId, events, userData, turn, runCauseEffect } = harness;
+const readLog = () => harness.readLog();
 
 const list = (): Call => ({ tool: "openbot_connections.list", arguments: {} });
 const op = (operation: string, input: HubJsonObject, offset?: number): Call => ({
@@ -345,35 +101,11 @@ const search = (query: string): Call => ({ tool: "tool_search", arguments: { que
 
 const hubCalls = () => hub.requests.filter((request) => request.path.endsWith("/tool-catalog/call"));
 const vendorCalls = () => hub.treg.requests;
-/** The JSON inside the first `<connection_output>` of a result. */
-function envelope(seen: Seen): string {
-  const start = seen.text.indexOf("<connection_output");
-  const end = seen.text.indexOf("</connection_output>");
-  assert.ok(start >= 0 && end > start, `no envelope in: ${seen.text.slice(0, 300)}`);
-  return seen.text.slice(seen.text.indexOf(">", start) + 1, end).trim();
-}
 function hasTools(seen: Seen): boolean {
   return seen.text.includes("openbot_connections.call") && seen.text.includes("openbot_connections.list");
 }
 
 try {
-  await runCauseEffect(agents.initialize());
-  const agent = await runCauseEffect(
-    agents.createAgent({
-      name: "Researcher",
-      description: "Finds market data.",
-      avatarSeed: "researcher",
-      avatarHue: null,
-      initialMessage: "Hello.",
-    }),
-  );
-  agentId = agent.id;
-  await waitFor("the first turn to end", () =>
-    agents
-      .listQueue(agentId)
-      .deliveries.every((delivery) => !["queued", "starting", "running"].includes(delivery.status)),
-  );
-
   await step("signed out: the agent cannot find or run the connection tools", async () => {
     const [found, listed] = await turn([search("paid data connections keyword"), list()]);
     assert.ok(found && listed);
@@ -467,7 +199,7 @@ try {
     assert.equal(reviewsJson.body.additionalProperties, false);
     assert.ok(reviewsJson.summary.includes(SUMMARY_INJECTION.slice(0, 40)));
     assert.ok(!/<(?!\/?connection_output|\/?guard_notice)/u.test(reviews.text.replace(/^[^\n]*\n/u, "")));
-    assert.ok(JSON.parse(envelope(legacy)).summary.includes("[removed]"), envelope(legacy));
+    assert.ok(JSON.parse(envelope(legacy)).summary.includes("[vendor instruction removed]"), envelope(legacy));
     assert.equal(legacyTitle.success, false);
     assert.equal(legacyTitle.fields.error, "endpoint_not_allowed");
     assert.equal(JSON.parse(envelope(promo)).summary, "");
@@ -1011,8 +743,7 @@ try {
       2,
     )}\n`,
   );
-  await runCauseEffect(agents.stop()).catch(() => undefined);
-  database.close();
+  await harness.stop();
   await hub.close();
   await rm(root, { recursive: true, force: true });
 }

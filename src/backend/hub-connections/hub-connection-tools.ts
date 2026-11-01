@@ -25,14 +25,10 @@ import { Effect, Result } from "effect";
 import { z } from "zod";
 import type { DynamicToolResult } from "../protocol";
 import type { HubConnectionClient, HubConnectionFailure, HubOperationOutcome } from "./hub-connection-client";
-import { checkCallInput, type InputRefusal, readCallInput } from "./hub-connection-input";
+import { checkCallInput, type InputRefusal, readCallInput, valueRule } from "./hub-connection-input";
 import { choosePayer, type PayerDecision, PERSONAL_ORG } from "./hub-connection-payer";
-import {
-  callConnectionToolSchema,
-  HUB_CONNECTION_GUIDANCE,
-  hasVendorPhrase,
-  maskVendorPhrases,
-} from "./hub-connection-tool-definitions";
+import { callConnectionToolSchema, HUB_CONNECTION_GUIDANCE } from "./hub-connection-tool-definitions";
+import { hasVendorPhrase, maskVendorPhrases } from "./vendor-lines";
 
 /**
  * Where the turn that calls the tool came from. Only the person at this computer (`owner_ui`), the
@@ -75,6 +71,8 @@ type ToolInput = z.infer<typeof callConnectionToolSchema>["input"];
 
 export interface HubConnectionContext {
   readonly agentId: string;
+  /** The agent's public thread id: the conversation in which the person answers a card. */
+  readonly threadId: string;
   readonly turnId: string;
   readonly origin: HubTurnOrigin;
 }
@@ -116,6 +114,48 @@ export const HUB_CALL_LIMITS = { perTurn: 20, lookupsPerTurn: 40, perHour: 200, 
 const CONFIRMATION_MS = 5 * 60_000;
 const DESCRIBE_CACHE_MS = 5 * 60_000;
 const TURN_LIMIT = 64;
+/** The most conversations whose people-data approval is kept; the oldest goes first. */
+const PEOPLE_DATA_THREADS = 256;
+/** The most characters of the input values that the people-data card shows. */
+const PEOPLE_DATA_SUBJECTS = 300;
+
+/** An email address in a result. */
+const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}/u;
+/**
+ * A phone number in a result: a leading `+` and 8 to 15 digits, or digits with separators that a
+ * phone number has (`(11) 98765-4321`, `415-555-0132`), or any value of a field named for a phone. A
+ * plain run of digits, such as a timestamp or a count, is not one.
+ */
+const PHONE =
+  /(?:^|[^\w+])\+\d(?:[\s.()-]{0,2}\d){7,14}\b|\(\d{2,4}\)\s{0,2}\d{3,5}[\s.-]\d{4}\b|\b\d{3}[.-]\d{3,4}[.-]\d{4}\b|"(?:phone|phones|phone_number|phoneNumber|mobile|telefone|celular|whatsapp|tel)"\s{0,4}:\s{0,4}"[^"]{4,}"/iu;
+
+/**
+ * The note on a result that holds an email or a phone number (the treg design, §4.6 G9). It is the
+ * app's own text, outside the envelope: found contacts are often guessed by the provider.
+ */
+export const CONTACT_DATA_NOTE =
+  "Unverified contact data: this result holds emails or phone numbers that a provider found or guessed. They are not facts. Do not send a message, an email or an invitation to any of them unless the person asks for that address.";
+
+/** Whether a result text holds an email or a phone number. */
+export function holdsContactData(text: string): boolean {
+  return EMAIL.test(text) || PHONE.test(text);
+}
+
+/** Every string value of a call input, for the people-data card: the names and the addresses that it asks about. */
+function inputSubjects(input: { readonly query?: unknown; readonly body?: unknown }): string {
+  const values: string[] = [];
+  const walk = (value: unknown, depth: number) => {
+    if (depth > 8 || values.length > 64) return;
+    if (typeof value === "string") values.push(value.trim());
+    else if (Array.isArray(value)) for (const item of value) walk(item, depth + 1);
+    else if (value !== null && typeof value === "object")
+      for (const item of Object.values(value)) walk(item, depth + 1);
+  };
+  walk(input.query, 0);
+  walk(input.body, 0);
+  const text = values.filter(Boolean).join(", ").replace(/[<>]/gu, " ");
+  return text.length > PEOPLE_DATA_SUBJECTS ? `${text.slice(0, PEOPLE_DATA_SUBJECTS)}…` : text;
+}
 
 interface TurnState {
   readonly calls: Map<string, number>;
@@ -278,6 +318,8 @@ export class HubConnectionTools {
   readonly #chosen = new Map<string, string>();
   /** The organization that paid the last call of each connection. */
   readonly #lastPaid = new Map<string, string>();
+  /** The conversations in which the person allowed calls about people (G3), by agent and public thread. */
+  readonly #peopleDataThreads = new Set<string>();
 
   constructor(options: HubConnectionToolsOptions) {
     this.#client = options.client;
@@ -298,6 +340,7 @@ export class HubConnectionTools {
     this.#described.clear();
     this.#chosen.clear();
     this.#lastPaid.clear();
+    this.#peopleDataThreads.clear();
   }
 
   /**
@@ -562,8 +605,14 @@ export class HubConnectionTools {
         message:
           "search takes {query (1 to 200 characters of plain text), platform?, limit? (1 to 10)} and nothing else.",
       });
-    const secret = findSecretValue(body.query);
-    if (secret) return refusal({ error: "input_refused", message: INPUT_RULE_TEXT.credential_value });
+    // The same lock as a call: no key, cookie, session or token leaves in a search text, also with the Guard off.
+    const refused = valueRule(body.query);
+    if (refused)
+      return refusal({
+        error: "input_refused",
+        rule: refused,
+        message: `${INPUT_RULE_TEXT[refused]} Nothing was sent.`,
+      });
     const before = yield* hooks.guard();
     if (!before.proceed) return before.result;
     const outcome = yield* Effect.result(this.#client.search(orgId, body));
@@ -742,6 +791,10 @@ export class HubConnectionTools {
     // The Guard reads only an input that passed the checks: a refused one never leaves the computer.
     const before = yield* hooks.guard();
     if (!before.proceed) return before.result;
+    if (described.answer.personalData) {
+      const people = yield* this.#allowPeopleData(context, described.answer, input, hooks.ask);
+      if (people) return people.result;
+    }
     const body: ToolCatalogCallRequest = {
       endpointId: input.endpointId,
       // Only these three origins get the tools (`#access`), so no other origin reaches this line.
@@ -802,12 +855,65 @@ export class HubConnectionTools {
     ).slice(0, HUB_CONNECTIONS_LIMITS.contentChars);
     const text = content.replace(/</gu, "\\u003c").replace(/>/gu, "\\u003e");
     const stored: StoredResult = {
-      header,
+      // Found contacts are guesses of the provider: the agent reads the app's note with them (G9).
+      header: holdsContactData(content) ? { ...header, contactData: CONTACT_DATA_NOTE } : header,
       attributes: { endpoint: answer.endpointId, served_by: answer.servedBy },
       text,
     };
     state.results.set(hash, stored);
     return page(stored, 0, false);
+  });
+
+  /**
+   * The approval of a call about people (the treg design, §4.6 G3): the first such call of a
+   * conversation shows a card with the values that it asks about, such as names and addresses. A
+   * routine run or a turn that another agent started cannot show a card, so the call stops, also in a
+   * conversation where the person allowed such calls before. Null when
+   * the call may go on; otherwise the result for the agent, or null in `result` when the turn ended.
+   */
+  readonly #allowPeopleData = Effect.fn("HubConnectionTools.allowPeopleData")(function* (
+    this: HubConnectionTools,
+    context: HubConnectionContext,
+    described: ToolCatalogDescribeAnswer,
+    input: { readonly query?: unknown; readonly body?: unknown },
+    ask: HubConnectionAsk,
+  ) {
+    // A routine run or a delegated turn never looks up people, also in a conversation where the
+    // person allowed it: nobody is there to see what it asks about.
+    if (context.origin !== "owner_ui")
+      return {
+        result: refusal({
+          needsPerson: "people_data",
+          refused: true,
+          message:
+            "This endpoint looks up data about people. Only the person can allow that, in a conversation, and nobody can in a routine run or in a turn that another agent started. The call did not run. Report it.",
+        }),
+      };
+    const key = `${context.agentId}\u0000${context.threadId}`;
+    if (this.#peopleDataThreads.has(key)) return null;
+    const answer = yield* ask(
+      sourceText("status.agent.connectionPeopleData", {
+        endpoint: described.title,
+        subjects: inputSubjects(input) || described.endpointId,
+      }),
+    );
+    if (answer === "cancel") return { result: null };
+    if (answer !== "accept")
+      return {
+        result: refusal({
+          needsPerson: "people_data",
+          declined: true,
+          message:
+            "The person did not allow this lookup of data about people. The call did not run. Do not call it again unless the person asks.",
+        }),
+      };
+    this.#peopleDataThreads.add(key);
+    while (this.#peopleDataThreads.size > PEOPLE_DATA_THREADS) {
+      const oldest = this.#peopleDataThreads.values().next().value;
+      if (oldest === undefined) break;
+      this.#peopleDataThreads.delete(oldest);
+    }
+    return null;
   });
 
   /**

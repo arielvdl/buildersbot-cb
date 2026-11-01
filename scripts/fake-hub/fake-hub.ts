@@ -271,7 +271,7 @@ export async function startFakeHub(): Promise<FakeHub> {
   let down: "drop" | number | null = null;
   let ledger = 0;
 
-  const allowed = VENDOR_ROWS.filter((row) => failedRule(row) === null);
+  const allowed = VENDOR_ROWS.filter((row) => row.skipHubAdmission === true || failedRule(row) === null);
   const allowedRow = (id: unknown) => allowed.find((row) => row.endpointId === id) ?? null;
   const cheapestUnit = Math.min(...allowed.map((row) => toBrl(row.unitPriceMicroUsd ?? 0)));
 
@@ -310,7 +310,8 @@ export async function startFakeHub(): Promise<FakeHub> {
       maxUnits: row.maxUnits,
       maxCostMicros: Math.min(unit * row.maxUnits, org.maxCostPerCallMicros),
       reliability: 0.97,
-      effect: "read",
+      // The row's own effect: a Hub that let a write endpoint through is what the app's lock must stop.
+      effect: row.effect,
     };
   }
 
@@ -682,6 +683,7 @@ export async function startFakeHub(): Promise<FakeHub> {
           method: row.method,
           params: { query: row.query, body: row.body },
           example: row.body ? { note: "example" } : undefined,
+          ...(row.personalData ? { personalData: true } : {}),
         },
       ];
     }

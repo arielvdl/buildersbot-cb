@@ -67,4 +67,6 @@ export const messages = defineMessages("status.agent", {
     "Who pays for {connection}? Allow makes {org} pay for this call and the next ones. Deny does not use this organization.",
   "status.agent.connectionChoosePayerPersonal":
     "Pay for {connection} with your personal plan? Allow makes the personal plan pay for this call and the next ones.",
+  "status.agent.connectionPeopleData":
+    "An agent wants to look up data about people with {endpoint}: {subjects}. The data goes to Cultura Builder, to treg.to (USA) and to the provider of the endpoint. Allow covers the next lookups about people in this conversation.",
 });

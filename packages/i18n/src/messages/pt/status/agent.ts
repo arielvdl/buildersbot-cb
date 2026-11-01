@@ -53,4 +53,6 @@ export const messages = {
     "Quem paga por {connection}? Permitir faz {org} pagar esta chamada e as próximas. Negar não usa esta organização.",
   "status.agent.connectionChoosePayerPersonal":
     "Pagar {connection} com o seu plano pessoal? Permitir faz o plano pessoal pagar esta chamada e as próximas.",
+  "status.agent.connectionPeopleData":
+    "Um agente quer buscar dados de pessoas com {endpoint}: {subjects}. Os dados vão para o Cultura Builder, para o treg.to (EUA) e para o fornecedor do endpoint. Permitir vale para as próximas buscas sobre pessoas nesta conversa.",
 } as const satisfies PartialTranslation<typeof source>;

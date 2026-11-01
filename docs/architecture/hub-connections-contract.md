@@ -210,7 +210,9 @@ They read the Hub mirror, so the agent's query never goes to the vendor (design 
 ### 5.1 `search`
 
 Body: `{ "query": "keyword volume", "platform"?: "google-ads", "limit"?: 10 }`. `query` is 1 to 200
-characters of plain text; `limit` 1 to 10.
+characters of plain text; `limit` 1 to 10. The app refuses a `query` that holds a key, a token, a
+cookie or a session before it sends anything; the Hub refuses it too, with
+`422 { "error": "input_refused", "field": "query" }`.
 
 ```json
 {
@@ -264,7 +266,8 @@ Body: `{ "endpointId": "seo.keyword-volume" }`.
   "maxUnits": 10,
   "maxCostMicros": 500000,
   "effect": "read",
-  "example": { "keywords": ["crm"] }
+  "example": { "keywords": ["crm"] },
+  "personalData": false
 }
 ```
 
@@ -275,6 +278,12 @@ Body: `{ "endpointId": "seo.keyword-volume" }`.
   8 levels, 4 KB for both schemas. `query` holds scalars only.
 - An endpoint whose schema breaks a rule is refused by the app as a whole.
 - `summary` at most 300 characters; `example` at most 2 KB of JSON.
+- `personalData` (boolean, default `false`): `true` for an endpoint that takes or returns data about
+  people who are not the caller (names, emails, phones, profiles): the platforms "People & contact
+  data" and "Creators & influencers", and the people endpoints of a social network (design §4.6 G3).
+  The app then shows a card that names the values of the call before the first such call of a
+  conversation, and refuses it in a routine run. The Hub must set it on every such row: a missing
+  flag reads as `false`. D11 keeps these platforms off until the lawyer answers L4.
 
 ### 5.3 Mirror text rules (design §3.15 rule A9)
 

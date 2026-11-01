@@ -58,7 +58,24 @@ never leaves the computer. The refusal names the rule and the field path, never 
    `100.64.0.0/10` (Tailscale) addresses, `.local`, `.internal`, `.ts.net`, `localhost` and `file:`
    are refused (`isPublicAddress`).
 
+A `search` text gets rule 3 too (`valueRule`), so a key, a cookie or a token never leaves in a
+search, also when the Guard is off. The cookie and token shapes are the Guard's own
+(`cookieOrToken` in `guard-triage.ts`), so both locks refuse the same values; the Guard then stops a
+cookie or a session that reaches it, with no card ([The Guard](guard.md#connection-tools)).
+
 The Hub runs the same checks again.
+
+## Calls about people
+
+A describe answer with `personalData: true` (people and contact data, creators, people endpoints of
+a social network) is an endpoint about people who did not agree to the lookup (the treg design §4.6
+G3, question L4 for the lawyer). After the input checks and the Guard, the first such call of a
+conversation shows a card that names the endpoint, the values that the call asks about (names,
+domains, addresses; at most 300 characters) and where the data goes: Cultura Builder, treg.to (USA)
+and the provider (`status.agent.connectionPeopleData`). **Allow** covers the next calls about
+people in that conversation; **Deny** sends nothing, and the next call asks again. A routine run or
+a turn that another agent started never makes such a call, also in a conversation where the person
+allowed it: the result is `needsPerson: "people_data"` with no card.
 
 ## Who pays
 
@@ -97,6 +114,13 @@ card.
   `offset` pages a long result 30,000 characters at a time.
 - In a turn that another agent started, results leave out the amounts and the payer: they would
   go to that agent's provider.
+- A result that holds an email address or a phone number gets the field `contactData`, outside the
+  envelope, with Builders Bot's fixed note (`CONTACT_DATA_NOTE`): the contacts are guesses of the
+  provider, and the agent contacts none of them unless the person asks for that address (G9). The
+  app does not stop a later send to such an address by itself: `messaging_post` posts only to places
+  that the person connected, and a send in the browser or a shell is outside these tools.
+- A vendor line that the app takes out of a result is replaced with `[vendor instruction removed]`,
+  and the Guard puts its note in front of that result (G5).
 
 ## Limits
 
@@ -124,3 +148,9 @@ catalog.
 `bun scripts/hub-connections-call-e2e.ts` drives the real agent service, router, Guard, cards and
 Hub client with a fake Codex app-server against `scripts/fake-hub/` (a fake Hub and a fake vendor on
 127.0.0.1). It writes `.buildersbot-build/hub-connections/tool-catalog.json`.
+
+`bun scripts/hub-connections-safety-e2e.ts` checks the Guard rules G2, G3, G5, G6, G7, G9 and G11,
+the person's own treg entry off in Codex and OpenCode, the Settings notice, the absence of the
+vendor lines of §2.2 in every agent text and source file, and the Guard time. It writes
+`.buildersbot-build/hub-connections/safety.json`. Both scripts share
+`scripts/fake-hub/agent-harness.ts`.
