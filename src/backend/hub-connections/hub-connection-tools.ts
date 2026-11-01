@@ -31,51 +31,21 @@ import type {
   HubConnectionUsageView,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import { findSecretValue } from "@openbot/logging";
-import { Effect, Result } from "effect";
+import { createBuildersBotLogger } from "@openbot/logging";
+import { Effect, Option, Result } from "effect";
 import { z } from "zod";
 import type { DynamicToolResult } from "../protocol";
-import type { HubConnectionClient, HubConnectionFailure, HubOperationOutcome } from "./hub-connection-client";
+import { type HubConnectionClient, HubConnectionFailure, type HubOperationOutcome } from "./hub-connection-client";
 import { checkCallInput, type InputRefusal, readCallInput, valueRule } from "./hub-connection-input";
 import { canPay, choosePayer, type PayerDecision, PERSONAL_ORG } from "./hub-connection-payer";
 import { callConnectionToolSchema, HUB_CONNECTION_GUIDANCE } from "./hub-connection-tool-definitions";
 import { connectionsView, failureStatus, orgUsageView, usageOrgs } from "./hub-connection-views";
-import { hasVendorPhrase, maskVendorPhrases } from "./vendor-lines";
+import { maskedResultJson, maskedResultText, maskResultValue } from "./result-mask";
+import { CONNECTION_ORIGINS, type HubTurnOrigin } from "./turn-origin";
+import { hasVendorPhrase } from "./vendor-lines";
 
-/**
- * Where the turn that calls the tool came from. Only the person at this computer (`owner_ui`), the
- * person's routines and the person's agents get the tools. A chat app thread, a channel and a team
- * member never do: they would spend the person's money, and they are a direct path for injection.
- */
-export type HubTurnOrigin = "owner_ui" | "routine" | "agent" | "messaging" | "team_member" | "unknown";
+export { type HubDeliveryOrigin, type HubTurnOrigin, hubTurnOrigin } from "./turn-origin";
 
-/** What a turn's deliveries say about who started it. */
-export interface HubDeliveryOrigin {
-  readonly sender: "user" | "agent" | "routine";
-  /** The message came from Slack, Discord or Telegram, or an agent sent it from such a thread. */
-  readonly messaging: boolean;
-  /** The message belongs to a channel. */
-  readonly channel: boolean;
-  /** The person the host stamped on a user message; null for the person at this computer. */
-  readonly memberId: string | null;
-}
-
-export function hubTurnOrigin(
-  deliveries: readonly HubDeliveryOrigin[],
-  thread: { readonly messaging: boolean; readonly channel: boolean },
-  remotePerson: (memberId: string) => boolean,
-): HubTurnOrigin {
-  if (thread.messaging || deliveries.some((delivery) => delivery.messaging)) return "messaging";
-  if (thread.channel || deliveries.some((delivery) => delivery.channel)) return "team_member";
-  if (deliveries.length === 0) return "unknown";
-  if (deliveries.some((delivery) => delivery.memberId !== null && remotePerson(delivery.memberId)))
-    return "team_member";
-  if (deliveries.some((delivery) => delivery.sender === "routine")) return "routine";
-  if (deliveries.some((delivery) => delivery.sender === "agent")) return "agent";
-  return "owner_ui";
-}
-
-const CONNECTION_ORIGINS: ReadonlySet<HubTurnOrigin> = new Set(["owner_ui", "routine", "agent"]);
 const NO_CONNECTIONS: readonly string[] = [];
 
 /** The `input` object of a call, as the tool schema parsed it. Each operation reads its own fields. */
@@ -128,8 +98,12 @@ type ConnectionAccess =
   | { readonly kind: "open"; readonly connections: readonly string[] }
   | { readonly kind: "closed"; readonly failure: HubConnectionFailure["code"] | "origin" | "computer" };
 
+const logger = createBuildersBotLogger("hub-connections");
+
 /** The most calls of one connection in one turn, and of all agents of this computer in one hour. */
 export const HUB_CALL_LIMITS = { perTurn: 20, lookupsPerTurn: 40, perHour: 200, page: 30_000 } as const;
+/** How long tool discovery waits for `/session` before it answers without the connection tools. */
+export const DISCOVERY_WAIT_MS = 750;
 /** A confirmation id is good for 5 minutes at most, whatever the Hub says. */
 const CONFIRMATION_MS = 5 * 60_000;
 const DESCRIBE_CACHE_MS = 5 * 60_000;
@@ -204,29 +178,6 @@ export function connectionEnvelope(attributes: Record<string, string>, body: str
     .map(([name, value]) => ` ${name}="${value}"`)
     .join("");
   return `<connection_output untrusted="true"${attrs}>\n${body}\n</connection_output>`;
-}
-
-const SECRET_FIELD =
-  /("(?:key|api_key|apikey|token|access_token|auth|authorization|sig|signature|password|secret|cookie|session)"\s*:\s*")((?:\\.|[^"\\])+)"/giu;
-const SECRET_QUERY = /([?&](?:key|api_key|apikey|token|access_token|auth|sig|signature)=)[^&#\s"'<>\\]+/giu;
-const BEARER = /\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}/giu;
-
-/**
- * Masks credentials in a result by their shape: a registered secret, a known key prefix, a token or
- * a private key, a credential field or query value, and a bearer value. The Hub masks first; this is
- * the second lock, for a vendor that echoes its key in a successful answer.
- */
-export function maskConnectionSecrets(text: string): string {
-  let masked = text
-    .replace(SECRET_FIELD, '$1[redacted]"')
-    .replace(SECRET_QUERY, "$1[redacted]")
-    .replace(BEARER, "$1[redacted]");
-  for (let guard = 0; guard < 1_000; guard += 1) {
-    const found = findSecretValue(masked);
-    if (!found) break;
-    masked = `${masked.slice(0, found.index)}[redacted]${masked.slice(found.index + found.length)}`;
-  }
-  return masked;
 }
 
 /** Amounts for the person, cut down to cents as the Hub contract says. */
@@ -356,20 +307,43 @@ export class HubConnectionTools {
     this.#now = options.now ?? Date.now;
   }
 
+  /** Every connection id that this sign-in may have: the tool catalog and those of the last `/session`. */
+  knownConnectionIds(): string[] {
+    return [...new Set([TOOL_CATALOG_CONNECTION_ID, ...this.#client.knownConnectionIds()])];
+  }
+
   /** Sets the payer of a connection. The person does this; the agent has no path to it. */
   choosePayer(connectionId: string, orgId: string | null): void {
     if (orgId === null) this.#chosen.delete(connectionId);
     else this.#chosen.set(connectionId, orgId);
   }
 
-  /** Forgets every token, cache and payer: at sign-out. */
+  /**
+   * Forgets every token, cache, payer, approval and use of the session's person: at a sign-out and at
+   * a sign-in, which can be another person's.
+   */
   forget(): void {
     this.#client.forget();
+    this.#forgetPerson();
+  }
+
+  #forgetPerson(): void {
     this.#described.clear();
     this.#chosen.clear();
     this.#lastPaid.clear();
     this.#peopleDataThreads.clear();
     this.#usage.clear();
+    this.#turns.clear();
+  }
+
+  /**
+   * Forgets the person's state when no session is stored, also when the sign-out did not go through
+   * this app's sign-out: the next session can be another person's.
+   */
+  #signedIn(): boolean {
+    if (this.#client.signedIn()) return true;
+    this.#forgetPerson();
+    return false;
   }
 
   /**
@@ -382,11 +356,12 @@ export class HubConnectionTools {
       connections: [],
       readAt: null,
     });
-    if (!this.#client.signedIn()) return empty("signed_out");
+    if (!this.#signedIn()) return empty("signed_out");
     const capabilities = yield* Effect.result(this.#client.capabilities(fresh));
     if (Result.isFailure(capabilities)) return empty(failureStatus(capabilities.failure.code));
+    // `active` says whether the account may use the LLM, not the connections (contract §3): only the
+    // capability of each connection opens it.
     const session = capabilities.success;
-    if (!session.active) return empty("off");
     const catalog = yield* Effect.result(this.#client.catalog(fresh));
     if (Result.isFailure(catalog)) return empty(failureStatus(catalog.failure.code));
     return connectionsView(
@@ -404,10 +379,10 @@ export class HubConnectionTools {
    */
   readonly usage = Effect.fn("HubConnectionTools.usage")(function* (this: HubConnectionTools) {
     const empty = (status: HubConnectionUsageView["status"]): HubConnectionUsageView => ({ status, orgs: [] });
-    if (!this.#client.signedIn()) return empty("signed_out");
+    if (!this.#signedIn()) return empty("signed_out");
     const capabilities = yield* Effect.result(this.#client.capabilities());
     if (Result.isFailure(capabilities)) return empty(failureStatus(capabilities.failure.code));
-    if (!capabilities.success.active || !capabilities.success.connectionsUsage) return empty("off");
+    if (!capabilities.success.connectionsUsage) return empty("off");
     const catalog = yield* Effect.result(this.#client.catalog());
     if (Result.isFailure(catalog)) return empty(failureStatus(catalog.failure.code));
     const orgs: HubConnectionOrgUsage[] = [];
@@ -463,7 +438,7 @@ export class HubConnectionTools {
       requestedAt: null,
       failure,
     });
-    if (!this.#client.signedIn()) return failed("signed_out");
+    if (!this.#signedIn()) return failed("signed_out");
     const catalog = yield* Effect.result(this.#client.catalog());
     if (Result.isFailure(catalog)) return failed(requestFailure(catalog.failure));
     const entry = catalog.success.connections.find((candidate) => candidate.id === connectionId);
@@ -510,14 +485,22 @@ export class HubConnectionTools {
   readonly #access = Effect.fn("HubConnectionTools.access")(function* (
     this: HubConnectionTools,
     context: HubConnectionContext,
+    /** Tool discovery waits at most `DISCOVERY_WAIT_MS` for `/session`; past it, closed. */
+    quick = false,
   ): Effect.fn.Return<ConnectionAccess> {
     if (!CONNECTION_ORIGINS.has(context.origin)) return { kind: "closed", failure: "origin" };
     if (!this.#enabledOnComputer()) return { kind: "closed", failure: "computer" };
-    if (!this.#client.signedIn()) return { kind: "closed", failure: "signed_out" };
-    const capabilities = yield* Effect.result(this.#client.capabilities());
+    if (!this.#signedIn()) return { kind: "closed", failure: "signed_out" };
+    const read = Effect.result(this.#client.capabilities());
+    // The read that the timeout leaves goes on in the client, which keeps its answer for the next turn.
+    const capabilities = quick
+      ? Option.getOrElse(yield* read.pipe(Effect.timeoutOption(DISCOVERY_WAIT_MS)), () =>
+          Result.fail(new HubConnectionFailure({ code: "offline" })),
+        )
+      : yield* read;
     if (Result.isFailure(capabilities)) return { kind: "closed", failure: capabilities.failure.code };
+    // Each connection's own capability is its kill switch; `active` is about the LLM (contract §3).
     const session: HubSessionConnections = capabilities.success;
-    if (!session.active) return { kind: "closed", failure: "disabled" };
     const off = new Set(this.#agentConnectionsOff(context.agentId));
     const connections = Object.entries(session.connections)
       .filter(([id, capability]) => capability.enabled && !off.has(id))
@@ -525,11 +508,16 @@ export class HubConnectionTools {
     return connections.length > 0 ? { kind: "open", connections } : { kind: "closed", failure: "disabled" };
   });
 
+  /**
+   * Whether the agent has the tools in this turn, for tool discovery: every `tool_search` of every
+   * agent reads it, so a Hub that does not answer holds it at most `DISCOVERY_WAIT_MS`, and the tools
+   * stay out until the Hub answers.
+   */
   readonly available = Effect.fn("HubConnectionTools.available")(function* (
     this: HubConnectionTools,
     context: HubConnectionContext,
   ) {
-    return (yield* this.enabledConnections(context)).length > 0;
+    return (yield* this.#access(context, true)).kind === "open";
   }).bind(this);
 
   /** Runs one tool call. Null when the turn ended while the person had a card. */
@@ -583,9 +571,9 @@ export class HubConnectionTools {
     counter.set(connection, (counter.get(connection) ?? 0) + 1);
     switch (operation) {
       case "search":
-        return yield* this.#search(payer.orgId, input, hooks);
+        return yield* this.#search(context, payer.orgId, input, hooks);
       case "describe":
-        return yield* this.#describeTool(payer.orgId, input, hooks);
+        return yield* this.#describeTool(context, payer.orgId, input, hooks);
       case "call":
         return yield* this.#call(context, payer.orgId, payer.name, input, offset ?? 0, hooks);
     }
@@ -648,7 +636,8 @@ export class HubConnectionTools {
               }
             : {}),
         });
-        names[id] = { name: entry.name, tagline: entry.tagline, paidBy: payerName(decision) };
+        // A turn that another agent started gets no payer, as it gets no amounts.
+        if (amounts) names[id] = { name: entry.name, tagline: entry.tagline, paidBy: payerName(decision) };
       } else if (decision.kind === "choose_org") {
         rows.push({ id, operations, state: "choose_org" });
       } else {
@@ -657,7 +646,7 @@ export class HubConnectionTools {
     }
     return result(
       { connections: rows, guidance: HUB_CONNECTION_GUIDANCE },
-      connectionEnvelope({ connection: "hub" }, maskVendorPhrases(escapedJson(names))),
+      connectionEnvelope({ connection: "hub" }, escapedJson(maskResultValue(names))),
     );
   });
 
@@ -706,6 +695,7 @@ export class HubConnectionTools {
       orgId: candidate.access.orgId,
       name: candidate.name,
     }));
+    // A turn that another agent started gets no organization names, as it gets no amounts.
     const stopChoose = (extra: string) =>
       ({
         kind: "stop",
@@ -715,7 +705,12 @@ export class HubConnectionTools {
             reason: decision.reason,
             message: `${NEEDS_PERSON_TEXT.choose_org} ${extra}`,
           },
-          connectionEnvelope({ connection: connectionId }, escapedJson({ organizations: choices.map((c) => c.name) })),
+          context.origin === "agent"
+            ? undefined
+            : connectionEnvelope(
+                { connection: connectionId },
+                escapedJson(maskResultValue({ organizations: choices.map((c) => c.name) })),
+              ),
         ),
       }) satisfies Payer;
     if (context.origin !== "owner_ui")
@@ -740,6 +735,7 @@ export class HubConnectionTools {
 
   readonly #search = Effect.fn("HubConnectionTools.search")(function* (
     this: HubConnectionTools,
+    context: HubConnectionContext,
     orgId: string,
     input: ToolInput,
     hooks: HubConnectionHooks,
@@ -763,7 +759,7 @@ export class HubConnectionTools {
     const before = yield* hooks.guard();
     if (!before.proceed) return before.result;
     const outcome = yield* Effect.result(this.#client.search(orgId, body));
-    const answer = this.#operationAnswer(outcome, orgId);
+    const answer = this.#operationAnswer(outcome, orgId, context.origin !== "agent");
     if (answer.kind !== "answer") return answer.result;
     const results = answer.answer.results.filter((entry) => !hasVendorPhrase(entry.title));
     return result(
@@ -773,12 +769,13 @@ export class HubConnectionTools {
         verdict: results.length > 0 ? answer.answer.verdict : "none",
         count: results.length,
       },
-      connectionEnvelope({ connection: TOOL_CATALOG_CONNECTION_ID }, escapedJson({ results })),
+      connectionEnvelope({ connection: TOOL_CATALOG_CONNECTION_ID }, escapedJson(maskResultValue({ results }))),
     );
   });
 
   readonly #describeTool = Effect.fn("HubConnectionTools.describeTool")(function* (
     this: HubConnectionTools,
+    context: HubConnectionContext,
     orgId: string,
     input: ToolInput,
     hooks: HubConnectionHooks,
@@ -789,15 +786,16 @@ export class HubConnectionTools {
       return refusal({ error: "input_refused", message: "describe takes {endpointId} and nothing else." });
     const before = yield* hooks.guard();
     if (!before.proceed) return before.result;
-    const described = yield* this.#describe(orgId, endpointId);
+    const described = yield* this.#describe(orgId, endpointId, context.origin !== "agent");
     if (described.kind !== "answer") return described.result;
     const answer = described.answer;
     return result(
       { connection: TOOL_CATALOG_CONNECTION_ID, operation: "describe", endpointId: answer.endpointId },
       connectionEnvelope(
         { connection: TOOL_CATALOG_CONNECTION_ID, endpoint: answer.endpointId },
-        maskVendorPhrases(
-          escapedJson({
+        // Each mirrored text is read decoded, so a vendor line split by a line break is found too.
+        escapedJson(
+          maskResultValue({
             title: answer.title,
             summary: answer.summary,
             method: answer.method,
@@ -820,12 +818,13 @@ export class HubConnectionTools {
     this: HubConnectionTools,
     orgId: string,
     endpointId: string,
+    amounts: boolean,
   ) {
     const key = `${orgId}\u0000${endpointId}`;
     const cached = this.#described.get(key);
     if (cached && cached.until > this.#now()) return { kind: "answer" as const, answer: cached.answer };
     const outcome = yield* Effect.result(this.#client.describe(orgId, endpointId));
-    const answer = this.#operationAnswer(outcome, orgId);
+    const answer = this.#operationAnswer(outcome, orgId, amounts);
     if (answer.kind !== "answer") return answer;
     if (hasVendorPhrase(answer.answer.title))
       return {
@@ -836,15 +835,17 @@ export class HubConnectionTools {
     return { kind: "answer" as const, answer: answer.answer };
   });
 
+  /** `amounts`: whether the turn may read amounts (not a turn that another agent started). */
   #operationAnswer<Answer>(
     outcome: Result.Result<HubOperationOutcome<Answer>, HubConnectionFailure>,
     orgId: string,
+    amounts: boolean,
   ): { kind: "answer"; answer: Answer } | { kind: "stop"; result: DynamicToolResult } {
     if (Result.isFailure(outcome)) return { kind: "stop", result: this.#failureResult(outcome.failure) };
     const value = outcome.success;
     if (value.kind === "answer") return { kind: "answer", answer: value.answer };
-    if (value.kind === "needs-person") return { kind: "stop", result: this.#needsPersonResult(value, orgId) };
-    return { kind: "stop", result: this.#errorResult(value) };
+    if (value.kind === "needs-person") return { kind: "stop", result: this.#needsPersonResult(value, orgId, amounts) };
+    return { kind: "stop", result: this.#errorResult(value, amounts) };
   }
 
   #failureResult(failure: HubConnectionFailure): DynamicToolResult {
@@ -866,7 +867,7 @@ export class HubConnectionTools {
     return refusal({ error: failure.code, message: FAILURE_TEXT[failure.code] });
   }
 
-  #needsPersonResult(answer: HubNeedsPersonAnswer, orgId: string | null = null): DynamicToolResult {
+  #needsPersonResult(answer: HubNeedsPersonAnswer, orgId: string | null, amounts: boolean): DynamicToolResult {
     if (answer.needsPerson === "not_allowed") this.#client.forgetCatalog();
     // The Hub no longer lets this organization pay for the person: its token goes, and the next call
     // asks the person again. The payer is never moved to another organization without the person.
@@ -875,15 +876,19 @@ export class HubConnectionTools {
       needsPerson: answer.needsPerson,
       ...(answer.reason ? { reason: answer.reason } : {}),
       message: NEEDS_PERSON_TEXT[answer.needsPerson],
-      ...(answer.currency ? { currency: answer.currency } : {}),
-      ...(answer.availableMicros === null ? {} : { availableMicros: answer.availableMicros }),
-      ...(answer.neededMicros === null ? {} : { neededMicros: answer.neededMicros }),
       ...(answer.bindingScope ? { bindingScope: answer.bindingScope } : {}),
-      ...(answer.resetsAt ? { resetsAt: answer.resetsAt } : {}),
+      ...(amounts
+        ? {
+            ...(answer.currency ? { currency: answer.currency } : {}),
+            ...(answer.availableMicros === null ? {} : { availableMicros: answer.availableMicros }),
+            ...(answer.neededMicros === null ? {} : { neededMicros: answer.neededMicros }),
+            ...(answer.resetsAt ? { resetsAt: answer.resetsAt } : {}),
+          }
+        : {}),
     });
   }
 
-  #errorResult(answer: HubErrorAnswer): DynamicToolResult {
+  #errorResult(answer: HubErrorAnswer, amounts: boolean): DynamicToolResult {
     if (answer.error === "not_allowed" || answer.error === "unauthorized") this.#client.forgetCatalog();
     // The kill switch: the next turn reads `/session` again, so the tools leave the agent's catalog.
     if (answer.error === "connection_unavailable") this.#client.forgetCapabilities();
@@ -893,19 +898,18 @@ export class HubConnectionTools {
       ...(answer.reason ? { reason: answer.reason } : {}),
       ...(answer.scope ? { scope: answer.scope } : {}),
       ...(answer.retryAfterSeconds === null ? {} : { retryAfterSeconds: answer.retryAfterSeconds }),
-      ...(answer.estimateMicros === null ? {} : { estimateMicros: answer.estimateMicros }),
-      ...(answer.chargedMicros === null ? {} : { chargedMicros: answer.chargedMicros }),
+      ...(!amounts || answer.estimateMicros === null ? {} : { estimateMicros: answer.estimateMicros }),
+      ...(!amounts || answer.chargedMicros === null ? {} : { chargedMicros: answer.chargedMicros }),
       ...(answer.providerStatus === null ? {} : { providerStatus: answer.providerStatus }),
       ...(answer.field ? { field: answer.field } : {}),
       ...(answer.alternatives.length > 0 ? { alternatives: answer.alternatives } : {}),
     };
-    return answer.providerMessage
+    // A provider message that still shows a secret after the mask is left out.
+    const providerMessage = answer.providerMessage ? maskedResultText(answer.providerMessage) : null;
+    return providerMessage
       ? refusal(
           fields,
-          connectionEnvelope(
-            { connection: TOOL_CATALOG_CONNECTION_ID },
-            escapedJson({ providerMessage: maskVendorPhrases(maskConnectionSecrets(answer.providerMessage)) }),
-          ),
+          connectionEnvelope({ connection: TOOL_CATALOG_CONNECTION_ID }, escapedJson({ providerMessage })),
         )
       : refusal(fields);
   }
@@ -931,7 +935,8 @@ export class HubConnectionTools {
     if (kept) return page(kept, offset, true);
     if (offset > 0)
       return refusal({ error: "invalid_arguments", message: "offset needs the same call earlier in this turn." });
-    const described = yield* this.#describe(orgId, input.endpointId);
+    const amounts = context.origin !== "agent";
+    const described = yield* this.#describe(orgId, input.endpointId, amounts);
     if (described.kind !== "answer") return described.result;
     const refused = checkCallInput(input, described.answer);
     if (refused) return inputRefused(refused);
@@ -951,12 +956,17 @@ export class HubConnectionTools {
     };
     this.#hourly.push(this.#now());
     let outcome = yield* Effect.result(this.#client.call(orgId, body, randomUUID()));
+    /** The most that the person approved for this call: the cost card's amount, else the no-card limit. */
+    let approvedMicros = (yield* this.#catalogEntry(TOOL_CATALOG_CONNECTION_ID))?.access.find(
+      (row) => row.orgId === orgId,
+    )?.confirmAboveMicros;
     if (Result.isSuccess(outcome) && outcome.success.kind === "needs-person") {
       const needs = outcome.success;
       if (needs.needsPerson === "confirm_cost") {
         const confirmed = yield* this.#confirm(context, orgId, paidBy, described.answer, body, needs, hooks.ask);
         if (confirmed.kind === "stop") return confirmed.result;
         outcome = confirmed.outcome;
+        approvedMicros = confirmed.approvedMicros;
       }
     }
     if (Result.isFailure(outcome)) return this.#failureResult(outcome.failure);
@@ -964,14 +974,29 @@ export class HubConnectionTools {
     if (answer.kind === "needs-person") {
       if (answer.needsPerson === "cap_reached" || answer.needsPerson === "org_budget_reached")
         yield* this.#notifyLimit(context, hooks, orgId, paidBy, answer);
-      return this.#needsPersonResult(answer, orgId);
+      return this.#needsPersonResult(answer, orgId, amounts);
     }
-    if (answer.kind === "error") return this.#errorResult(answer);
+    if (answer.kind === "error") return this.#errorResult(answer, amounts);
+    // The Hub answers for the organization of the token, always (contract §6.3). Another one is a Hub
+    // that does not keep the contract: the payer is not known, so the result is held and not kept.
+    if (answer.orgId !== orgId) {
+      logger.warn("The Hub answered a connection call for another organization; the result is held.", {
+        connection: TOOL_CATALOG_CONNECTION_ID,
+      });
+      return refusal({ error: "hub_unavailable", message: FAILURE_TEXT.hub_unavailable });
+    }
     this.#lastPaid.set(TOOL_CATALOG_CONNECTION_ID, answer.orgId);
     // The use changed: the next read of Usage asks the Hub.
     this.#usage.delete(answer.orgId);
     yield* this.#notifyCall(context, hooks, paidBy, described.answer.title, answer);
-    const amounts = context.origin !== "agent";
+    if (approvedMicros !== undefined && approvedMicros !== null && answer.chargedMicros > approvedMicros) {
+      logger.warn("The Hub charged a connection call more than the person approved.", {
+        connection: TOOL_CATALOG_CONNECTION_ID,
+        chargedMicros: answer.chargedMicros,
+        approvedMicros,
+      });
+      yield* this.#notifyOvercharge(context, hooks, paidBy, described.answer.title, answer, approvedMicros);
+    }
     const header: ResultFields = {
       connection: TOOL_CATALOG_CONNECTION_ID,
       operation: "call",
@@ -998,15 +1023,26 @@ export class HubConnectionTools {
         : {}),
       hubTruncated: answer.truncated,
     };
-    const content = maskVendorPhrases(
-      maskConnectionSecrets(
-        JSON.stringify({
-          ...(amounts ? { paidBy } : {}),
-          signals: answer.signals,
-          content: answer.content,
-        }) ?? "null",
-      ),
-    ).slice(0, HUB_CONNECTIONS_LIMITS.contentChars);
+    // The second lock after the Hub's mask: credentials by field name and by shape, and vendor lines,
+    // read in the decoded answer. A secret that still shows holds the whole result back.
+    const masked = maskedResultJson({
+      ...(amounts ? { paidBy } : {}),
+      signals: answer.signals,
+      content: answer.content,
+    });
+    if (masked === null) {
+      logger.warn("A connection result held a credential after the mask; it is held back.", {
+        connection: TOOL_CATALOG_CONNECTION_ID,
+        endpoint: answer.endpointId,
+      });
+      return refusal({
+        ...header,
+        error: "result_withheld",
+        message:
+          "The result held a credential that Builders Bot could not mask, so it is held back. The call ran and was paid. Do not repeat it; tell the person.",
+      });
+    }
+    const content = masked.slice(0, HUB_CONNECTIONS_LIMITS.contentChars);
     const text = content.replace(/</gu, "\\u003c").replace(/>/gu, "\\u003e");
     const stored: StoredResult = {
       // Found contacts are guesses of the provider: the agent reads the app's note with them (G9).
@@ -1104,6 +1140,30 @@ export class HubConnectionTools {
     });
   });
 
+  /** The line of a call that the Hub charged more than the person approved (contract §6.4). */
+  readonly #notifyOvercharge = Effect.fn("HubConnectionTools.notifyOvercharge")(function* (
+    this: HubConnectionTools,
+    context: HubConnectionContext,
+    hooks: HubConnectionHooks,
+    paidBy: string,
+    endpoint: string,
+    answer: ToolCatalogCallAnswer,
+    approvedMicros: number,
+  ) {
+    const notify = hooks.notify;
+    if (!notify || context.origin === "agent") return;
+    const entry = yield* this.#catalogEntry(TOOL_CATALOG_CONNECTION_ID);
+    notify({
+      ...this.#chatBase(entry, answer.orgId, paidBy, answer.currency),
+      kind: "overcharged",
+      amountMicros: answer.chargedMicros,
+      approvedMicros,
+      endpoint: isHubPlainText(endpoint, HUB_CONNECTIONS_LIMITS.titleChars) ? endpoint : null,
+      resetsAt: null,
+      scope: null,
+    });
+  });
+
   /**
    * The approval of a call about people (the treg design, §4.6 G3): the first such call of a
    * conversation shows a card with the values that it asks about, such as names and addresses. A
@@ -1175,10 +1235,16 @@ export class HubConnectionTools {
       | {
           readonly kind: "sent";
           readonly outcome: Result.Result<ToolCatalogCallOutcome, HubConnectionFailure>;
+          /** The amount on the card that the person approved: the Hub may charge less, never more. */
+          readonly approvedMicros: number;
         };
     const estimate = needs.estimateMicros ?? 0;
     const currency = needs.currency ?? "BRL";
-    const costFields = { needsPerson: "confirm_cost", currency, estimateMicros: estimate };
+    // A turn that another agent started gets no amounts.
+    const costFields =
+      context.origin === "agent"
+        ? { needsPerson: "confirm_cost" }
+        : { needsPerson: "confirm_cost", currency, estimateMicros: estimate };
     if (context.origin !== "owner_ui")
       return {
         kind: "stop",
@@ -1241,7 +1307,7 @@ export class HubConnectionTools {
           message: "Cultura Builder asked again for the same call. The call did not run.",
         }),
       } satisfies Confirmed;
-    return { kind: "sent", outcome } satisfies Confirmed;
+    return { kind: "sent", outcome, approvedMicros: estimate } satisfies Confirmed;
   });
 }
 

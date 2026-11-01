@@ -7,10 +7,11 @@
 // may use the LLM at all, which is what "Reauthenticate" is for.
 //
 // Everything here is data, so it runs under a unit test: the fetch is injected, and no module-level
-// state survives a sign-in.
+// state survives a sign-in. The one exception is the lock of the refresh grants below, which holds
+// no data.
 
 import { sourceText } from "@openbot/i18n/source";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema, Semaphore } from "effect";
 import { type ProviderClientOperationError, ProviderSignInError, providerFailure } from "./provider-client-effects";
 
 export const CULTURA_BUILDER_PROVIDER = "cultura-builder" as const;
@@ -363,21 +364,42 @@ export function readCulturaBuilderAccess(
 }
 
 /**
+ * One grant of the refresh token at a time in this process: the session renewal (which can rotate the
+ * refresh token) and each request for a Hub proxy token (which sends it). Without the lock, a proxy
+ * token request could send the refresh token that a renewal just replaced, get `invalid_grant`, and
+ * sign the person out; a Hub that sees the reuse could revoke the whole sign-in (PROXY design §3.5).
+ */
+const refreshGrants = Semaphore.makeUnsafe(1);
+
+/** Runs `effect` while no other grant of the refresh token runs. Read the session again inside it. */
+export function withCulturaRefreshGrant<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> {
+  return refreshGrants.withPermits(1)(effect);
+}
+
+/**
  * A fresh access token for the stored session, refreshing and saving when it is close to ending.
- * `save` is the credential store, so a refreshed token reaches the next spawn.
+ * `save` is the credential store, so a refreshed token reaches the next spawn. `reread` reads the
+ * stored session again once the refresh lock is held: another grant may have renewed it meanwhile.
  */
 export function ensureCulturaBuilderToken(
   raw: string | null,
   save: (value: string) => Effect.Effect<void>,
   fetcher: Fetcher = fetch,
+  reread?: () => string | null,
 ): Effect.Effect<string, ProviderClientOperationError | ProviderSignInError> {
   return requireCulturaBuilderSession(raw).pipe(
     Effect.flatMap((session): Effect.Effect<string, ProviderClientOperationError> => {
       if (sessionIsFresh(session)) return Effect.succeed(session.access);
       if (session.refresh === "") return Effect.succeed(session.access);
-      return refreshCulturaBuilderSession(session, fetcher).pipe(
-        Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
-        Effect.map((refreshed) => refreshed.access),
+      return withCulturaRefreshGrant(
+        Effect.suspend(() => {
+          const current = (reread ? readCulturaBuilderSession(reread()) : null) ?? session;
+          if (sessionIsFresh(current) || current.refresh === "") return Effect.succeed(current.access);
+          return refreshCulturaBuilderSession(current, fetcher).pipe(
+            Effect.tap((refreshed) => save(serializeCulturaBuilderSession(refreshed))),
+            Effect.map((refreshed) => refreshed.access),
+          );
+        }),
       );
     }),
   );

@@ -415,4 +415,7 @@ export const messages = defineMessages("chat", {
   "chat.marker.connectionLimitUser": "You reached your monthly limit of {connection}, paid by {org}.",
   "chat.marker.connectionLimitOrg": "The budget of {connection} at {org} is spent for this month.",
   "chat.marker.connectionRenews": "It renews on {date}.",
+  // {approved} is the most that the person approved on the cost card.
+  "chat.marker.connectionOvercharged":
+    "{endpoint}: {org} was charged {amount}, more than the {approved} that you approved. Tell an admin of the organization.",
 });

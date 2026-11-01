@@ -4,7 +4,8 @@ import { formatConnectionMoney } from "../billing/money";
 
 /**
  * The line of a Hub connection in a chat, in the reader's language: what a call cost and who paid,
- * the first call over 80 % of the cap, or a call that the cap stopped, with the renewal date.
+ * the first call over 80 % of the cap, a call that the cap stopped, with the renewal date, or a charge
+ * above the amount that the person approved.
  */
 export function hubConnectionMarkerText(event: HubConnectionChatEvent, t: AppTranslate, format: AppFormat): string {
   const org = event.personal ? t("marketplace.connection.personalPlan") : event.orgName || event.orgId;
@@ -22,5 +23,12 @@ export function hubConnectionMarkerText(event: HubConnectionChatEvent, t: AppTra
         connection: event.connectionName,
         org,
       })}${renews}`;
+    case "overcharged":
+      return t("chat.marker.connectionOvercharged", {
+        endpoint: event.endpoint ?? event.connectionName,
+        org,
+        amount,
+        approved: formatConnectionMoney(format, event.approvedMicros ?? 0, event.currency),
+      });
   }
 }

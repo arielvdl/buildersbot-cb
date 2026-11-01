@@ -896,8 +896,11 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
     cliProvider: "opencode",
     resolveCli: resolveOpencodeCli,
     prepare: (context) =>
-      ensureCulturaBuilderToken(context.apiKey("cultura-builder"), (value) =>
-        context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void,
+      ensureCulturaBuilderToken(
+        context.apiKey("cultura-builder"),
+        (value) => (context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void),
+        fetch,
+        () => context.apiKey("cultura-builder"),
       ).pipe(Effect.asVoid),
     // The bundled Builders CLI runs it, as one more OpenAI-compatible endpoint, and only that
     // endpoint: the token is the only credential this process should spend.

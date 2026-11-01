@@ -47,6 +47,7 @@ import {
   ensureCulturaBuilderToken,
   readCulturaBuilderSession,
   serializeCulturaBuilderSession,
+  withCulturaRefreshGrant,
 } from "../cultura-builder-auth";
 
 /**
@@ -98,6 +99,11 @@ interface CachedToken {
 }
 
 const PROXY_RESOURCE = `${CULTURA_BUILDER_HUB}${HUB_CONNECTIONS_PATHS.proxyResource}`;
+/**
+ * A failed read of `/session` or of the catalog is kept this long: the next reads fail at once, closed,
+ * instead of each waiting for the Hub's timeout again. A fresh read (the person's Refresh) asks again.
+ */
+export const HUB_FAILURE_CACHE_MS = 60_000;
 /** The key of the catalog token, which names no organization. */
 const CATALOG_TOKEN = "\u0000catalog";
 
@@ -171,9 +177,14 @@ export class HubConnectionClient {
   readonly #tokens = new Map<string, CachedToken>();
   readonly #pendingTokens = new Map<string, Promise<string>>();
   #session: { value: HubSessionConnections; until: number } | null = null;
+  /** The last `/session` answer of this sign-in, kept after its cache ends. Memory only. */
+  #lastSession: HubSessionConnections | null = null;
   #pendingSession: Promise<HubSessionConnections> | null = null;
   #catalog: { value: HubConnectionCatalog; until: number } | null = null;
   #pendingCatalog: Promise<HubConnectionCatalog> | null = null;
+  /** The last failed read of `/session` and of the catalog, for `HUB_FAILURE_CACHE_MS`. */
+  #sessionFailure: { cause: unknown; until: number } | null = null;
+  #catalogFailure: { cause: unknown; until: number } | null = null;
   /** Bumped by `forget`, so an answer that a forgotten request brings back is not cached. */
   #generation = 0;
   /** A hash of the refresh token that the caches belong to. Another sign-in drops them. */
@@ -191,15 +202,19 @@ export class HubConnectionClient {
     this.#tokens.clear();
     this.#pendingTokens.clear();
     this.#session = null;
+    this.#lastSession = null;
     this.#pendingSession = null;
+    this.#sessionFailure = null;
     this.#catalog = null;
     this.#pendingCatalog = null;
+    this.#catalogFailure = null;
   }
 
   /** Drops the catalog only, so the next read sees a change of organization or access. */
   forgetCatalog(): void {
     this.#catalog = null;
     this.#pendingCatalog = null;
+    this.#catalogFailure = null;
   }
 
   /**
@@ -210,6 +225,7 @@ export class HubConnectionClient {
     this.#generation += 1;
     this.#session = null;
     this.#pendingSession = null;
+    this.#sessionFailure = null;
     this.forgetCatalog();
   }
 
@@ -218,6 +234,12 @@ export class HubConnectionClient {
     this.#tokens.delete(orgId);
     this.#pendingTokens.delete(orgId);
     this.forgetCatalog();
+  }
+
+  /** The connection ids of the last `/session` answer of this sign-in, also after its cache ended. */
+  knownConnectionIds(): string[] {
+    this.#followSession();
+    return Object.keys(this.#lastSession?.connections ?? {});
   }
 
   /** Whether a Cultura Builder session is stored. It reads no network. */
@@ -327,15 +349,23 @@ export class HubConnectionClient {
     this.#followSession();
     const cached = this.#session;
     if (!fresh && cached && cached.until > this.#now()) return cached.value;
+    const failed = this.#sessionFailure;
+    if (!fresh && failed && failed.until > this.#now()) throw failed.cause;
     if (this.#pendingSession) return this.#pendingSession;
     const generation = this.#generation;
     const pending = this.#readSession().finally(() => {
       if (this.#pendingSession === pending) this.#pendingSession = null;
     });
     this.#pendingSession = pending;
-    const value = await pending;
-    if (generation === this.#generation)
+    const value = await pending.catch((cause: unknown) => {
+      if (generation === this.#generation) this.#sessionFailure = { cause, until: this.#now() + HUB_FAILURE_CACHE_MS };
+      throw cause;
+    });
+    if (generation === this.#generation) {
+      this.#sessionFailure = null;
       this.#session = { value, until: this.#now() + HUB_CONNECTIONS_LIMITS.sessionCacheSeconds * 1000 };
+      this.#lastSession = value;
+    }
     return value;
   }
 
@@ -343,7 +373,7 @@ export class HubConnectionClient {
     const raw = this.#options.session();
     if (!this.signedIn()) throw new HubRequestFailed("signed_out");
     const access = await Effect.runPromise(
-      ensureCulturaBuilderToken(raw, this.#options.saveSession, this.#fetch).pipe(
+      ensureCulturaBuilderToken(raw, this.#options.saveSession, this.#fetch, () => this.#options.session()).pipe(
         Effect.mapError(() => new HubRequestFailed("signed_out")),
       ),
     ).catch((cause: unknown) => {
@@ -367,6 +397,8 @@ export class HubConnectionClient {
     this.#followSession();
     const cached = this.#catalog;
     if (!fresh && cached && cached.until > this.#now()) return cached.value;
+    const failed = this.#catalogFailure;
+    if (!fresh && failed && failed.until > this.#now()) throw failed.cause;
     if (this.#pendingCatalog) return this.#pendingCatalog;
     const generation = this.#generation;
     const pending = (async () => {
@@ -385,7 +417,13 @@ export class HubConnectionClient {
       if (this.#pendingCatalog === pending) this.#pendingCatalog = null;
     });
     this.#pendingCatalog = pending;
-    const catalog = await pending;
+    const catalog = await pending.catch((cause: unknown) => {
+      // A refused proxy token is about the person, not the Hub: the next read asks again.
+      if (generation === this.#generation && !(cause instanceof HubRequestFailed && cause.code === "token_refused"))
+        this.#catalogFailure = { cause, until: this.#now() + HUB_FAILURE_CACHE_MS };
+      throw cause;
+    });
+    if (generation === this.#generation) this.#catalogFailure = null;
     const ttl = Math.min(catalog.ttlSeconds, HUB_CONNECTIONS_LIMITS.sessionCacheSeconds);
     if (generation === this.#generation && ttl > 0) this.#catalog = { value: catalog, until: this.#now() + ttl * 1000 };
     return catalog;
@@ -506,7 +544,26 @@ export class HubConnectionClient {
     return pending;
   }
 
+  /**
+   * A proxy token, under the lock of the refresh grants: a session renewal that rotates the refresh
+   * token never runs at the same time, and the session is read once the lock is held.
+   */
   async #requestToken(orgId: string | null): Promise<CachedToken> {
+    const outcome = await Effect.runPromise(
+      withCulturaRefreshGrant(
+        Effect.promise(() =>
+          this.#requestTokenNow(orgId).then(
+            (token) => ({ ok: true as const, token }),
+            (cause: unknown) => ({ ok: false as const, cause }),
+          ),
+        ),
+      ),
+    );
+    if (!outcome.ok) throw outcome.cause;
+    return outcome.token;
+  }
+
+  async #requestTokenNow(orgId: string | null): Promise<CachedToken> {
     const session = readCulturaBuilderSession(this.#options.session());
     if (!session || session.refresh === "") throw new HubRequestFailed("signed_out");
     const form = new URLSearchParams({

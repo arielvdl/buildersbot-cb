@@ -335,7 +335,7 @@ export function parseHubConnectionAccessRequestInput(value: unknown): HubConnect
  * the hosted site events do, so the screen writes the amounts in the reader's language.
  */
 export const HUB_CONNECTION_ITEM_TYPE_PREFIX = "hub-connection:";
-export const HUB_CONNECTION_CHAT_KINDS = ["paid", "warning", "limit"] as const;
+export const HUB_CONNECTION_CHAT_KINDS = ["paid", "warning", "limit", "overcharged"] as const;
 export type HubConnectionChatKind = (typeof HUB_CONNECTION_CHAT_KINDS)[number];
 
 export interface HubConnectionChatEvent {
@@ -347,9 +347,11 @@ export interface HubConnectionChatEvent {
   orgName: string;
   personal: boolean;
   currency: string;
-  /** `paid`: what the call cost. `warning` and `limit`: what is still available. */
+  /** `paid` and `overcharged`: what the call cost. `warning` and `limit`: what is still available. */
   amountMicros: number;
-  /** `paid`: the endpoint title. Null otherwise. */
+  /** `overcharged` only: the most that the person approved, which the charge passed. */
+  approvedMicros?: number;
+  /** `paid` and `overcharged`: the endpoint title. Null otherwise. */
   endpoint: string | null;
   /** `warning` and `limit`: when the period ends. Null when the Hub did not say. */
   resetsAt: string | null;
@@ -372,7 +374,8 @@ function isChatEvent(value: unknown): value is HubConnectionChatEvent {
     nullable(value.endpoint, (text): text is string => isHubPlainText(text, HUB_CONNECTIONS_LIMITS.titleChars)) &&
     nullable(value.resetsAt, timestamp) &&
     nullable(value.scope, (scope): scope is "user" | "org" => scope === "user" || scope === "org") &&
-    (value.kind === "limit") === (value.scope !== null)
+    (value.kind === "limit") === (value.scope !== null) &&
+    (value.kind === "overcharged" ? micros(value.approvedMicros) : value.approvedMicros === undefined)
   );
 }
 

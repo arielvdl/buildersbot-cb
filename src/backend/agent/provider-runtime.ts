@@ -305,6 +305,11 @@ export interface ProviderHooks {
   isStopping(): boolean;
   /** True while a turn on this provider runs or starts, which replacing its CLI would cut short. */
   isProviderBusy(provider: AgentProvider): boolean;
+  /**
+   * A Cultura Builder sign-in ended with a new session, maybe of another person: what the app keeps
+   * for the session's person in memory goes (the Hub connections' payer and approvals).
+   */
+  culturaSessionReplaced?(): void;
   /** True while a turn of this agent runs. An agent's own process stays while its own turn runs. */
   isAgentBusy(agentId: string): boolean;
   /** True while an agent is set to this provider, so a turn on it can come at any time. */
@@ -1926,6 +1931,7 @@ export class ProviderRuntime implements ProviderPort {
           return;
         }
         yield* this.#saveCulturaSession(serializeCulturaBuilderSession(outcome.session));
+        this.#hooks.culturaSessionReplaced?.();
         const access = yield* Effect.result(readCulturaBuilderAccess(outcome.session.access));
         if (Result.isSuccess(access)) {
           yield* this.#saveCulturaSession(

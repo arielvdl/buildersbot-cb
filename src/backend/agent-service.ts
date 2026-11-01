@@ -884,6 +884,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         isAgentBusy: (agentId) => this.#runsTurn(agentId),
         isProviderAssigned: (provider) => this.#store.list().some((agent) => providerForAgent(agent) === provider),
         // The desktop reading only. On a server, `ServerMemory` is low also because of turn reservations,
+        culturaSessionReplaced: () => this.#hubConnections?.forget(),
         // so a full server in normal use would stop its idle processes, and it stops agent processes
         // itself when memory is critical.
         memoryLow: () => (memoryPressure?.level() ?? "ok") !== "ok",
@@ -4017,11 +4018,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   /** Signs the provider's own sign-in out. Its agents keep it and wait until it connects again. */
   signOutProvider(provider: AgentProvider): Effect.Effect<AgentStatus, AgentLifecycleFailed> {
-    return this.#providers
-      .signOutProvider(provider)
-      .pipe(
-        Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "signOutProvider", cause: failure.cause })),
-      );
+    return this.#providers.signOutProvider(provider).pipe(
+      // The Hub connections keep the person's payer, approvals and use in memory: they go with the session.
+      Effect.tap(() =>
+        Effect.sync(() => (provider === "cultura-builder" ? this.#hubConnections?.forget() : undefined)),
+      ),
+      Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "signOutProvider", cause: failure.cause })),
+    );
   }
 
   /** See `ProviderRuntime.signInProviderOnHost`. */

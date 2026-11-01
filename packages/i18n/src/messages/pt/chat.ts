@@ -413,4 +413,6 @@ export const messages = {
   "chat.marker.connectionLimitUser": "Você atingiu o teto mensal de {connection}, pago por {org}.",
   "chat.marker.connectionLimitOrg": "O orçamento de {connection} da {org} acabou neste mês.",
   "chat.marker.connectionRenews": "Renova em {date}.",
+  "chat.marker.connectionOvercharged":
+    "{endpoint}: {org} pagou {amount}, mais do que os {approved} que você aprovou. Avise um administrador da organização.",
 } as const satisfies PartialTranslation<typeof source>;
