@@ -893,16 +893,21 @@ the server as a joined server with `thisComputer: true`. `kind` stays `"remote"`
   child PIDs. After an unexpected exit, the desktop starts the child again after 5 seconds, at most
   3 times in 10 minutes. The owner password is registered for redaction and is never logged.
 - **Stop.** The desktop closes the child's stdin. A child that is still there after 2 seconds gets
-  `SIGTERM`, and after 6 seconds `SIGKILL`. The signal does not come at once: Electron takes the
-  first `SIGTERM` as a quit and ends the process at the second one, so a signal that came while the
-  child already quit ended its teardown before its database closed.
+  `SIGTERM`, and after 6 seconds `SIGKILL`. The child takes each `SIGTERM` as a quit request, so a
+  signal that comes while it already quits does not end its teardown. The quit step of the children
+  is outside the teardown budget, so the desktop does not abandon it before the kill. A child that is
+  still there when the desktop process exits is killed at that exit: the kill timer does not outlive
+  the desktop. The child's own teardown has the same limits as the desktop's, but it gets only these
+  6 seconds before the kill: a slow agent stop in the child can still end before its database closes.
 - **Quit requests.** The child runs from the app bundle, so macOS knows it by the bundle identifier of
   the app. A quit Apple Event that names Builders Bot (`tell application "Builders Bot" to quit`, a
   logout) can reach the child and not the desktop. On macOS the child takes a quit that it did not ask
   for (`quitApplication()` in `index.ts`), and that the desktop did not ask for by closing its stdin,
   as such a request. It writes `OPENBOT_LOCAL_SERVER_QUIT_REQUEST` to stdout, keeps running, and the
   desktop quits and stops it. The desktop ignores the line from a child that it stops. When the line
-  cannot be written, the child quits.
+  cannot be written, the child quits. A quit Apple Event for the child process, such as Quit in
+  Activity Monitor, now quits the whole app. A signal to the child (`SIGTERM`, `SIGINT`, `SIGHUP`)
+  is a quit that the child asks for itself: only the child quits, and the desktop starts it again.
 - **Delete.** The desktop stops the child, removes the entry, and moves both folders to the trash
   with `shell.trashItem`. It never deletes them.
 - **Rename.** The `host-admin` identity route, as on any joined server that the user owns.

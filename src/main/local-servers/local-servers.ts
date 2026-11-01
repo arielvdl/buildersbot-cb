@@ -2,9 +2,10 @@
 // user data directory and agent root (`local-server-child.ts`). The desktop app reaches each one
 // over the loopback Team API, as it reaches a joined server, and logs in as its owner at each start.
 //
-// A child ends when its standard input closes, so it stops also when this process is killed. The
-// supervisor starts a child again after it stops on its own, a few times only, so a child that cannot
-// start does not use the computer's power in a loop.
+// A child ends when its standard input closes, so it stops also when this process is killed. A child
+// that is still there when this process exits is killed at the exit. The supervisor starts a child
+// again after it stops on its own, a few times only, so a child that cannot start does not use the
+// computer's power in a loop.
 //
 // macOS knows a child by the bundle identifier of the app, so a quit Apple Event for Builders Bot can
 // reach a child and not this process. The child then asks this process to quit
@@ -46,12 +47,14 @@ const { io: localIO, sync: localSync, rewrap: toLocalServerFailure } = causeHelp
 const READY_TIMEOUT = Duration.seconds(90);
 /**
  * The child quits on its own when its standard input closes. A child that is still there after this
- * gets `SIGTERM`. Not at once: Electron takes one `SIGTERM` as a quit and the next one ends the process
- * at once, so a signal that comes while the child already quits ends its teardown before the database
- * closes.
+ * gets `SIGTERM`, in case it did not see its input close. The child takes each `SIGTERM` as a quit
+ * request (`index.ts`), so the signal does not end a teardown that already runs.
  */
 const TERM_AFTER_MS = 2_000;
-/** After this the child is killed. */
+/**
+ * After this the child is killed. The teardown step of the servers is outside the teardown budget, so
+ * its limit of 10 s is above this time.
+ */
 const STOP_GRACE_MS = 6_000;
 const RESTART_DELAY = Duration.seconds(5);
 const RESTART_WINDOW_MS = 10 * 60_000;
@@ -158,7 +161,18 @@ export class LocalServers {
     this.#options = options;
     this.#registry = new LocalServerRegistry(options.registryPath);
     this.#spawn = options.spawn ?? spawnProcess;
+    process.on("exit", this.#killAtExit);
   }
+
+  /**
+   * The last resort when this process exits, by `app.exit` at the shutdown deadline too: the kill timer
+   * of a stop does not outlive the process. A child that outlives it keeps its database, its port and
+   * the single-instance lock of its folder, so the next start of that child fails at once.
+   */
+  readonly #killAtExit = (): void => {
+    for (const { child } of this.#running.values())
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  };
 
   /** The process ids of the children, which the update install does not wait for. */
   pids(): ReadonlySet<number> {
