@@ -203,6 +203,7 @@ const HOLD_TEXT = {
   slot: "app.rail.load.hold.slot",
   "agent-busy": "app.rail.load.hold.agent-busy",
   "waits-for-work": "app.rail.load.hold.waits-for-work",
+  retrying: "app.rail.load.hold.retrying",
 } as const satisfies Record<TaskWatchHold, AppTextKey>;
 
 const WAIT_KIND_TEXT = {

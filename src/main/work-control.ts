@@ -724,6 +724,8 @@ export class WorkControl {
     if (state.busyBelow) return "children";
     if (state.plan) return "plan";
     if (state.kind !== "queued") return null;
+    // The app tries the start again itself (`start-retry.ts`): the reviewer's clock waits for it.
+    if (state.queue === "retrying") return "retrying";
     if (state.lane) return "lane";
     if (state.slot) return "slot";
     // A start under way waits for its agent's queue, which `owner-busy` cannot tell from other work.

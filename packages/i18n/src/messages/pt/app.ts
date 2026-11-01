@@ -117,6 +117,7 @@ export const messages = {
   "app.rail.load.hold.slot": "o limite de agentes está cheio",
   "app.rail.load.hold.agent-busy": "o agente está em outro trabalho",
   "app.rail.load.hold.waits-for-work": "aguarda outro trabalho, como uma dependência",
+  "app.rail.load.hold.retrying": "o app tenta iniciar de novo",
   "app.rail.load.wait.kind.running": "Trabalhando",
   "app.rail.load.wait.kind.queued": "Pedida",
   "app.rail.load.wait.kind.start-failed": "Não iniciou",

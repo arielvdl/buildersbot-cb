@@ -158,13 +158,25 @@ export function runningQuiet(
 }
 
 /**
- * How long a failed start waits before the reviewer tries it again: the stall time of the reviewer
- * (`2 × N`), or the interval of "Resume by itself" when that is shorter. A failed start is a clear stop:
- * with `N` at 5 minutes, the person expects the reviewer within about 10 minutes, not after the 30 of
- * "Resume by itself".
+ * The most actions on one failed start: with `N` at 5 and an interval of 30, about two hours. Then the
+ * person decides. The count lasts as long as the record: the task completes, or no look sees it for
+ * `RECORD_RETENTION_MS`.
  */
-export function startFailedWaitMs(context: Pick<WatchContext, "thresholdMs" | "intervalMs">): number {
-  return Math.min(context.intervalMs, STALL_FACTOR * context.thresholdMs);
+export const TASK_WATCH_START_ACTIONS = 6;
+
+/**
+ * How long a failed start waits before the reviewer acts on it again: `N` for the first action, then
+ * twice as long for each action that it took already (`N`, `2 × N`, `4 × N` …), at most the interval of
+ * "Resume by itself". A failed start is a clear stop, and the app already tried it again with its start
+ * retry: with `N` at 5 minutes, the reviewer acts after 5, 10, 20 and then each 30 minutes.
+ */
+export function startFailedWaitMs(context: Pick<WatchContext, "thresholdMs" | "intervalMs">, actions = 0): number {
+  return Math.min(context.intervalMs, context.thresholdMs * 2 ** Math.max(0, actions));
+}
+
+/** The actions on a task so far: its resumes and reassigns, by this reviewer or "Resume by itself". */
+function actionsOf(record: Pick<LedgerRecord, "resumes" | "reassigns"> | undefined): number {
+  return (record?.resumes ?? 0) + (record?.reassigns ?? 0);
 }
 
 function rank(candidate: WatchCandidate): 0 | 1 | 2 | 3 | 4 {
@@ -192,7 +204,8 @@ export function watchCandidates(
     if (record?.gaveUp) continue;
     if (task.kind === "start-failed") {
       const since = record ? (record.lastActionAt ?? record.seenAt) : context.now;
-      if (context.now - since >= startFailedWaitMs(context)) candidates.push({ task, class: "due", minutes: 0 });
+      if (context.now - since >= startFailedWaitMs(context, actionsOf(record)))
+        candidates.push({ task, class: "due", minutes: 0 });
       continue;
     }
     if (record && record.lastActionAt !== null && context.now - record.lastActionAt < context.intervalMs) continue;
@@ -229,7 +242,7 @@ export function watchOutlook(
     if (record?.gaveUp || gaveUp(task)) return { task, state: "gave-up", actsAt: null };
     if (task.kind === "start-failed") {
       const since = record ? (record.lastActionAt ?? record.seenAt) : context.now;
-      const actsAt = since + startFailedWaitMs(context);
+      const actsAt = since + startFailedWaitMs(context, actionsOf(record));
       const state = actsAt <= context.now ? "due" : record?.lastActionAt != null ? "cooldown" : "watching";
       return { task, state, actsAt };
     }
@@ -251,18 +264,17 @@ function minutesUntil(at: number, now: number): number {
 
 /**
  * What to do with a task that the reviewer acts on, from the tries in the ledger. A run or a request
- * gets the resumes of the ledger. A failed start gets one resume when another agent can take it,
- * because the same agent failed to start it already; when no other agent can, it gets the resumes of
- * the ledger, as with "Resume by itself", because a failed start is often brief. Then the task goes to
- * another agent when the person allows it. At the end a run is stopped, so it frees its place; a
- * request or a failed start is left as it is.
+ * gets the resumes of the ledger, then goes to another agent when the person allows it. At the end a
+ * run is stopped, so it frees its place; a request is left as it is. A failed start has its own ladder
+ * (`startFailedAction`).
  */
 export function watchAction(
   kind: WatchKind,
-  record: Pick<LedgerRecord, "resumes" | "reassigns"> | undefined,
+  record: Pick<LedgerRecord, "resumes" | "reassigns" | "startActions"> | undefined,
   reassign: boolean,
   pick: () => string | null,
 ): WatchAction {
+  if (kind === "start-failed") return startFailedAction(record, reassign, pick);
   const resumes = record?.resumes ?? 0;
   const reassigns = record?.reassigns ?? 0;
   let picked: string | null | undefined;
@@ -270,11 +282,32 @@ export function watchAction(
     if (picked === undefined) picked = reassign && reassigns < MAX_REASSIGNS ? pick() : null;
     return picked;
   };
-  const resumeLimit = kind === "start-failed" && target() !== null ? 1 : MAX_RESUMES;
-  if (resumes < resumeLimit) return { type: "resume" };
+  if (resumes < MAX_RESUMES) return { type: "resume" };
   const agentId = target();
   if (agentId) return { type: "reassign", agentId };
   return kind === "running" ? { type: "stop" } : { type: "give-up" };
+}
+
+/**
+ * What to do with a failed start, which the reviewer follows until it starts: a resume first; then, by
+ * turns, a reassign to a free agent (the same model, else the same provider, else any agent of the
+ * channel that can take it; `pick` chooses) and a resume, while "Give to another agent" allows it. A
+ * reassigned task that fails again stays on this ladder, because the record is the task's, not the
+ * agent's. After `TASK_WATCH_START_ACTIONS` actions, it gives up: the
+ * person decides.
+ */
+export function startFailedAction(
+  record: Pick<LedgerRecord, "resumes" | "reassigns" | "startActions"> | undefined,
+  reassign: boolean,
+  pick: () => string | null,
+): WatchAction {
+  if ((record?.startActions ?? []).length >= TASK_WATCH_START_ACTIONS) return { type: "give-up" };
+  const done = actionsOf(record);
+  if (done % 2 === 1 && reassign) {
+    const agentId = pick();
+    if (agentId) return { type: "reassign", agentId };
+  }
+  return { type: "resume" };
 }
 
 /**
@@ -453,13 +486,15 @@ export class TaskWatch {
     const tries = (record?.resumes ?? 0) + (record?.reassigns ?? 0);
     const base = { by: "reviewer", action: null, minutes: null, hold: null, tries } as const;
     if (entry.state === "held") return { ...base, state: "held", hold: entry.task.hold };
+    // A failed start that the reviewer followed to its cap waits for the person.
+    if (record?.needsYou) return { ...base, state: "needs-you" };
     if (entry.state === "gave-up" || entry.actsAt === null) return { ...base, state: "gave-up" };
     const next = watchAction("start-failed", record, this.#deps.recovery().reassign, () =>
       this.#deps.candidate(channelId, taskId, record?.tried ?? []),
     );
     // A stop is only for a run; a failed start that has no try left is left to the person.
-    const action = next.type === "stop" ? "give-up" : next.type;
-    return { ...base, state: "due", action, minutes: minutesUntil(entry.actsAt, now) };
+    if (next.type === "give-up" || next.type === "stop") return { ...base, state: "needs-you" };
+    return { ...base, state: "due", action: next.type, minutes: minutesUntil(entry.actsAt, now) };
   }
 
   /** One look. It does not overlap itself, it never throws, and it decides about one task at most. */
@@ -678,6 +713,8 @@ export class TaskWatch {
         const record = ledger.see(task.channelId, task.taskId, now);
         record.gaveUp = true;
         record.lastActionAt = now;
+        // A failed start that the reviewer followed to its cap waits for the person.
+        if (task.kind === "start-failed") record.needsYou = true;
       }
       this.#note(now, candidate, "give-up", task.agentName, by);
       return;
@@ -696,6 +733,8 @@ export class TaskWatch {
     if (!applied) return;
     const record = ledger.see(task.channelId, task.taskId, now);
     record.lastActionAt = now;
+    if (task.kind === "start-failed")
+      record.startActions = [...(record.startActions ?? []), now].slice(-TASK_WATCH_START_ACTIONS);
     if (action.type === "resume") record.resumes += 1;
     if (action.type === "reassign") {
       record.reassigns += 1;
@@ -732,12 +771,16 @@ export class TaskWatch {
     this.#recent.unshift(event);
     this.#recent.length = Math.min(this.#recent.length, TASK_WATCH_RECENT_LIMIT);
     this.#deps.history?.write(this.#recent);
+    const record = this.#deps.ledger.peek(task.channelId, task.taskId);
     this.#log.info("The task reviewer decided.", {
       action: event.action,
       kind: task.kind,
       reason: event.reason,
       by,
       minutes: event.minutes ?? -1,
+      // Counts only: the tries of the task so far.
+      actions: actionsOf(record),
+      reassigns: record?.reassigns ?? 0,
     });
   }
 }
