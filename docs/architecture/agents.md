@@ -317,18 +317,32 @@ and the tool router records each call of the app's own outside tools. Each step 
 state. A step keeps a short name with no arguments (`git push`, `openbot.channel_assign`,
 `MCP slack.post_message`) and, for a shell step, its redacted command for the provider.
 
+The journal fails closed. A step is `read` or `local` only when the app proves it; any other step is
+`external`. A shell command is read with the Guard's shell reader, and each part must be a known program
+with arguments that `command-effects.ts` reads completely. Codex's own reading of a command
+(`commandActions`) does not count: two readers that differ must not make a step safe.
+
 | Reach | Steps |
 | --- | --- |
-| `read`: safe to run again | Codex `commandActions` of only reads, file lists and searches; `cat`, `ls`, `rg`, `git status/log/diff/show`, `gh pr list/view`, `gh api` with no method or fields, `curl` with no data or method; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `fetch`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
-| `local`: changes only this computer | file changes (Codex `fileChange`, Claude `Edit`/`Write`, ACP `edit`/`delete`/`move`); `git add/commit/checkout/merge/fetch/pull`; `npm install`, `npm run test/build/lint/…`; `mkdir`, `cp`, `rm`; output to a file; the app's memory, section, skill, routine and channel-setting tools |
-| `external`: can change something else | `git push`, `gh pr create/merge`, `gh api` with a method or fields, `curl -X POST`/`-d`, `npm publish`, `docker push`, `ssh`, `scp`, `kubectl apply`, `terraform apply`, cloud CLIs that write, deploy CLIs, `osascript`; a program or script that the app does not know (`python script.py`, `npm run deploy`, `bash -c` of one); a subagent; every MCP tool of a server that is not the app's own; browser clicks, typing and scripts; the app's `send_message`, `channel_assign`, `channel_transfer`, `channel_result`, `messaging_post`, site, agent and routine-test tools (`OWN_EXTERNAL_TOOLS`) |
+| `read`: safe to run again | `cat`, `ls`, `rg` (no `--pre`), `grep`, `jq`, `wc`, `echo`; `git status/log/diff/show/grep` (no `-O` or `--ext-diff`), `git config --get/--list`; `gh pr/issue/run/… list/view/status/checks/diff`, `gh api` with no method and no field; `curl` with no data, form, upload, config or other method, and only `http(s)` URLs; `sed` whose script only prints, deletes or substitutes with no `e` or `w`; `awk` with an inline program with no `system`, pipe, `getline` or `>`; `find` with no action; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `think`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
+| `local`: changes only this computer | file changes (Codex `fileChange`, Claude `Edit`/`Write`, ACP `edit`/`delete`/`move`); `git add/commit/checkout/merge/rebase/fetch/pull/clone` (no `-x`, `--exec`, `--upload-pack`, `--template`, `ext::`); `sed -i`, `curl -o`, `find -delete`, output to a file; `mkdir`, `cp`, `mv`, `rm`, `tar`/`zip` with no program option, `tsc`, `biome`; the app's memory, section, skill, routine and channel-setting tools |
+| `external`: can change something else | `git push`, `gh pr create/merge`, `gh api -f/-F/-X…` also grouped (`-XDELETE`, `-fbody=x`), `curl -d/-F/-T/-K/-X…` also grouped or joined (`-sXPOST`, `-dfoo`, `-sd`), other URL schemes (`smtp://`, `gopher://`), `wget -e`/`--post-data`, `npm publish`, `docker push`, `ssh`, `scp`, `kubectl exec/apply`, `terraform plan/apply`; a program that runs other code: `npm`/`yarn`/`bun` install, run and test, `npx`, `bunx`, `make`, `cargo build`, `python`/`node`/`perl`/`ruby` scripts and `-c`/`-e`, `docker build/run`, `xargs`, `eval`, `source`, `find -exec` of an outside command, `fd -x`, `rg --pre`, `tar -I`/`--to-command`, `zip -T`, `sort --compress-program`, `man -P`, `rsync -e` or a remote, `awk` with `system`/pipe/`getline`/`>` or `-f`, `sed` with `e`/`w`/`-f`; `git` with `-c`, `--config-env`, `--exec-path` or an unknown global option, a repository alias, `config` that sets, `bisect run`, `submodule foreach`, `difftool`; a variable before a program (`GIT_SSH_COMMAND=…`, `PAGER=…`, `NODE_OPTIONS=…`, `HOME=…`) or exported, other than `LANG`, `TZ`, `TERM`, `CI` and similar; an `alias` that is set; a program that a variable, a substitution or a glob names (`$CMD`, `"$(echo git)"`), or one in a folder other than a system one (`./git`); an unquoted variable in an argument of `git`, `gh`, `curl`, `sed` or another program whose arguments decide what it does; a `$( )` or `sh -c` deeper than 3 levels; `/dev/tcp`, `>(…)`, an output redirection to a variable; a subagent; every MCP tool of a server that is not the app's own; an ACP `fetch`; browser clicks, typing and scripts; an item of a kind that the app does not know; the app's `send_message`, `channel_assign`, `channel_transfer`, `channel_result`, `messaging_post`, agent and routine-test tools (`OWN_EXTERNAL_TOOLS`) |
 
-The state is `done` (it ended with a result), `failed` (it ended with a failure that the tool reported,
-so it did not happen), or `uncertain`: it started and has no result, or it ended with no answer
-(Claude marks such a call `unanswered`), or an outside step failed on a time-out, a lost connection
-or an interrupt. For the app's own outside tools the router's record replaces the provider's item: a
-call that the provider announced and never sent did not run, and a call whose handler returned has a
-sure result. Only a handler that the turn interrupted stays uncertain.
+The state is `done` (it ended with a result), `failed`, or `uncertain`. A read or a local change that
+ended with an error or an exit code other than 0 is `failed`. An outside step is `failed` only when it
+did not run (`declined`): an error, an exit code other than 0, a time-out or an interrupt is
+`uncertain`, because `curl … && false` posted, a push can land before the connection drops, and a tool
+can fail after part of a post. A step that started and has no result is `uncertain`, and so is a call
+that Claude ended with no answer (`unanswered`). For the app's own outside tools the router's record
+replaces the provider's item: a call that the provider announced and never sent did not run, a call
+whose handler returned a result is done, and a call whose handler failed or did not return is
+`uncertain`.
+
+`scripts/safe-resume-adversarial-e2e.ts` runs the real classifier, journal and decision on more than 130
+commands that hide an outside effect (grouped flags, quoting, nesting, here-documents, process
+substitution, aliases, functions, variables, wrappers, git options) and on 30 plain reads and local
+changes. No outside command may read as `read` or `local`, and each one, with no result or with an exit
+code, must stop the task for the person.
 
 **The decision** (`DrainScheduler.resumeChannelTurn`, called from `TurnLifecycle.#completeTurn` for a
 failed channel turn that is not a usage limit or a refused session). In order:

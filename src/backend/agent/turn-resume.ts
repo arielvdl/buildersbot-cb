@@ -190,7 +190,8 @@ function resumeEffect(effect: Pick<TurnEffect, "label" | "reach" | "state" | "de
 /**
  * Decides what a failed turn may do. `effects` is the journal of the turn; `ownCalls` is what the app's
  * tool router saw of its own outside tools, which replaces the provider's items of those tools: a call
- * that never reached the router did not run, and one whose handler returned has a sure result.
+ * that never reached the router did not run, and one whose handler returned a result is done. A handler
+ * that failed or did not return is uncertain.
  *
  * The turn continues when each step is a read, a local change, or an outside step with a result. An
  * outside step with no result stops the task for the person, unless `resumeUncertain` is on: then the
@@ -209,8 +210,10 @@ export function planTurnResume(input: {
     if (effect.reach === "read") reads += 1;
     else steps.push(resumeEffect(effect));
   }
+  // A handler that returned an error may have acted in part, as a long post sends more than one
+  // message: only a call that ended with a result is done.
   for (const call of input.ownCalls)
-    steps.push({ label: call.tool, reach: "external", state: call.state === "started" ? "uncertain" : call.state });
+    steps.push({ label: call.tool, reach: "external", state: call.state === "done" ? "done" : "uncertain" });
   const uncertain = steps.filter((step) => step.reach === "external" && step.state === "uncertain");
   if (uncertain.length > 0 && !input.resumeUncertain) return { kind: "ask", uncertain };
   return {

@@ -14,9 +14,8 @@ import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { redactText } from "@openbot/logging";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import { HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
-import { bridgedToolName, getArray, getRecord, getString, type ThreadItem } from "../protocol";
+import { bridgedToolName, getRecord, getString, type ThreadItem } from "../protocol";
 import { classifyCommand, type EffectReach, strongerReach } from "./command-effects";
-import { isToolItem } from "./thread-items";
 
 export type { EffectReach } from "./command-effects";
 
@@ -86,7 +85,8 @@ const CLAUDE_LOCAL: ReadonlySet<string> = new Set(
 const PI_READ: ReadonlySet<string> = new Set(["read", "ls", "grep", "find"]);
 const PI_LOCAL: ReadonlySet<string> = new Set(["edit", "write"]);
 
-const ACP_READ: ReadonlySet<string> = new Set(["read", "search", "think", "fetch"]);
+// An ACP `fetch` is the agent's own word for its tool, which can send data: it is not a read.
+const ACP_READ: ReadonlySet<string> = new Set(["read", "search", "think"]);
 const ACP_LOCAL: ReadonlySet<string> = new Set(["edit", "delete", "move", "switch_mode"]);
 
 interface Kind {
@@ -152,21 +152,27 @@ function mcpTool(server: string, tool: string): Kind {
   return external(`MCP ${server}.${tool}`);
 }
 
-/** Codex reads a command itself: `commandActions` of only reads, file lists and searches is a read. */
-function codexReadOnly(item: ThreadItem): boolean {
-  const actions = getArray(item, "commandActions");
-  return (
-    actions.length > 0 &&
-    actions.every((action) => {
-      const type = getString(action, "type");
-      return type === "read" || type === "listFiles" || type === "search";
-    })
-  );
-}
+/**
+ * The items that are not a tool step: text, thinking, the person's message, a compaction and the review
+ * mode marks. Every other item, also of a kind that the app does not know, is a step.
+ */
+const PASSIVE_ITEMS: ReadonlySet<string> = new Set([
+  "agentMessage",
+  "userMessage",
+  "reasoning",
+  "contextCompaction",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
 
-/** What a tool step of any provider can change, or null for an item that is not a tool step. */
+/**
+ * What a tool step of any provider can change, or null for an item that is not a tool step. An item
+ * of a kind that the app does not know is `external`. A command is read by this app's own reader only:
+ * Codex's `commandActions` is another reader, and a difference between two readers must not make a
+ * step safe.
+ */
 export function classifyToolItem(item: ThreadItem): Kind | null {
-  if (!isToolItem(item)) return null;
+  if (PASSIVE_ITEMS.has(item.type)) return null;
   const bridged = bridgedToolName(item);
   if (bridged) {
     const dot = bridged.indexOf(".");
@@ -175,7 +181,6 @@ export function classifyToolItem(item: ThreadItem): Kind | null {
   switch (item.type) {
     case "commandExecution": {
       const text = getString(item, "command") ?? "";
-      if (codexReadOnly(item)) return { ...command(text), reach: "read" };
       return text ? command(text) : external("command");
     }
     case "fileChange":
@@ -208,8 +213,8 @@ export function classifyToolItem(item: ThreadItem): Kind | null {
     case "toolCall":
       return toolCall(item);
     default:
-      // A computer action, or a tool item of a kind that the app does not know.
-      return external(item.type);
+      // A computer action, or an item of a kind that the app does not know.
+      return external(item.type || "step");
   }
 }
 
@@ -240,33 +245,34 @@ function toolCall(item: ThreadItem): Kind {
   return external(name || "tool");
 }
 
-/** A failure text that does not say whether the action reached the other side. */
-const UNSURE_FAILURE =
-  /\b(?:timed? ?out|timeout|deadline|ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket hang up|aborted|abort|cancel(?:l?ed)?|interrupted|connection (?:reset|closed|lost)|network|disconnected|overloaded|529|502|503|504)\b/iu;
+/** Statuses of a step that has no result yet, or whose run stopped part way. */
+const OPEN_STATUSES: ReadonlySet<string> = new Set([
+  "inProgress",
+  "in_progress",
+  "pending",
+  "running",
+  "interrupted",
+  "cancelled",
+  "canceled",
+]);
 
-function failureText(item: ThreadItem): string {
-  const parts = [getString(item, "error"), getString(getRecord(item, "error"), "message")];
-  const result = item.result;
-  if (isString(result)) parts.push(result.slice(0, 2000));
-  else if (isDynamicRecord(result)) parts.push(JSON.stringify(result).slice(0, 2000));
-  return parts.filter(isString).join(" ");
-}
-
-/** The state of a step from its last event. */
+/**
+ * The state of a step from its last event. It fails closed: an outside step is `failed` only when it
+ * did not run (`declined`). An outside step that ended with an error or an exit code other than 0 is
+ * `uncertain`, because the error does not prove that nothing happened: `curl … && false` posted, a push
+ * can land before the connection drops, and a tool can fail after part of a post. Only a read or a local
+ * change that failed is `failed`.
+ */
 function stateOf(item: ThreadItem, completed: boolean, reach: EffectReach): EffectState {
   // Claude ends a call with no result as completed when the turn ends (`unanswered`).
   if (!completed || item.unanswered === true) return "uncertain";
   const status = getString(item, "status");
   if (status === "declined") return "failed";
-  if (status === "interrupted" || status === "cancelled" || status === "inProgress" || status === "in_progress")
-    return "uncertain";
+  if (status !== null && OPEN_STATUSES.has(status)) return "uncertain";
   const exitCode = item.exitCode;
-  const failed = status === "failed" || (typeof exitCode === "number" && exitCode !== 0);
+  const failed = (status !== null && status !== "completed") || (typeof exitCode === "number" && exitCode !== 0);
   if (!failed) return "done";
-  // A command that exited, or a tool that answered with its own error, did not do the action. An
-  // external step that failed on the way, as a timeout, may have done it.
-  if (typeof exitCode === "number") return "failed";
-  return reach === "external" && UNSURE_FAILURE.test(failureText(item)) ? "uncertain" : "failed";
+  return reach === "external" ? "uncertain" : "failed";
 }
 
 /** The steps of each running turn, in the order they started. */
@@ -280,10 +286,11 @@ export class TurnEffects {
   /** Records an item event of a running turn. Only tool steps count. */
   observe(turnId: string, item: ThreadItem, completed: boolean): void {
     const steps = this.#turns.get(turnId);
-    const id = item.id;
-    if (!steps || !isString(id) || !id) return;
+    if (!steps) return;
     const kind = classifyToolItem(item);
     if (!kind) return;
+    // A step with no id cannot be matched to its end, so each of its events counts on its own.
+    const id = isString(item.id) && item.id ? item.id : `step-without-id-${steps.size}`;
     const previous = steps.get(id);
     // A later event can name what an earlier one did not, as the command of a Claude Bash step.
     const reach = previous ? strongerReach(previous.reach, kind.reach) : kind.reach;

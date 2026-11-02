@@ -19,6 +19,9 @@
 //      already be done: MCP slack.post_message" and no provider text.
 //   d2. The same with "resume also with an uncertain outside action" on: it continues, and the note marks
 //      the post as uncertain with the order to check it first.
+//   x1-x3. Outside commands that hide in a short flag group (`curl -sXPOST`), in an exit code (a push that
+//      exited with 128 may have landed) and in a git global option (`--git-dir /r/.git push`): no second
+//      turn, the task stops for the person.
 //   own. An own tool call that the provider announced but never sent: the app's own record says that it
 //      did not run, so the turn continues.
 //   e. A failure on every turn: 1 + 3 turns with growing waits, then the task fails as before for the task
@@ -84,7 +87,8 @@ const { WorkControl } = await import("../src/main/work-control");
 /**
  * The stand-in Codex app-server. `control.json`: { "<case>": [steps of turn 0, steps of turn 1, …] }.
  * A turn with no script answers "Done.". A step:
- *   { do: "read" } / { do: "write" } / { do: "shell", command }: a finished command or file change.
+ *   { do: "read" } / { do: "write" } / { do: "shell", command, exitCode?, open? }: a command or file change
+ *     that ended, with an exit code, or that started and has no result (`open`).
  *   { do: "tool", tool, arguments, unlessNoted? }: calls the app's own tool and waits for its result.
  *     `unlessNoted` skips the call when the resume note names that tool, as a model that obeys it.
  *   { do: "started", server, tool }: an outside MCP call that starts and never ends.
@@ -134,7 +138,11 @@ const run = (turn) => {
       const id = randomUUID();
       const actions = step.do === "read" ? [{ type: "read", command, name: "README.md", path: "README.md" }] : [{ type: "unknown", command }];
       item("item/started", { type: "commandExecution", id, command, cwd: "/", status: "inProgress", commandActions: actions });
-      item("item/completed", { type: "commandExecution", id, command, cwd: "/", status: "completed", exitCode: 0, aggregatedOutput: "ok", commandActions: actions });
+      // \`open\`: the command started and the turn fails before its result.
+      if (!step.open) {
+        const exitCode = step.exitCode ?? 0;
+        item("item/completed", { type: "commandExecution", id, command, cwd: "/", status: exitCode === 0 ? "completed" : "failed", exitCode, aggregatedOutput: "ok", commandActions: actions });
+      }
       log({ kind: "step", caseId: turn.caseId, index: turn.index, step: step.do, command });
       return next();
     }
@@ -686,6 +694,30 @@ try {
       settings = { ...settings, resumeUncertainActions: false };
     }
   });
+
+  // Commands that read as outside actions only when the journal fails closed (`command-effects.ts`).
+  const hidden = [
+    {
+      id: "x1",
+      step: { do: "shell", command: `curl -sXPOST ${"https://x.test"}/hook`, open: true },
+      label: "curl (sends data)",
+    },
+    { id: "x2", step: { do: "shell", command: "git push origin main", exitCode: 128 }, label: "git push" },
+    { id: "x3", step: { do: "shell", command: "git --git-dir /r/.git push", open: true }, label: "git push" },
+  ] as const;
+  for (const entry of hidden)
+    await runCase(entry.id, `a hidden outside command (${entry.step.command}): the person decides`, async (facts) => {
+      const agent = await createAgent(`Hidden ${entry.id}`);
+      const channelId = await createChannel(`hidden-${entry.id}`, [agent]);
+      script(entry.id, [{ do: "read" }, { ...entry.step }, { do: "fail", message: OVERLOADED }], []);
+      await send(channelId, agent, `case:${entry.id} ${SECRET}`);
+      const task = await waitFor("the task to stop", () => settled(taskOf(channelId, `case:${entry.id}`)));
+      await new Promise((done) => setTimeout(done, 2_500));
+      facts.error = task.error;
+      assert.equal(turns(entry.id).length, 1, "No second turn.");
+      assert.equal(task.state, "failed");
+      assert.equal(task.error, sourceText("error.backend.channelTaskMayBeDone", { actions: entry.label }));
+    });
 
   await runCase("own", "an own tool call that never reached the app: the app's record clears it", async (facts) => {
     const agent = await createAgent("Announces");
