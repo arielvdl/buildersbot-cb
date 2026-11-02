@@ -21,8 +21,8 @@ import { RailHelpMenu } from "./RailHelpMenu";
 import { useWindowPage } from "./window-page-context";
 
 /**
- * The page rail of the desktop window. Agents, Routines, Workflows, Schedule, Usage, Marketplace and
- * Settings change the page in the card.
+ * The page rail of the desktop window. Agents, Feed, Routines, Workflows, Schedule, Usage, Marketplace
+ * and Settings change the page in the card.
  */
 export function WorkspacePageRail(props: { hidden: boolean }) {
   const text = useText();
@@ -108,6 +108,7 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
         onAgents={() => showSidebarView("agents")}
         onTeam={openTeam}
         teamOpen={teamOpen()}
+        onFeed={windowPage.openFeed}
         onRoutines={() => showSidebarView("routines")}
         // A joined server without workflows shows its notice on the page.
         onWorkflows={() => windowPage.openWorkflows(null)}

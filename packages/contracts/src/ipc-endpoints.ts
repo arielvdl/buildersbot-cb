@@ -305,6 +305,7 @@ import type {
   ExternalLinkFallback,
   ExternalLinkPreference,
 } from "./ipc-external-links";
+import type { FeedDelta, FeedSnapshot, FeedSnapshotInput, FeedWatchInput } from "./ipc-feed";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
 import type { GuardPreferenceChange, GuardState } from "./ipc-guard";
 import type { ApplyHermesImportInput, HermesImportPreview } from "./ipc-hermes-import";
@@ -1016,6 +1017,17 @@ export const IPC_ENDPOINTS = {
     performHaptic: request<undefined, void>()("dynamic-island:perform-haptic"),
     action: event<DynamicIslandAction>()("dynamic-island:action"),
     setInteractive: request<SetDynamicIslandInteractiveInput, void>()("dynamic-island:set-interactive"),
+  },
+  /**
+   * The feed page: one card for each run of an agent on every server. Main keeps the cards; a window
+   * reads them all once and then gets only the changes, and only while it shows the page.
+   */
+  feed: {
+    /** The full read, when the page opens or after a gap in the delta cursor. */
+    getSnapshot: request<FeedSnapshotInput | undefined, FeedSnapshot>()("feed:get-snapshot"),
+    /** Whether this window shows the page now. Main sends deltas only to a window that does. */
+    setWatching: request<FeedWatchInput, void>()("feed:set-watching"),
+    delta: event<FeedDelta>()("feed:delta"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view
@@ -2109,6 +2121,7 @@ export const IPC_GROUP_PATHS = {
   providerRuntimes: "providerRuntimes",
   voice: "voice",
   dynamicIsland: "dynamicIsland",
+  feed: "feed",
   browserDock: "browserDock",
   computerUse: "computerUse",
   macAutomation: "macAutomation",

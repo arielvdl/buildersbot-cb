@@ -263,6 +263,7 @@ import {
   decodeDynamicIslandPreference,
   decodeDynamicIslandPresentation,
 } from "./dynamic-island-decoding";
+import { decodeFeedDeltaOrNull, decodeFeedSnapshot } from "./feed-decoding";
 import { decodeGuardState } from "./guard-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
 import {
@@ -765,6 +766,11 @@ const openbotApi: BuildersBotDesktopApi = {
     action: decodeBrowserDockAction,
     setFrame: decodeVoid,
     shown: decodeBrowserDockShown,
+  }),
+  feed: bridgeGroup(IPC_ENDPOINTS.feed, {
+    getSnapshot: decodeFeedSnapshot,
+    setWatching: decodeVoid,
+    delta: dropInvalid(decodeFeedDeltaOrNull),
   }),
   dynamicIsland: bridgeGroup(IPC_ENDPOINTS.dynamicIsland, {
     getPreference: decodeDynamicIslandPreference,

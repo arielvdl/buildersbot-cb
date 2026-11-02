@@ -74,6 +74,7 @@ import { customProviderIpcHandlers } from "./ipc/custom-provider-handlers";
 import { registerIpcGroups } from "./ipc/define-ipc-group";
 import { dynamicIslandIpcHandlers } from "./ipc/dynamic-island-handlers";
 import { eventsIpcHandlers } from "./ipc/events-handlers";
+import { feedIpcHandlers } from "./ipc/feed-handlers";
 import { githubConnectorIpcHandlers } from "./ipc/github-connector-handlers";
 import { guardIpcHandlers } from "./ipc/guard-handlers";
 import { hostAdminIpcHandlers } from "./ipc/host-admin-handlers";
@@ -468,6 +469,7 @@ const {
     !localServerChild && (services?.notificationPreference.get().desktopNotifications ?? true),
   notificationPreviewEnabled: () => services?.notificationPreference.get().messagePreview ?? true,
   ownAgentNotificationLevels: () => services?.agentNotificationLevels.levels(OWNER_NOTIFICATION_KEY) ?? new Map(),
+  onAgentEvent: (serverId, event) => services?.feed.ingest(serverId, event),
 });
 
 // Resolved once, safely: every `app.setPath("userData", ...)` above has already run.
@@ -639,6 +641,7 @@ function registerIpcHandlers({
   startRetry,
   agentLimit,
   workControl,
+  feed,
   agentDefaults,
   agentMemoryLimit,
   memoryReview,
@@ -756,6 +759,13 @@ function registerIpcHandlers({
       resumeOffer,
     }),
     ...dynamicIslandIpcHandlers({ dynamicIsland }),
+    ...feedIpcHandlers({
+      feed,
+      appWindows: () => {
+        const main = windowHolder.current;
+        return main ? [main, ...windows.getChatWindows()] : [];
+      },
+    }),
     ...browserDockIpcHandlers({ browserDock }),
     ...computerUseIpcHandlers({
       cuaDriver,

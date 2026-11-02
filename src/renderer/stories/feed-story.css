@@ -1,0 +1,5 @@
+/* The feed page fills the story frame, as it fills the window card. */
+.feed-story {
+  display: flex;
+  height: 100vh;
+}

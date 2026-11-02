@@ -61,6 +61,7 @@ describe("the stopped work of the channels", () => {
         title: "Do a",
         reason: "The provider could not start this assignment.",
         agentName: "Writer",
+        agentId: "writer",
         state: "failed",
         candidates: [],
         auto: null,

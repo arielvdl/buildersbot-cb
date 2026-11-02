@@ -165,6 +165,7 @@ export function stoppedRow(
     title: clipText(task.instruction, TITLE_LIMIT),
     reason: clipText(task.error, REASON_LIMIT),
     agentName: task.ownerAgentId ? agentName(task.ownerAgentId) : null,
+    ...(task.ownerAgentId ? { agentId: task.ownerAgentId } : {}),
     state: task.state,
   };
 }
