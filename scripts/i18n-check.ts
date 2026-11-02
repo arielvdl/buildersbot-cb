@@ -25,7 +25,7 @@ const MESSAGES = resolve(ROOT, "packages/i18n/src/messages");
 /** Files that spread area modules together. They hold no keys of their own. */
 const AGGREGATORS = new Set(["index", "mobile", "source", "shared"]);
 /** Where code that names a key lives. The catalogs themselves are left out. */
-const CODE_ROOTS = ["src", "packages", "apps/mobile/src", "apps/auth-api/src", "scripts"];
+const CODE_ROOTS = ["src", "packages", "apps/mobile/src", "apps/auth-api/src", "apps/chrome-extension/src", "scripts"];
 const CODE_EXTENSIONS = /\.(?:ts|tsx)$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "build", "out", ".expo"]);
 /** Keys that no current code sends, but older hosts still do. Keep them so their text is translated. */

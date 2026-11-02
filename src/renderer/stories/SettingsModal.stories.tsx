@@ -32,6 +32,7 @@ const storyGeneralSettings: GeneralSettingsValue = {
   keepAwake: false,
   keepAwakeOnBattery: false,
   browserInApp: false,
+  chromeAgents: false,
   culturaBuilderFullContext: false,
 };
 

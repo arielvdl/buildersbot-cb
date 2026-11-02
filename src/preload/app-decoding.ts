@@ -147,6 +147,9 @@ import {
   type VoiceStream,
   type VoiceStreamTranscript,
   type VoiceTranscriptionResult,
+  WEB_ACCESS_MODES,
+  type WebAccessMode,
+  webAccessFromSwitch,
 } from "@openbot/contracts/ipc";
 import {
   decodeList,
@@ -477,14 +480,24 @@ export function decodeUpdatePreference(value: unknown): UpdatePreference {
 
 export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreference {
   const preference = decodeRecord(value, "app behavior preference");
+  const browserInApp = requiredBoolean(preference, "browserInApp");
   return {
     launchAtLogin: nullableBoolean(preference, "launchAtLogin"),
     keepRunningInBackground: nullableBoolean(preference, "keepRunningInBackground"),
     keepAwake: nullableBoolean(preference, "keepAwake"),
     keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
-    browserInApp: requiredBoolean(preference, "browserInApp"),
+    browserInApp,
+    webAccess: optionalWebAccess(preference, browserInApp),
     culturaBuilderFullContext: requiredBoolean(preference, "culturaBuilderFullContext"),
   };
+}
+
+/** A main process from before `webAccess` sends only the switch; the mode then follows the switch. */
+function optionalWebAccess(preference: DynamicRecord, browserInApp: boolean): WebAccessMode {
+  const value = preference.webAccess;
+  if (value === undefined) return webAccessFromSwitch(browserInApp);
+  if (!isOneOf(WEB_ACCESS_MODES, value)) throw new Error("Invalid webAccess.");
+  return value;
 }
 
 export function decodeSecurityGuardPreference(value: unknown): SecurityGuardPreference {

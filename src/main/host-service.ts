@@ -1759,6 +1759,17 @@ export class HostService extends EventEmitter<HostEvents> {
     }
   }
 
+  /**
+   * Whether someone other than this computer's user can write in the channels now: an active member
+   * of this server's team. A server with no team has none. Signed out, every member counts.
+   */
+  channelsHaveRemotePeople(): boolean {
+    if (!this.#options.store.configured) return false;
+    return this.#options.store
+      .listMembers()
+      .some((member) => !member.disabled && this.channelPersonIsRemote(member.id));
+  }
+
   /** The channel list as the host user reads it, as the IPC list does. Empty without channels. */
   listChannels(): ChannelSummary[] {
     return this.#options.channels?.store.list(this.channelActor().id, true) ?? [];

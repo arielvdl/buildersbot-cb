@@ -1,6 +1,18 @@
-import type { BrowserDiagnosticEntry, BrowserSnapshot, BrowserTarget } from "@openbot/contracts/ipc";
-import { Context, Deferred, Effect, Fiber } from "effect";
-import type { BrowserDialog, BrowserDialogOwner, BrowserPageStatus, SnapshotReadResult } from "./browser-cdp";
+import type {
+  BrowserDiagnosticEntry,
+  BrowserEnvironment,
+  BrowserSnapshot,
+  BrowserTarget,
+} from "@openbot/contracts/ipc";
+import { Context, Deferred, Effect, Fiber, type Scope } from "effect";
+import type {
+  BrowserCdpEngine,
+  BrowserDialog,
+  BrowserDialogOwner,
+  BrowserPageStatus,
+  SnapshotReadResult,
+} from "./browser-cdp";
+import type { BrowserDiagnostics } from "./browser-diagnostics";
 import { type BrowserOperationError, browserFailure, browserSync } from "./browser-effects";
 import {
   BrowserFillFieldsFailure,
@@ -8,9 +20,35 @@ import {
   type BrowserFillFieldsReason,
   fillFieldsFailure,
 } from "./browser-fill-fields";
-import type { BrowserHostTab, KeepQueueBlocked } from "./browser-host-tab";
 import { describeBrowserTarget } from "./browser-navigation";
 import { TimeoutError, withTimeout } from "./with-timeout";
+
+/**
+ * What the tab operations below read and advance of a tab: its queue, revision, secret state and
+ * engine. A Builders Bot browser tab (`BrowserHostTab`) and a tab of the person's Chrome
+ * (`ChromeHostTab`) are both one, so the two hosts share the queue, the actions and their results. The
+ * page itself is read through the engine's target, never through Electron.
+ */
+export interface QueuedBrowserTab {
+  readonly id: string;
+  queue: Deferred.Deferred<void>;
+  readonly scope: Scope.Closeable;
+  /** Operations queued or running on `queue`. */
+  pendingOperations: number;
+  /** The number of the queued operation that runs now or ran last. */
+  operations?: number;
+  /** The last full-page image that the agent got, and the operation that last passed it on. */
+  image?: { operation: number; url: string; taken: number };
+  secret?: { origin: string; submitted: boolean; replaced: boolean; running: boolean } | undefined;
+  closing?: boolean;
+  openerTabId?: string;
+  revision: number;
+  environment: BrowserEnvironment;
+  readonly engine: BrowserCdpEngine;
+  readonly diagnostics: BrowserDiagnostics;
+}
+
+export type KeepQueueBlocked = (work: Effect.Effect<unknown, BrowserOperationError>) => void;
 
 const ACTION_POST_DISPATCH_TIMEOUT_MS = 10_000;
 const OPERATION_UNWIND_GRACE_MS = 1_000;
@@ -65,9 +103,9 @@ export class BrowserUserControlHeld extends Error {
 }
 
 /** Return the response when ready; retain the queue until all owned work drains. */
-export const enqueueTabOperation = Effect.fn("BrowserTab.enqueue")(function* <A>(
-  tab: BrowserHostTab,
-  operation: (tab: BrowserHostTab, keepQueueBlocked: KeepQueueBlocked) => Effect.Effect<A, BrowserOperationError>,
+export const enqueueTabOperation = Effect.fn("BrowserTab.enqueue")(function* <A, T extends QueuedBrowserTab>(
+  tab: T,
+  operation: (tab: T, keepQueueBlocked: KeepQueueBlocked) => Effect.Effect<A, BrowserOperationError>,
   allowProtected = false,
 ) {
   // Read in the caller's fiber: the queued work below runs in the tab scope.
@@ -136,29 +174,29 @@ const CURRENT_IMAGE_MS = 15_000;
  * passed one on, of the same address, and the page is not loading. No queued operation changed the page
  * since; the page itself can have.
  */
-export function hasCurrentImage(tab: BrowserHostTab): boolean {
+export function hasCurrentImage(tab: QueuedBrowserTab): boolean {
   const image = tab.image;
   return (
     image !== undefined &&
     image.operation === (tab.operations ?? 0) - 1 &&
     Date.now() - image.taken < CURRENT_IMAGE_MS &&
-    !tab.contents.isLoading() &&
-    tab.contents.getURL() === image.url
+    !tab.engine.page.isLoading() &&
+    tab.engine.page.url() === image.url
   );
 }
 
 /** Call in a queued operation that gave the agent a full-page image. */
-export function markImageTaken(tab: BrowserHostTab): void {
-  tab.image = { operation: tab.operations ?? 0, url: tab.contents.getURL(), taken: Date.now() };
+export function markImageTaken(tab: QueuedBrowserTab): void {
+  tab.image = { operation: tab.operations ?? 0, url: tab.engine.page.url(), taken: Date.now() };
 }
 
 /** Call in a queued operation that sent no image because `hasCurrentImage` was true. */
-export function passImageOn(tab: BrowserHostTab): void {
+export function passImageOn(tab: QueuedBrowserTab): void {
   if (tab.image) tab.image.operation = tab.operations ?? 0;
 }
 
 export const readTabSnapshot = Effect.fn("BrowserTab.readTabSnapshot")(function* (
-  tab: BrowserHostTab,
+  tab: QueuedBrowserTab,
   revision: number,
   keepQueueBlocked: KeepQueueBlocked,
   timeoutMs = 10_000,
@@ -191,7 +229,7 @@ export const readTabSnapshot = Effect.fn("BrowserTab.readTabSnapshot")(function*
 
 /** Reads what an action returns once its input reached the page and the page settled. */
 export type ActionResultReader<A> = (
-  tab: BrowserHostTab,
+  tab: QueuedBrowserTab,
   keepQueueBlocked: KeepQueueBlocked,
   timeoutMessage: string,
 ) => Effect.Effect<A, BrowserOperationError>;
@@ -236,7 +274,7 @@ export const readActionStatus: ActionResultReader<BrowserActionStatus> = Effect.
 
 /** A deadline ends the response; the tab queue still owns transport cleanup. */
 export const boundEngineOperation = Effect.fn("BrowserTab.boundOperation")(function* <A>(
-  tab: BrowserHostTab,
+  tab: QueuedBrowserTab,
   operation: Effect.Effect<A, BrowserOperationError>,
   timeoutMs: number,
   timeoutMessage: string,
@@ -261,7 +299,7 @@ export const boundEngineOperation = Effect.fn("BrowserTab.boundOperation")(funct
 });
 
 const unwindStalledOperation = Effect.fn("BrowserTab.unwind")(function* <A>(
-  tab: BrowserHostTab,
+  tab: QueuedBrowserTab,
   completion: Fiber.Fiber<A, BrowserOperationError>,
 ) {
   if (yield* finishesWithin(Fiber.await(completion), OPERATION_UNWIND_GRACE_MS)) return;
@@ -273,15 +311,11 @@ const unwindStalledOperation = Effect.fn("BrowserTab.unwind")(function* <A>(
 });
 
 export const runTabAction = Effect.fn("BrowserTab.action")(
-  <A>(
-    tab: BrowserHostTab,
+  <A, T extends QueuedBrowserTab>(
+    tab: T,
     action: string,
     target: BrowserTarget | undefined,
-    operation: (
-      tab: BrowserHostTab,
-      deadline: number,
-      markDispatched: () => void,
-    ) => Effect.Effect<void, BrowserOperationError>,
+    operation: (tab: T, deadline: number, markDispatched: () => void) => Effect.Effect<void, BrowserOperationError>,
     readResult: ActionResultReader<A>,
     timeoutMs = 10_000,
     onOperationStarted?: (completion: Fiber.Fiber<void, BrowserOperationError>) => void,
@@ -350,7 +384,7 @@ export const runTabAction = Effect.fn("BrowserTab.action")(
             Effect.gen(function* () {
               if (!cancellationConfirmed) yield* Fiber.await(completion);
               // An accepted confirmation often submits a form. Its navigation is the agent's answer.
-              if (!dialogReturned && !tab.closing && !tab.contents.isDestroyed() && tab.contents.isLoading())
+              if (!dialogReturned && !tab.closing && !tab.engine.page.isClosed() && tab.engine.page.isLoading())
                 yield* tab.engine.stopLoading().pipe(Effect.ignore);
               if (stalledSettle) yield* unwindStalledOperation(tab, stalledSettle);
             }),
@@ -386,7 +420,7 @@ export const runTabAction = Effect.fn("BrowserTab.action")(
                   const cause = error instanceof TimeoutError ? error : error.cause;
                   if (!isTimeoutError(cause)) return yield* browserFailure(cause);
                   stalledSettle = settle;
-                  if (tab.contents.isLoading()) yield* tab.engine.stopLoading().pipe(Effect.ignore);
+                  if (tab.engine.page.isLoading()) yield* tab.engine.stopLoading().pipe(Effect.ignore);
                 }),
               ),
             );
@@ -411,7 +445,7 @@ export const runTabAction = Effect.fn("BrowserTab.action")(
             ),
             Effect.catch((error) =>
               Effect.gen(function* () {
-                if (dispatched && (tab.closing || tab.contents.isDestroyed()))
+                if (dispatched && (tab.closing || tab.engine.page.isClosed()))
                   return {
                     tabId: tab.id,
                     closed: true as const,
@@ -460,7 +494,7 @@ export const runTabAction = Effect.fn("BrowserTab.action")(
 
 export const runTabEvaluation = Effect.fn("BrowserTab.evaluate")(
   (
-    tab: BrowserHostTab,
+    tab: QueuedBrowserTab,
     requireEvaluable: () => void,
     expression: string,
     awaitPromise: boolean,
@@ -522,7 +556,7 @@ export interface BrowserFillFieldsResult {
 /** One queue slot owns all input, one final capture, and any work that survives its deadline. */
 export const runTabFillFields = Effect.fn("BrowserTab.fillFields")(
   (
-    tab: BrowserHostTab,
+    tab: QueuedBrowserTab,
     revision: number,
     fields: readonly { ref: string; text: string }[],
     timeoutMs: number,
@@ -624,7 +658,7 @@ export const runTabFillFields = Effect.fn("BrowserTab.fillFields")(
             Effect.sync(() => {
               progress.stopped = true;
               const reason: BrowserFillFieldsReason =
-                tab.closing || tab.contents.isDestroyed()
+                tab.closing || tab.engine.page.isClosed()
                   ? "tab_closed"
                   : error.cause instanceof BrowserFillFieldsFailure
                     ? error.cause.reason

@@ -415,6 +415,10 @@ const CHECKED_SAMPLES = {
   "openbot_browser.evaluate": { tabId: "t", expression: "document.title" },
   "openbot_browser.act": { tabId: "t", action: { type: "type", ref: "e1", text: "hello" } },
   "openbot_browser.run_script": { tabId: "t", script: "await snapshot()" },
+  "openbot_chrome.open": { url: "https://a.example" },
+  "openbot_chrome.navigate": { tabId: "t", url: "https://a.example" },
+  "openbot_chrome.type": { tabId: "t", text: "hello" },
+  "openbot_chrome.fill_fields": { tabId: "t", fields: [{ ref: "e1", text: "hello" }] },
   "openbot_connections.call": { connection: "tool-catalog", operation: "search", input: { query: "keyword volume" } },
 } as const;
 

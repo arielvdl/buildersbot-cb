@@ -1,20 +1,9 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { sourceText } from "@openbot/i18n/source";
 import { app } from "electron";
 import { browserClientHints, browserRequestUserAgent } from "./browser-identity";
 import { isPersistableBrowserUrl } from "./browser-state";
 
-export function normalizeBrowserUrl(input: string): string {
-  const value = input.trim();
-  if (!value) throw new Error(sourceText("error.backend.browserUrlRequired"));
-  if (value.length > INPUT_LIMITS.browserUrl) throw new Error(sourceText("error.backend.browserUrlTooLong"));
-  const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
-  const url = new URL(withProtocol);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(sourceText("error.backend.browserUrlProtocol"));
-  }
-  return url.toString();
-}
+export { normalizeBrowserUrl } from "./browser-url";
 
 export function browserLoadOptions(): { extraHeaders: string } {
   return { extraHeaders: "Cache-Control: no-cache\nPragma: no-cache" };

@@ -7,6 +7,7 @@ import {
   automationContextId,
   axValue,
   type CdpResult,
+  callInContext,
   exceptionDescription,
   frameIds,
   isRecord,
@@ -31,7 +32,8 @@ export const MAX_SNAPSHOT_SCANNED_NODES = 10_000;
 const MAX_SNAPSHOT_ELEMENT_VALUE = 2_000;
 const MAX_SERIALIZED_SNAPSHOT_BYTES = 128 * 1024;
 
-const ACTIONABLE_ROLES = new Set([
+/** The roles that the engine resolves a role or text target to (`semanticAxMatches`). */
+export const ACTIONABLE_ROLES: ReadonlySet<string> = new Set([
   "button",
   "checkbox",
   "combobox",
@@ -155,18 +157,11 @@ export const collectBoundedSnapshot = Effect.fn("Browser.collectBoundedSnapshot"
   };
 });
 
-const collectPageSummaryEffect = Effect.fn("Browser.collectPageSummary")(function* (
-  send: SendCommand,
-  sessionId: string | undefined,
-  maxText: number,
-) {
-  const contextId = yield* automationContextId(send, sessionId);
-  const result = yield* send(
-    "Runtime.evaluate",
-    {
-      expression: `(() => {
-        const maxNodes = ${MAX_SNAPSHOT_SCANNED_NODES};
-        const maxText = ${maxText};
+/**
+ * The visible text of a document, the text in the viewport first, and whether it has a canvas, a video
+ * or a frame. Runs in the automation world.
+ */
+export const PAGE_SUMMARY_FUNCTION = `function(maxNodes, maxText) {
         const roots = [document];
         const seen = new Set();
         // Text in the viewport comes first: a dialog is often the last child of the body, and the
@@ -242,10 +237,20 @@ const collectPageSummaryEffect = Effect.fn("Browser.collectPageSummary")(functio
         const text = [...inView.parts, ...outside.parts].join(' ');
         if (text.length > maxText) truncated = true;
         return { text: text.slice(0, maxText), truncated, hasVisualSurface, hasFrame };
-      })()`,
-      contextId,
-      returnByValue: true,
-    },
+      }`;
+
+const collectPageSummaryEffect = Effect.fn("Browser.collectPageSummary")(function* (
+  send: SendCommand,
+  sessionId: string | undefined,
+  maxText: number,
+) {
+  const contextId = yield* automationContextId(send, sessionId);
+  const result = yield* callInContext(
+    send,
+    contextId,
+    PAGE_SUMMARY_FUNCTION,
+    [MAX_SNAPSHOT_SCANNED_NODES, maxText],
+    { returnByValue: true },
     sessionId,
   );
   const value = recordValue(recordValue(result.result)?.value);
@@ -259,10 +264,10 @@ const collectPageSummaryEffect = Effect.fn("Browser.collectPageSummary")(functio
 
 export const collectFocus = Effect.fn("Browser.collectFocus")(function* (send: SendCommand, sessionId?: string) {
   const contextId = yield* automationContextId(send, sessionId);
-  const result = yield* send(
-    "Runtime.evaluate",
-    {
-      expression: `(() => {
+  const result = yield* callInContext(
+    send,
+    contextId,
+    `function() {
         let node = document.activeElement;
         let inFrame = false;
         for (let depth = 0; depth < 10 && node; depth += 1) {
@@ -284,10 +289,9 @@ export const collectFocus = Effect.fn("Browser.collectFocus")(function* (send: S
           editable: node.isContentEditable === true || ['input', 'textarea', 'select'].includes(tag),
           inFrame,
         };
-      })()`,
-      contextId,
-      returnByValue: true,
-    },
+      }`,
+    [],
+    { returnByValue: true },
     sessionId,
   );
   const value = recordValue(recordValue(result.result)?.value);
@@ -311,12 +315,11 @@ export const pageContainsText = Effect.fn("Browser.pageContainsText")(function* 
     yield* browserSync(() => assertBeforeDeadline(deadline));
     const scanBudgetMs = Math.max(1, deadline - Date.now());
     const contextId = yield* automationContextId(send, capture.sessionId);
-    const result = yield* send(
-      "Runtime.evaluate",
-      {
-        expression: `(() => {
-          const needle = ${JSON.stringify(text)};
-          const scanDeadline = performance.now() + ${scanBudgetMs};
+    const result = yield* callInContext(
+      send,
+      contextId,
+      `function(needle, scanBudgetMs, maxNodes, maxText) {
+          const scanDeadline = performance.now() + scanBudgetMs;
           const roots = [document];
           const seen = new Set();
           let combined = '';
@@ -339,14 +342,14 @@ export const pageContainsText = Effect.fn("Browser.pageContainsText")(function* 
             range.selectNodeContents(node);
             return range.getClientRects().length > 0;
           };
-          while (roots.length && scanned < ${MAX_SNAPSHOT_SCANNED_NODES} && chars < ${MAX_SCANNED_TEXT}) {
+          while (roots.length && scanned < maxNodes && chars < maxText) {
             if (performance.now() >= scanDeadline) return { matched: false, expired: true };
             const root = roots.shift();
             if (!root || seen.has(root)) continue;
             seen.add(root);
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
             let node;
-            while ((node = walker.nextNode()) && scanned < ${MAX_SNAPSHOT_SCANNED_NODES}) {
+            while ((node = walker.nextNode()) && scanned < maxNodes) {
               if (performance.now() >= scanDeadline) return { matched: false, expired: true };
               scanned++;
               if (node.nodeType === Node.TEXT_NODE) {
@@ -355,7 +358,7 @@ export const pageContainsText = Effect.fn("Browser.pageContainsText")(function* 
                 if (!isVisibleText(node)) continue;
                 const value = String(node.nodeValue || '').replace(/\\s+/g, ' ').trim();
                 if (value) {
-                  const part = value.slice(0, Math.max(0, ${MAX_SCANNED_TEXT} - chars));
+                  const part = value.slice(0, Math.max(0, maxText - chars));
                   combined += (combined ? ' ' : '') + part;
                   chars += part.length + 1;
                   if (combined.includes(needle)) return { matched: true, expired: false };
@@ -370,10 +373,9 @@ export const pageContainsText = Effect.fn("Browser.pageContainsText")(function* 
             }
           }
           return { matched: combined.includes(needle), expired: false };
-        })()`,
-        contextId,
-        returnByValue: true,
-      },
+        }`,
+      [text, scanBudgetMs, MAX_SNAPSHOT_SCANNED_NODES, MAX_SCANNED_TEXT],
+      { returnByValue: true },
       capture.sessionId,
     ).pipe(Effect.catch(() => Effect.succeed(null)));
     yield* browserSync(() => assertBeforeDeadline(deadline));
@@ -390,18 +392,17 @@ export const cssObjectMatch = Effect.fn("Browser.cssObjectMatch")(function* (
   sessionId?: string,
 ) {
   const contextId = yield* automationContextId(send, sessionId);
-  const collection = yield* send(
-    "Runtime.evaluate",
-    {
-      expression: `(() => {
-        const selector = ${JSON.stringify(selector)};
+  const collection = yield* callInContext(
+    send,
+    contextId,
+    `function(selector, maxNodes) {
         const roots = [document];
         const seen = new Set();
         const matches = [];
         let scanned = 0;
         let truncated = false;
         while (roots.length && matches.length < 2) {
-          if (scanned >= ${MAX_SNAPSHOT_SCANNED_NODES}) {
+          if (scanned >= maxNodes) {
             truncated = true;
             break;
           }
@@ -412,7 +413,7 @@ export const cssObjectMatch = Effect.fn("Browser.cssObjectMatch")(function* (
           while (matches.length < 2) {
             const node = walker.nextNode();
             if (!node) break;
-            if (scanned >= ${MAX_SNAPSHOT_SCANNED_NODES}) {
+            if (scanned >= maxNodes) {
               truncated = true;
               break;
             }
@@ -427,10 +428,9 @@ export const cssObjectMatch = Effect.fn("Browser.cssObjectMatch")(function* (
         }
         if (truncated && matches.length < 2) throw new Error('CSS selector uniqueness scan exceeded the safe node limit.');
         return matches;
-      })()`,
-      contextId,
-      returnByValue: false,
-    },
+      }`,
+    [selector, MAX_SNAPSHOT_SCANNED_NODES],
+    { returnByValue: false },
     sessionId,
   );
   const exception = recordValue(collection.exceptionDetails);
@@ -523,13 +523,11 @@ export const visibleTextObjectMatches = Effect.fn("Browser.visibleTextObjectMatc
 ) {
   yield* browserSync(() => assertBeforeDeadline(deadline));
   const contextId = yield* automationContextId(send, capture.sessionId);
-  const collection = yield* send(
-    "Runtime.evaluate",
-    {
-      expression: `(() => {
-        const roles = new Set(${JSON.stringify([...ACTIONABLE_ROLES])});
-        const needle = ${JSON.stringify(target.text.trim().toLocaleLowerCase())};
-        const exact = ${target.exact === true};
+  const collection = yield* callInContext(
+    send,
+    contextId,
+    `function(roleList, needle, exact, maxNodes) {
+        const roles = new Set(roleList);
         const roots = [document];
         const seenRoots = new Set();
         const matches = [];
@@ -557,7 +555,7 @@ export const visibleTextObjectMatches = Effect.fn("Browser.visibleTextObjectMatc
           return node.getClientRects().length > 0;
         };
         while (roots.length && matches.length < 2) {
-          if (scanned >= ${MAX_SNAPSHOT_SCANNED_NODES}) {
+          if (scanned >= maxNodes) {
             truncated = true;
             break;
           }
@@ -568,7 +566,7 @@ export const visibleTextObjectMatches = Effect.fn("Browser.visibleTextObjectMatc
           while (matches.length < 2) {
             const node = walker.nextNode();
             if (!node) break;
-            if (scanned >= ${MAX_SNAPSHOT_SCANNED_NODES}) {
+            if (scanned >= maxNodes) {
               truncated = true;
               break;
             }
@@ -585,10 +583,9 @@ export const visibleTextObjectMatches = Effect.fn("Browser.visibleTextObjectMatc
         }
         if (truncated && matches.length < 2) throw new Error('Semantic target uniqueness scan exceeded the safe node limit.');
         return matches;
-      })()`,
-      contextId,
-      returnByValue: false,
-    },
+      }`,
+    [[...ACTIONABLE_ROLES], target.text.trim().toLocaleLowerCase(), target.exact === true, MAX_SNAPSHOT_SCANNED_NODES],
+    { returnByValue: false },
     capture.sessionId,
   );
   const exception = recordValue(collection.exceptionDetails);
@@ -636,13 +633,12 @@ const collectActionableNodesEffect = Effect.fn("Browser.collectActionableNodes")
     visibleText: string;
   }> = [];
   const batchSize = MAX_SNAPSHOT_ELEMENTS;
-  const collection = yield* send(
-    "Runtime.evaluate",
-    {
-      expression: actionableNodesExpression(MAX_SNAPSHOT_CANDIDATES),
-      contextId,
-      returnByValue: false,
-    },
+  const collection = yield* callInContext(
+    send,
+    contextId,
+    ACTIONABLE_NODES_FUNCTION,
+    [[...ACTIONABLE_ROLES], MAX_SNAPSHOT_CANDIDATES, MAX_SNAPSHOT_SCANNED_NODES],
+    { returnByValue: false },
     capture.sessionId,
   );
   const exception = recordValue(collection.exceptionDetails);
@@ -726,9 +722,9 @@ const collectActionableNodesEffect = Effect.fn("Browser.collectActionableNodes")
   return results;
 });
 
-function actionableNodesExpression(limit: number): string {
-  return `(() => {
-    const roles = new Set(${JSON.stringify([...ACTIONABLE_ROLES])});
+/** The actionable elements of a document, those in the viewport first. Runs in the automation world. */
+const ACTIONABLE_NODES_FUNCTION = `function(roleList, maxCandidates, maxNodes) {
+    const roles = new Set(roleList);
     const roots = [document];
     const seenRoots = new Set();
     // Controls in the viewport come first: on a long page, the controls above the scroll position
@@ -764,14 +760,14 @@ function actionableNodesExpression(limit: number): string {
       }
       return node.getClientRects().length > 0;
     };
-    const limit = ${Math.max(0, limit)};
-    while (roots.length && scanned < ${MAX_SNAPSHOT_SCANNED_NODES} && inView.length < limit) {
+    const limit = Math.max(0, maxCandidates);
+    while (roots.length && scanned < maxNodes && inView.length < limit) {
       const root = roots.shift();
       if (!root || seenRoots.has(root)) continue;
       seenRoots.add(root);
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
       let node;
-      while ((node = walker.nextNode()) && scanned < ${MAX_SNAPSHOT_SCANNED_NODES} && inView.length < limit) {
+      while ((node = walker.nextNode()) && scanned < maxNodes && inView.length < limit) {
         scanned++;
         if (node.shadowRoot) roots.push(node.shadowRoot);
         if (node.localName === 'iframe' || node.localName === 'frame') {
@@ -783,8 +779,7 @@ function actionableNodesExpression(limit: number): string {
       }
     }
     return [...inView, ...outside].slice(0, limit);
-  })()`;
-}
+  }`;
 
 function redactedMetadataUrl(value: string | undefined): string {
   if (!value) return "";

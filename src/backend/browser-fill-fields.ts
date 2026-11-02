@@ -68,7 +68,11 @@ export const fillPreparedFields = Effect.fn("BrowserFillFields.fillPrepared")(fu
   progress.failedIndex = null;
 });
 
-/** Fixed page code used only on retained native field handles. No caller supplies JavaScript. */
+/**
+ * Fixed page code used only on retained native field handles. No caller supplies JavaScript. Chrome's
+ * `chrome.debugger` drops a `null` argument, so in the person's Chrome a null `expected` or `text`
+ * arrives as undefined: the code reads both as null (`== null`).
+ */
 export const FILL_FIELD_STATE_FUNCTION = String.raw`function(expected, origin, select, text, requireActive) {
   if (!this.isConnected || this.ownerDocument !== document || window !== window.top || location.origin !== origin) return null;
   if (this.localName !== 'textarea' && (this.localName !== 'input' || !['text', 'search', 'tel', 'url', 'email'].includes(this.type))) return null;
@@ -82,13 +86,13 @@ export const FILL_FIELD_STATE_FUNCTION = String.raw`function(expected, origin, s
   }
   const fingerprint = JSON.stringify([this.localName, this.type || '', this.getAttribute('autocomplete'), this.form?.getAttribute('autocomplete'), this.getAttribute('id'), this.getAttribute('name'), this.getAttribute('aria-label'), this.getAttribute('placeholder'), this.getAttribute('maxlength'), this.getAttribute('pattern')]);
   const state = JSON.stringify([fingerprint, this.value]);
-  if (expected !== null && (text === null ? state !== expected : fingerprint !== JSON.parse(expected)[0])) return null;
+  if (expected != null && (text == null ? state !== expected : fingerprint !== JSON.parse(expected)[0])) return null;
   if (select || requireActive) {
     let active = document.activeElement;
     while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
     if (active !== this) return null;
     if (select) this.select();
   }
-  if (text !== null && this.value !== text) return null;
+  if (text != null && this.value !== text) return null;
   return state;
 }`;

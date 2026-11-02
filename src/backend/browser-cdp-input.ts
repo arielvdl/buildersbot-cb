@@ -41,24 +41,52 @@ export const dispatchMouseClick = Effect.fn("Browser.dispatchMouseClick")(functi
   }
 });
 
+/**
+ * A shortcut as the engine reads it: its modifiers ("Meta", "Control", "Alt", "Shift") and its key,
+ * named as `KeyboardEvent.key` names it when the key has an alias ("Enter", " ", "Escape"). Null when
+ * the engine refuses it. The send gate of the person's Chrome reads a key with this same function.
+ */
+export function parseShortcut(
+  shortcut: string,
+): { readonly key: string; readonly modifiers: readonly string[] } | null {
+  const parts = shortcut
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0 || parts.length > 5) return null;
+  const key = parts.pop();
+  if (!key) return null;
+  const modifiers: string[] = [];
+  for (const part of parts) {
+    const modifier = normalizeModifier(part);
+    if (!modifier) return null;
+    modifiers.push(modifier);
+  }
+  return { key: KEY_ALIASES[key.toLowerCase()]?.[0] ?? key, modifiers };
+}
+
+/**
+ * The characters that typing into the focused element sends, one key each: a carriage return, alone
+ * or before a line feed, is one new line, which the engine presses as Enter. The send gate reads text
+ * with this same function.
+ */
+export function typedCharacters(text: string): string[] {
+  return [...text.replace(/\r\n?/g, "\n")];
+}
+
 export const dispatchShortcut = Effect.fn("Browser.dispatchShortcut")(function* (
   send: SendCommand,
   shortcut: string,
   sessionId?: string,
 ) {
+  const parsed = parseShortcut(shortcut);
+  if (!parsed) return yield* browserFailure(new Error(`Invalid browser shortcut: ${shortcut}`));
   const parts = shortcut
     .split("+")
     .map((part) => part.trim())
     .filter(Boolean);
-  if (parts.length === 0 || parts.length > 5) return yield* browserFailure(new Error("Invalid browser shortcut."));
-  const key = parts.pop();
-  if (!key) return yield* browserFailure(new Error("Invalid browser shortcut."));
-  const modifierNames: string[] = [];
-  for (const part of parts) {
-    const modifier = normalizeModifier(part);
-    if (!modifier) return yield* browserFailure(new Error(`Invalid browser shortcut: ${shortcut}`));
-    modifierNames.push(modifier);
-  }
+  const key = parts.at(-1) ?? "";
+  const modifierNames = [...parsed.modifiers];
   const { text: keyText, ...normalized } = yield* browserSync(() => normalizeKey(key));
   const modifiers = modifierMask(modifierNames);
   const shiftOnly = modifiers === SHIFT_MODIFIER;

@@ -5,6 +5,7 @@
 ```text
 apps/
   auth-api/          Public web and /app browser entry, accounts, memberships, connection tickets, and billing
+  chrome-extension/  Builders Bot extension for Chrome (Manifest V3): agents in the person's own tabs, by project
   discord-app/       Developer Portal settings of the Builders Bot Discord app (no code)
   mobile/            Expo React Native client for remote team hosts
   site-router/       Cloudflare Worker that serves published sites from private R2 storage

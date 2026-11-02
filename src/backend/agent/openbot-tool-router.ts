@@ -45,6 +45,10 @@ import type { AgentTasks } from "../agent-tasks/agent-tasks";
 import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
+import type { MessageSendCard } from "../chrome-message-send";
+import type { ChromeCallContext, SiteAccessCard } from "../chrome-tabs-host";
+import { OPENBOT_CHROME_NAMESPACE } from "../chrome-tools";
+import { CHROME_TURN_ORIGINS, chromeTurnOrigin } from "../chrome-turn-origin";
 import type { ProviderSession } from "../database/provider-sessions";
 import {
   type GuardApprovalMark,
@@ -55,7 +59,13 @@ import {
 } from "../guard/guard-gate";
 import { HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
 import type { HubConnectionContext, HubConnectionTools } from "../hub-connections/hub-connection-tools";
-import { type HubTurnOrigin, hubTurnOrigin, routineOriginOf, sentOrigin } from "../hub-connections/turn-origin";
+import {
+  type HubTurnOrigin,
+  hubConnectionOrigin,
+  hubTurnOrigin,
+  routineOriginOf,
+  sentOrigin,
+} from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -136,6 +146,15 @@ import { handleUpdateAgentsTool } from "./update-agents-tool";
 
 const logger = createBuildersBotLogger("openbot-tool-router");
 
+/** The words of each kind of sensitive site, for the consent card of the owner's Chrome. */
+const CHROME_SITE_KIND_TEXT = {
+  mail: "status.agent.chromeSiteKind.mail",
+  chat: "status.agent.chromeSiteKind.chat",
+  "cloud-console": "status.agent.chromeSiteKind.cloud-console",
+  social: "status.agent.chromeSiteKind.social",
+  "payment-frame": "status.agent.chromeSiteKind.payment-frame",
+  "private-network": "status.agent.chromeSiteKind.private-network",
+} as const satisfies Record<SiteAccessCard["kind"], string>;
 /** How long the plan card of `acknowledge_request` waits before the host presses its start button. */
 const ACKNOWLEDGE_START_MS = 10_000;
 
@@ -267,12 +286,27 @@ export interface BuildersBotToolRouterOptions {
   hubConnections?: HubConnectionTools | null | undefined;
   /** Whether a person that the host stamped on a message is someone other than this computer's user. */
   remotePerson?: ((memberId: string) => boolean) | undefined;
+  /** The tabs of the person's own Chrome (`openbot_chrome`); null where this server has no bridge. */
+  chromeTabs?: ChromeAgentTabs | null | undefined;
   /**
    * The record of the calls to the app's own outside tools (`turn-effects.ts`): whether each one ran,
    * for the safe resume, and the guard that answers a call that a resumed turn repeats. Omitted: none.
    */
   ownCalls?: OwnCallJournal | undefined;
   hooks: BuildersBotToolRouterHooks;
+}
+
+/** What the router needs of the person's Chrome: whether agents may use it now, and its host. */
+export interface ChromeAgentTabs {
+  /** True while web access is "chrome". */
+  readonly enabled: () => boolean;
+  /** Whether a team member can write in the channels now: then a channel turn has no Chrome. */
+  readonly channelsHaveRemotePeople: () => boolean;
+  readonly handleDynamicTool: (
+    params: DynamicToolCallParams,
+    context: ChromeCallContext,
+  ) => Effect.Effect<DynamicToolResult>;
+  readonly tabUrl: (tabId: string) => string | null;
 }
 
 /**
@@ -313,6 +347,7 @@ export class BuildersBotToolRouter {
   readonly #ownCalls: OwnCallJournal | null;
   readonly #hubConnections: HubConnectionTools | null;
   readonly #remotePerson: (memberId: string) => boolean;
+  readonly #chromeTabs: ChromeAgentTabs | null;
   readonly #hooks: BuildersBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
 
@@ -352,6 +387,7 @@ export class BuildersBotToolRouter {
     this.#hubConnections = options.hubConnections ?? null;
     // Without a host, nobody but this computer's user writes a user message.
     this.#remotePerson = options.remotePerson ?? (() => false);
+    this.#chromeTabs = options.chromeTabs ?? null;
     this.#hooks = options.hooks;
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
@@ -421,6 +457,29 @@ export class BuildersBotToolRouter {
     );
   }
 
+  /**
+   * Where a turn came from, for the owner's Chrome (`chromeTurnOrigin`): as for the Hub connections,
+   * but a channel thread is open while no team member can write in the channels.
+   */
+  #chromeOrigin(agentId: string, params: DynamicToolCallParams): HubTurnOrigin {
+    const threadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    return chromeTurnOrigin(
+      this.#mailbox.turnSenders(agentId, params.turnId),
+      {
+        messaging: this.#messaging.store.linkForThread(threadId) !== null,
+        channel: this.#channels.store.channelForThread(threadId) !== null,
+      },
+      this.#remotePerson,
+      // Without the bridge's answer, a channel stays closed.
+      this.#chromeTabs?.channelsHaveRemotePeople() ?? true,
+    );
+  }
+
+  /** Whether the owner's Chrome is open to this call: the mode is on and the turn is the owner's. */
+  #chromeGranted(agentId: string, params: DynamicToolCallParams): boolean {
+    return this.#chromeTabs?.enabled() === true && CHROME_TURN_ORIGINS.has(this.#chromeOrigin(agentId, params));
+  }
+
   /** The origin of the turn of a tool call. */
   #callOrigin(agentId: string, params: DynamicToolCallParams): HubTurnOrigin {
     return this.turnOrigin(agentId, this.#conversation.publicThreadId(agentId, params.threadId), params.turnId);
@@ -429,17 +488,19 @@ export class BuildersBotToolRouter {
   /** Where the turn of a connection call came from. The process decides it, never the agent's text. */
   #connectionContext(agentId: string, params: DynamicToolCallParams): HubConnectionContext {
     const publicThreadId = this.#conversation.publicThreadId(agentId, params.threadId);
-    const origin = this.turnOrigin(agentId, publicThreadId, params.turnId);
+    // The Hub connections read an agent turn that a routine started as an agent turn.
+    const origin = hubConnectionOrigin(this.turnOrigin(agentId, publicThreadId, params.turnId));
     return { agentId, threadId: publicThreadId, turnId: params.turnId, origin };
   }
 
-  /** The gated tool namespaces that this agent has in this turn: the Hub connections, or none. */
+  /** The gated tool namespaces that this agent has in this turn: the Hub connections, the owner's Chrome. */
   #grantedNamespaces(agentId: string, params: DynamicToolCallParams): Effect.Effect<ReadonlySet<string>> {
+    const chrome = this.#chromeGranted(agentId, params) ? [OPENBOT_CHROME_NAMESPACE] : [];
     const tools = this.#hubConnections;
-    if (!tools) return Effect.succeed(new Set<string>());
+    if (!tools) return Effect.succeed(new Set<string>(chrome));
     return tools
       .available(this.#connectionContext(agentId, params))
-      .pipe(Effect.map((available) => new Set<string>(available ? [HUB_CONNECTIONS_NAMESPACE] : [])));
+      .pipe(Effect.map((available) => new Set<string>([...chrome, ...(available ? [HUB_CONNECTIONS_NAMESPACE] : [])])));
   }
 
   /** The URL of the tab that a browser call names, for the approval card. */
@@ -518,9 +579,12 @@ export class BuildersBotToolRouter {
             }
             if (params.tool === "tool_call") {
               // A gated tool resolves only for an agent that has it now; the others get "invalid".
-              const gatedAgentId = deferredToolName(params)?.startsWith(`${HUB_CONNECTIONS_NAMESPACE}.`)
-                ? this.#conversation.agentForThread(params.threadId)
-                : undefined;
+              const deferred = deferredToolName(params);
+              const gatedAgentId =
+                deferred?.startsWith(`${HUB_CONNECTIONS_NAMESPACE}.`) ||
+                deferred?.startsWith(`${OPENBOT_CHROME_NAMESPACE}.`)
+                  ? this.#conversation.agentForThread(params.threadId)
+                  : undefined;
               const granted = gatedAgentId ? yield* this.#grantedNamespaces(gatedAgentId, params) : new Set<string>();
               const resolved = resolveDeferredTool(params, granted);
               if (!resolved) {
@@ -625,6 +689,11 @@ export class BuildersBotToolRouter {
               ? yield* this.#guardGate.afterTool(client, toolRequest, params, agentId, result, this.#tabUrl(params))
               : result;
             if (guarded && !signal?.aborted && client.running) client.respond(toolRequest.id, guarded);
+            return;
+          }
+          if (toolRequest.params.namespace === OPENBOT_CHROME_NAMESPACE) {
+            const result = yield* this.#chromeTool(client, toolRequest);
+            if (result && !toolRequest.signal?.aborted && client.running) client.respond(toolRequest.id, result);
             return;
           }
           if (toolRequest.params.namespace === HUB_CONNECTIONS_NAMESPACE) {
@@ -1539,6 +1608,99 @@ export class BuildersBotToolRouter {
     const image = yield* Effect.result(host.capture(capture));
     if (Result.isFailure(image)) return captureFailure(image.failure);
     return yield* this.#showCapture(agent.id, threadId, params, messageId, image.success);
+  });
+
+  /**
+   * A tool on the tabs of the person's own Chrome. The gates come before any message to Chrome: the
+   * mode, the origin of the turn (decided from the stored messages, never from the agent's text), then
+   * the Guard on what the call sends out. A send on a mail, chat or social site waits for the owner's
+   * card, which "Always" never skips. The Guard reads the page content before the agent does. Null
+   * when nobody waits for the answer.
+   */
+  readonly #chromeTool = Effect.fn("BuildersBotToolRouter.chromeTool")(function* (
+    this: BuildersBotToolRouter,
+    client: AgentClient,
+    request: AppServerRequest & { params: DynamicToolCallParams },
+  ) {
+    const agentId = this.#conversation.agentForThread(request.params.threadId);
+    const chrome = this.#chromeTabs;
+    if (!agentId || !chrome?.enabled()) return openBotToolFailure(sourceText("error.agent.toolRequestInvalid"));
+    const origin = this.#chromeOrigin(agentId, request.params);
+    const threadId = this.#conversation.publicThreadId(agentId, request.params.threadId);
+    const requested = { ...request.params, threadId, ownerAgentId: agentId };
+    const before = yield* this.#guardBefore(client, request, requested, agentId);
+    if (!before.proceed) return before.result;
+    const params = { ...requested, ...(before.params ? { arguments: before.params.arguments } : {}) };
+    const unknown = sourceText("status.agent.chromeMessageSendUnknown");
+    const approveMessageSend = (card: MessageSendCard) =>
+      this.#attention
+        .awaitToolApproval(
+          client,
+          request,
+          {
+            requestId: request.id,
+            agentId,
+            threadId,
+            turnId: request.params.turnId,
+            kind: "permissions",
+            command: null,
+            cwd: null,
+            reason: sourceText("status.agent.chromeMessageSend", {
+              site: card.site,
+              action: card.action,
+              recipients: card.recipients.length > 0 ? card.recipients.join(", ") : unknown,
+              text: card.text || unknown,
+            }),
+            grantRoot: null,
+            permissions: null,
+          },
+          // Each send asks, also for an agent with Full access, and only the owner answers.
+          { alwaysAsk: true, ownerOnly: true },
+        )
+        .pipe(
+          Effect.map((decision) => decision === "accept"),
+          Effect.orElseSucceed(() => false),
+        );
+    const approveSiteAccess = (card: SiteAccessCard) =>
+      this.#attention
+        .awaitToolApproval(
+          client,
+          request,
+          {
+            requestId: request.id,
+            agentId,
+            threadId,
+            turnId: request.params.turnId,
+            kind: "permissions",
+            command: null,
+            cwd: null,
+            reason: sourceText("status.agent.chromeSiteAccess", {
+              project: card.project,
+              site: card.site,
+              kind: sourceText(CHROME_SITE_KIND_TEXT[card.kind]),
+            }),
+            grantRoot: null,
+            permissions: null,
+          },
+          // Only the owner answers: the site is logged in as the owner.
+          { alwaysAsk: true, ownerOnly: true },
+        )
+        .pipe(
+          Effect.map((decision) => decision === "accept"),
+          Effect.orElseSucceed(() => false),
+        );
+    const result = yield* chrome.handleDynamicTool(params, { origin, approveMessageSend, approveSiteAccess });
+    if (request.signal?.aborted) return null;
+    if (!this.#guardGate) return result;
+    const tabId = isRecord(params.arguments) && isString(params.arguments.tabId) ? params.arguments.tabId : null;
+    return yield* this.#guardGate.afterTool(
+      client,
+      request,
+      params,
+      agentId,
+      result,
+      tabId ? chrome.tabUrl(tabId) : null,
+    );
   });
 
   /**

@@ -106,11 +106,13 @@ The router of Builders Bot tools (`src/backend/agent/openbot-tool-router.ts`) ca
     (`guard-broker-calls.ts`). Files are checked at each path that leads to them, and the call opens
     the real paths that the Guard checked. The broker cannot tell which agent and turn a call serves,
     so it cannot show the card: a call that would ask the person does not run, and the agent reads
-    why. `browser_run_code_unsafe` with a file does not run either, also with code beside it
-    (Playwright then runs the file and ignores the code): the Guard reads code, not files, and the
-    agent is told to give the code itself. An upload or a drop with a relative path does not run: the
-    browser resolves it against a folder that the call chooses, so the agent is told to give absolute
-    paths. The broker logs the tool name only.
+    why. The broker refuses `browser_run_code_unsafe` before the Guard sees it, and leaves it out of
+    `tools/list`: it has the reach of the whole browser context (`REFUSED_BROWSER_TOOLS`,
+    `playwright-broker-policy.ts`). The Guard's own rule for it stays as a second barrier: with a file
+    it does not run, also with code beside it (Playwright then runs the file and ignores the code).
+    An upload or a drop with a relative path does not run: the browser resolves it against a folder
+    that the call chooses, so the agent is told to give absolute paths. The broker logs the tool name
+    only.
   - After a call: each result passes `McpResultGuard` (`guard-mcp-results.ts`) on its way to the
     agent. Other events of the stream pass at once. The base64 data of images, audio and blobs does
     not count toward the 8 MB limit, so a full-page screenshot is read as usual; the whole message

@@ -99,3 +99,8 @@ SOFTWARE.
 This product includes the Inter font family.
 Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
 Licensed under the SIL Open Font License, Version 1.1 (http://scripts.sil.org/OFL).
+
+The pairing words in packages/contracts/src/chrome-bridge/pairing-words.ts are the Portuguese word list of
+BIP-39 (https://github.com/bitcoin/bips/blob/master/bip-0039/portuguese.txt).
+Copyright (c) Marek Palatinus, Pavol Rusnak, Aaron Voisine and Sean Bowe.
+Licensed under the MIT License.

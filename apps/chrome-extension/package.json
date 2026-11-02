@@ -1,0 +1,15 @@
+{
+  "name": "@openbot/chrome-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "bun ../../scripts/type-checker.ts --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openbot/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

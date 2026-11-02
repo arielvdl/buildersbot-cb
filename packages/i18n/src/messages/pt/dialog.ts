@@ -32,4 +32,9 @@ export const messages = {
   "dialog.cleanup.detail": "Ocupa cerca de {size}. Você ainda pode recuperar da Lixeira até esvaziá-la.",
   "dialog.cleanup.confirm": "Mover para a Lixeira",
   "dialog.cleanup.cancel": "Cancelar",
+  "dialog.chromePairing.message": "Conectar o seu Chrome ao Builders Bot?",
+  "dialog.chromePairing.messageUnexpected": "Um Chrome deste computador quer se conectar",
+  "dialog.chromePairing.detail":
+    "No Chrome, toque em: {appWords}\n\nDepois toque aqui nas palavras que o Chrome mostra. Informado pela extensão: {browser}.",
+  "dialog.chromePairing.notNow": "Agora não",
 } as const satisfies PartialTranslation<typeof source>;

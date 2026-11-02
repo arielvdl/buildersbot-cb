@@ -24,6 +24,8 @@ import {
   type ListedTab,
   listedTabCount,
   listedTabs,
+  REFUSED_BROWSER_TOOL_MESSAGE,
+  REFUSED_BROWSER_TOOLS,
   type RpcEntry,
   refusalResult,
   responseMessages,
@@ -119,7 +121,11 @@ function withInstructions(message: DynamicRecord): DynamicRecord {
 /** The answer to `tools/list`, with a note on the tools that open pages and tabs. */
 function withToolNotes(message: DynamicRecord): DynamicRecord {
   if (!isDynamicRecord(message.result) || !Array.isArray(message.result.tools)) return message;
-  const tools = message.result.tools.map((tool: unknown) => {
+  const offered = message.result.tools.filter(
+    (tool: unknown) =>
+      !(isDynamicRecord(tool) && typeof tool.name === "string" && REFUSED_BROWSER_TOOLS.has(tool.name)),
+  );
+  const tools = offered.map((tool: unknown) => {
     if (!isDynamicRecord(tool) || typeof tool.name !== "string") return tool;
     const note = TOOL_NOTES[tool.name];
     if (!note) return tool;
@@ -536,6 +542,19 @@ export class PlaywrightBroker {
         : null;
     const state = session === undefined ? undefined : this.#sessions.get(session);
 
+    // A refused tool never reaches the server, whatever the Guard would say, and changes no tab.
+    if (toolCall && toolName !== null && REFUSED_BROWSER_TOOLS.has(toolName)) {
+      logger.info("The broker refused a browser call.", { tool: toolName });
+      return reply(
+        response,
+        200,
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: message.id ?? null,
+          result: { isError: true, content: [{ type: "text", text: REFUSED_BROWSER_TOOL_MESSAGE }] },
+        }),
+      );
+    }
     // A tool call sends what the agent chose out of the computer, as the person: the Guard checks it first,
     // before the broker reads or changes any tab for it.
     let forwarded = raw;

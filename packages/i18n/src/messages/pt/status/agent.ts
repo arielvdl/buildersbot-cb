@@ -24,6 +24,16 @@ export const messages = {
   "status.agent.screenCaptureWindow": "Capturar a janela {name} e enviar a imagem ao modelo do agente.",
   "status.agent.screenCaptureRegion":
     "Capturar a área da tela em {x}, {y}, {width} × {height} pontos e enviar a imagem ao modelo do agente.",
+  "status.agent.chromeMessageSend": "Enviar em {site} no seu Chrome ({action}). Para: {recipients}. Texto: {text}",
+  "status.agent.chromeMessageSendUnknown": "(não aparece na página)",
+  "status.agent.chromeSiteAccess":
+    "Deixar os agentes de {project} usarem {site} no seu Chrome? É {kind}, com a sua conta. A resposta vale para este projeto até o Builders Bot reiniciar.",
+  "status.agent.chromeSiteKind.mail": "um site de e-mail",
+  "status.agent.chromeSiteKind.chat": "um site de chat",
+  "status.agent.chromeSiteKind.cloud-console": "um console de nuvem ou de código",
+  "status.agent.chromeSiteKind.social": "uma rede social",
+  "status.agent.chromeSiteKind.payment-frame": "uma página de pagamento",
+  "status.agent.chromeSiteKind.private-network": "um site da sua rede local",
   "status.agent.screenCaptureProgress": "Pedindo para capturar a tela…",
   "status.agent.screenCaptureReviewing": "Analisando a captura de tela…",
   "status.agent.browserOpening": "Abrindo uma página da web…",

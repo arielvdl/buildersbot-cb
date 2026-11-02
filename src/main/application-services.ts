@@ -178,6 +178,8 @@ import { BusyMessageModePreferenceStore } from "./busy-message-mode-preference-s
 import { CentralAuthManager, readCentralAuthApiUrl, readMobileConnectApiUrl } from "./central-auth-manager";
 import { ChannelLanePreferenceStore } from "./channel-lane-preference-store";
 import { ChatVisualPreviewer } from "./chat-visual-preview";
+import { createChromeAgents } from "./chrome-bridge/chrome-agents-runtime";
+import { askChromePairing } from "./chrome-bridge/chrome-pairing-dialog";
 import { readChromeSiteCookies } from "./chrome-site-session";
 import { ComputerUseHighlightController } from "./computer-use-highlight-window";
 import { applicationBundlePath, applicationIconName } from "./computer-use-permission-app";
@@ -550,6 +552,8 @@ const TEARDOWN_ORDER = {
   service: 110,
   // After the service, so no agent is cut off from the browser while its turn still ends.
   browserBroker: 110.5,
+  // After the service, as the broker: the person's Chrome keeps its tabs; only the socket closes.
+  chromeBridge: 110.6,
   // After the browser, the broker and the agents: the gateway refuses while they stop, never goes direct.
   egressProxy: 110.7,
   mcpOAuth: 111,
@@ -2016,6 +2020,29 @@ export async function createApplicationServices({
   await Effect.runPromise(agentApiKeys.syncVault().pipe(Effect.ignore));
   // The schedule triggers of workflows share the routine timer; built after the workflows below.
   let workflowTriggers: WorkflowTriggers | null = null;
+  // The person's own Chrome for the agents, through the Builders Bot extension. It starts nothing until
+  // web access is "chrome"; `service` is read at each call, not now.
+  const chromeAgents = createChromeAgents({
+    userData: app.getPath("userData"),
+    home: app.getPath("home"),
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+    packaged: app.isPackaged,
+    appVersion: app.getVersion(),
+    allowRealBrowser: process.env.OPENBOT_CHROME_BRIDGE_REAL_CHROME === "1",
+    inApplications: () => app.isInApplicationsFolder(),
+    sealer: safeStorage.isEncryptionAvailable()
+      ? {
+          seal: (plain) => safeStorage.encryptString(Buffer.from(plain).toString("base64")),
+          open: (sealed) => Buffer.from(safeStorage.decryptString(Buffer.from(sealed)), "base64"),
+        }
+      : null,
+    projectOf: (agentId, threadId) => service.chromeProject(agentId, threadId),
+    agentName: (agentId) => service.listAgents().find((agent) => agent.id === agentId)?.name ?? null,
+    memoryLevel: () => macMemory?.level() ?? "ok",
+    askPairing: (request, signal) => askChromePairing(language.translate, request, signal),
+    log: (level, line) => (level === "warn" ? logger.warn(line) : logger.info(line)),
+  });
   let recoveryLedger: Pick<WorkControl, "takeSafeResume"> | null = null;
   const service: AgentService = new AgentService({
     store,
@@ -2144,6 +2171,13 @@ export async function createApplicationServices({
     // handing every provider a command it cannot start.
     computerUseMcpServer: () => cuaDriver.mcpServerForProviders(),
     browserInApp: () => appBehavior.browserInApp,
+    chromeAgents: () => appBehavior.webAccess === "chrome",
+    chromeTabs: {
+      enabled: () => appBehavior.webAccess === "chrome",
+      channelsHaveRemotePeople: () => host.channelsHaveRemotePeople(),
+      handleDynamicTool: (params, context) => chromeAgents.host.handleDynamicTool(params, context),
+      tabUrl: (tabId) => chromeAgents.host.tabUrl(tabId),
+    },
     browserBroker: () => browserBroker?.endpoint() ?? null,
     githubConnector: {
       mcpServer: () => githubConnector.mcpServer(),
@@ -2216,6 +2250,8 @@ export async function createApplicationServices({
     "the shared browser connection",
     () => browserBroker?.stop() ?? Promise.resolve(),
   );
+  teardown.push(TEARDOWN_ORDER.chromeBridge, "the Chrome bridge", () => chromeAgents.stop());
+  if (appBehavior.webAccess === "chrome") void chromeAgents.start();
   const agentMemoryLimitSetting = reloadingAgentMemoryLimit(agentMemoryLimit, service);
   /** The answer an agent gave in one turn, for routine flows, routine results and local scripts. */
   const turnAnswer = (agentId: string, turnId: string): string | null => {
@@ -2373,6 +2409,20 @@ export async function createApplicationServices({
     void runCauseEffect(service.notifyGitHubConnectorChanged()).catch((error) =>
       logger.warn("Provider tools did not refresh.", toLogValue(error)),
     );
+  });
+  // Where agents browse: the Playwright row and the instructions follow the choice. Turning the person's
+  // Chrome on is the "Connect Chrome" click: it writes the Native Messaging manifest and opens the pairing.
+  // Turning it off closes the socket; the tabs stay in Chrome, and the pairing stays for the next time.
+  let webAccess = appBehavior.webAccess;
+  appBehavior.subscribe(() => {
+    if (appBehavior.webAccess === webAccess) return;
+    const leftChrome = webAccess === "chrome";
+    webAccess = appBehavior.webAccess;
+    void runCauseEffect(service.notifyWebAccessChanged()).catch((error) =>
+      logger.warn("Agents did not refresh for the web access change.", toLogValue(error)),
+    );
+    if (webAccess === "chrome") void chromeAgents.connect();
+    else if (leftChrome) void chromeAgents.stop({ turnedOff: true });
   });
   // The Cultura Builder process reads its model windows at spawn, so a new context window starts it again.
   let culturaBuilderFullContext = appBehavior.culturaBuilderFullContext;

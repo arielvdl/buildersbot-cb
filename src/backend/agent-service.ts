@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { basename } from "node:path";
 import { agentProviderDescriptor, customAgentIdOfModel } from "@openbot/contracts/agent-providers";
 import { attachmentMimeTypeForName } from "@openbot/contracts/attachment-files";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
@@ -198,7 +199,7 @@ import {
   startingChoice,
   startingModel,
 } from "./agent/model-choice";
-import { BuildersBotToolRouter } from "./agent/openbot-tool-router";
+import { BuildersBotToolRouter, type ChromeAgentTabs } from "./agent/openbot-tool-router";
 import { PlanContinuation } from "./agent/plan-continuation";
 import { ProfileClients } from "./agent/profile-clients";
 import {
@@ -259,6 +260,7 @@ import { memoryReviewUsageObserver, workflowUsageObserver } from "./agent/usage-
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import { WarmGenerations } from "./agent/warm-generations";
 import type { WebhookRoutineWriter } from "./agent/webhook-routine-tool";
+import { existingAgentFolders } from "./agent/workspace-sandbox";
 import type { AgentApiKeys } from "./agent-api-keys";
 import type { AgentProvider } from "./agent-client";
 import type { AgentTables } from "./agent-data/agent-tables";
@@ -483,6 +485,12 @@ export interface AgentServiceOptions {
   /** Web access goes through the Builders Bot browser, not Playwright in the person's own browser. Read at each turn. */
   browserInApp?: () => boolean;
   /**
+   * Web access is the person's own Chrome through the Builders Bot extension: agents get
+   * `openbot_chrome` and no Playwright. Read at each turn. With it, `chromeTabs` answers the tools.
+   */
+  chromeAgents?: () => boolean;
+  chromeTabs?: ChromeAgentTabs | null;
+  /**
    * Where the browser broker listens, or null. With an address, Playwright reaches every agent as one
    * shared server, and no agent starts a Playwright of its own. The main process owns the broker.
    */
@@ -654,6 +662,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       developmentDefaults = false,
       computerUseMcpServer = () => null,
       browserInApp = () => false,
+      chromeAgents = () => false,
       browserBroker = () => null,
       githubConnector = null,
       hostMemory = null,
@@ -678,6 +687,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       credentials,
       computerUseMcpServer,
       browserInApp,
+      chromeAgents,
       browserBroker,
       githubConnector,
       agents: () => store.list(),
@@ -1201,6 +1211,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       // Only a server has a memory reading.
       serverHost: hostMemory !== null,
       browserInApp,
+      chromeAgents,
       sectionTeammates: (agentId) => this.sectionTeammates(agentId),
       channelThread: (threadId) => this.channels.store.channelForThread(threadId) !== null,
       branchThread: (threadId) => this.#tasks.isBranchThread(threadId),
@@ -1782,6 +1793,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       mcpServers: mcpServersFromGateway(this.#mcp, options.prepareMcpTest),
       apiKeys: options.agentApiKeys ?? null,
       hubConnections: this.#hubConnections,
+      chromeTabs: options.chromeTabs ?? null,
       ...(options.channelRemotePerson ? { remotePerson: options.channelRemotePerson } : {}),
       hooks: {
         listAgents: () => this.listAgents(),
@@ -1918,6 +1930,35 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     if (section?.name.trim()) return { key: `section:${section.id}`, title: section.name };
     const agent = this.listAgents().find((entry) => entry.id === agentId);
     return agent ? { key: `agent:${agent.id}`, title: agent.name } : null;
+  }
+
+  /**
+   * The project of an agent's work in a thread, for its tab group in the person's Chrome (DESIGN
+   * §4.1): the channel of the thread, else the sidebar section that the person made and put the
+   * agent in (with its color), else the agent's one added folder, else the agent. The app decides it
+   * at each call; the agent's text never names it. A name that the person sets for Chrome comes first
+   * in the design; this release has no such field yet.
+   */
+  chromeProject(agentId: string, threadId: string): { id: string; title: string; color?: string | null } | null {
+    const channelId = this.channels.store.channelForThread(threadId);
+    if (channelId !== null) {
+      const channel = this.channels.store.get(channelId);
+      if (channel.name.trim()) return { id: `channel:${channelId}`, title: channel.name };
+    }
+    const layout = this.#sidebarLayout?.getSnapshot();
+    const sectionId = layout?.agentAssignments[agentId];
+    const section =
+      sectionId === undefined || sectionId === SIDEBAR_PEOPLE_SECTION_ID || sectionId === SIDEBAR_UNASSIGNED_SECTION_ID
+        ? undefined
+        : layout?.sections.find((entry) => entry.id === sectionId);
+    if (section?.name.trim()) return { id: `section:${section.id}`, title: section.name, color: section.color ?? null };
+    const agent = this.listAgents().find((entry) => entry.id === agentId);
+    if (!agent) return null;
+    const folders = existingAgentFolders(agent);
+    const folder = folders.length === 1 ? folders[0] : undefined;
+    const folderName = folder ? basename(folder) : "";
+    if (folder && folderName) return { id: `folder:${agentId}:${folder}`, title: folderName };
+    return { id: `agent:${agentId}`, title: agent.name };
   }
 
   /**
@@ -2495,6 +2536,20 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
   ) {
     yield* this.#providers.reloadProviderEnvironment("cultura-builder");
+  }).bind(this);
+
+  /**
+   * Where agents browse changed (Settings > General): the Playwright row comes or goes, and the
+   * instructions name the other browser. Each agent loads its sessions again before its next turn.
+   */
+  readonly notifyWebAccessChanged = Effect.fn("AgentService.notifyWebAccessChanged")(function* (this: AgentService) {
+    yield* this.#mcp
+      .changed()
+      .pipe(
+        Effect.mapError(
+          (failure) => new AgentLifecycleFailed({ operation: "refresh web access", cause: failure.cause }),
+        ),
+      );
   }).bind(this);
 
   /**

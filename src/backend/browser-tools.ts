@@ -186,7 +186,7 @@ export function parseBrowserStep(value: unknown): BrowserStep {
   return result.data;
 }
 
-const BROWSER_TOOL_DEFINITIONS = [
+export const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "open",
     description: "Open an HTTP(S) URL in a new persistent private-browser tab.",

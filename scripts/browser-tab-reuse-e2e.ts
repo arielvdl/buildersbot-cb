@@ -96,12 +96,16 @@ const TOOLS = [
   { name: "browser_tabs", description: "List, create, close, or select a browser tab." },
   { name: "browser_close", description: "Close the page" },
   { name: "browser_snapshot", description: "Capture accessibility snapshot of the current page" },
+  // The upstream offers it; the broker must neither list it nor forward a call of it.
+  { name: "browser_run_code_unsafe", description: "Run Playwright code snippet. RCE-equivalent." },
 ].map((tool) => ({ ...tool, inputSchema: { type: "object", properties: {} } }));
 
 class FakePlaywrightMcp {
   readonly sessions = new Map<string, UpstreamSession>();
   /** Every navigation, as `session tab url`, to see which tab each agent drove. */
   readonly navigations: { session: string; tab: number; url: string }[] = [];
+  /** The name of every tool call that reached this server. */
+  readonly calls: string[] = [];
   relay: Relay | null = null;
   clientCount = 0;
   token = "";
@@ -199,6 +203,7 @@ class FakePlaywrightMcp {
   callTool(id: string, name: string, args: DynamicRecord): { text: string; isError?: boolean } {
     const session = this.sessions.get(id);
     if (!session) throw new Error("no session");
+    this.calls.push(name);
     if (!session.backend) this.#createBackend(session);
     if (name === "browser_close")
       return { text: "### Error\nThe browser context is shared between clients and cannot be closed.", isError: true };
@@ -583,9 +588,24 @@ async function main(): Promise<void> {
         instructions: e.client.getInstructions(),
       },
     );
+
+    // 8. The legacy broker refuses the tool that runs code with the reach of the whole browser.
+    const listed = tools.tools.map((tool) => tool.name);
+    check("the broker does not list browser_run_code_unsafe", !listed.includes("browser_run_code_unsafe"), {
+      tools: listed,
+    });
+    const unsafe = await call(f, "browser_run_code_unsafe", {
+      code: "async (page) => page.context().cookies()",
+    });
+    const reached = launched.flatMap((entry) => entry.fake.calls).filter((name) => name === "browser_run_code_unsafe");
+    check(
+      "a call of browser_run_code_unsafe gets an error and never reaches the server",
+      unsafe.isError && /off in Builders Bot/u.test(unsafe.text) && reached.length === 0,
+      { isError: unsafe.isError, reply: unsafe.text.slice(0, 200), reachedUpstream: reached.length },
+    );
     for (const turn of [a, b, c, e, f]) await endTurn(turn);
 
-    // 8. With no agent for the idle time: the blank tabs close, the pages stay, the connections end.
+    // 9. With no agent for the idle time: the blank tabs close, the pages stay, the connections end.
     for (let step = 0; step < 3; step += 1) {
       clock.now += 11 * 60_000;
       await broker.releaseIdle();

@@ -34,6 +34,8 @@ storybook-static/
 Shared/
 !apps/mobile/src/shared/
 !apps/mobile/src/shared/**
+!apps/chrome-extension/src/shared/
+!apps/chrome-extension/src/shared/**
 index-*.css
 .openbot-browser-test/
 .openbot-build/

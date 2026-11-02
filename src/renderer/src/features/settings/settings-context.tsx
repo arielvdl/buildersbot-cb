@@ -4,6 +4,8 @@ import {
   agentAutoApprovalEnabled,
   type DynamicIslandGeometry,
   type ExternalLinkTarget,
+  type WebAccessMode,
+  webAccessFromSwitch,
 } from "@openbot/contracts/ipc";
 import { DEFAULT_GENERAL_SETTINGS, type GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import { currentText } from "@openbot/ui/text";
@@ -169,6 +171,7 @@ const Settings = createSimpleContext({
     let keepRunningInBackgroundChanged = false;
     let keepAwakeChanged = false;
     let keepAwakeOnBatteryChanged = false;
+    /** The Builders Bot browser switch or the Chrome switch: both write `webAccess`. */
     let browserInAppChanged = false;
     let culturaBuilderFullContextChanged = false;
 
@@ -400,13 +403,30 @@ const Settings = createSimpleContext({
           (preference) => preference.keepAwakeOnBattery,
         );
       }
-      if (previous.browserInApp !== value.browserInApp) {
+      const chromeTurned = previous.chromeAgents !== value.chromeAgents;
+      if (chromeTurned || previous.browserInApp !== value.browserInApp) {
         browserInAppChanged = true;
-        persistField(
-          "browserInApp",
-          settingsPort().setAppBehaviorPreference({ browserInApp: value.browserInApp }),
-          (preference) => preference.browserInApp,
-        );
+        // One choice of three: turning one switch on turns the other off. Off, the Chrome switch gives
+        // back the choice of the Builders Bot browser switch.
+        const webAccess: WebAccessMode =
+          chromeTurned && value.chromeAgents ? "chrome" : webAccessFromSwitch(value.browserInApp);
+        void settingsPort()
+          .setAppBehaviorPreference({ webAccess })
+          .then((preference) =>
+            setGeneralSettings((current) => ({
+              ...current,
+              browserInApp: preference.browserInApp,
+              chromeAgents: preference.webAccess === "chrome",
+            })),
+          )
+          .catch((error: unknown) => {
+            setGeneralSettings((current) => ({
+              ...current,
+              browserInApp: previous.browserInApp,
+              chromeAgents: previous.chromeAgents,
+            }));
+            showSaveFailure(error);
+          });
       }
       if (previous.culturaBuilderFullContext !== value.culturaBuilderFullContext) {
         culturaBuilderFullContextChanged = true;
@@ -668,6 +688,7 @@ const Settings = createSimpleContext({
                 ? current.keepAwakeOnBattery
                 : preference.keepAwakeOnBattery,
               browserInApp: browserInAppChanged ? current.browserInApp : preference.browserInApp,
+              chromeAgents: browserInAppChanged ? current.chromeAgents : preference.webAccess === "chrome",
               culturaBuilderFullContext: culturaBuilderFullContextChanged
                 ? current.culturaBuilderFullContext
                 : preference.culturaBuilderFullContext,

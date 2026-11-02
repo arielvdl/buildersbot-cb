@@ -66,6 +66,7 @@ export type GuardBefore =
   | { readonly proceed: false; readonly result: DynamicToolResult | null };
 
 const BROWSER = "openbot_browser";
+const CHROME = "openbot_chrome";
 const OPENBOT = "openbot";
 const CONNECTIONS = "openbot_connections";
 /**
@@ -226,6 +227,25 @@ export const GUARD_TOOL_EGRESS: Readonly<Record<string, GuardToolEgress>> = {
   "openbot_browser.run_script": CHECKED,
   "openbot_browser.handle_dialog": none("It accepts or cancels a dialog and sends no text."),
   "openbot_browser.close_tab": LOCAL_BROWSER,
+  // The person's own Chrome, through the Builders Bot extension: the same tools as the Builders Bot browser.
+  "openbot_chrome.open": CHECKED,
+  "openbot_chrome.list_tabs": LOCAL_BROWSER,
+  "openbot_chrome.status": LOCAL_BROWSER,
+  "openbot_chrome.snapshot": LOCAL_BROWSER,
+  "openbot_chrome.navigate": CHECKED,
+  "openbot_chrome.click": PAGE_INPUT,
+  "openbot_chrome.type": CHECKED,
+  "openbot_chrome.fill_fields": CHECKED,
+  "openbot_chrome.press": PAGE_INPUT,
+  "openbot_chrome.hover": LOCAL_BROWSER,
+  "openbot_chrome.scroll": LOCAL_BROWSER,
+  "openbot_chrome.select_option": PAGE_INPUT,
+  "openbot_chrome.set_checked": PAGE_INPUT,
+  "openbot_chrome.drag": PAGE_INPUT,
+  "openbot_chrome.wait_for": LOCAL_BROWSER,
+  "openbot_chrome.screenshot": LOCAL_BROWSER,
+  "openbot_chrome.handle_dialog": none("It accepts or cancels a dialog and sends no text."),
+  "openbot_chrome.close_tab": LOCAL_BROWSER,
   "openbot_connections.list": none("It reads the person's Hub connections and their state; it sends no agent data."),
   // The input goes to the Cultura Builder Hub and, for a call, to the vendor and the provider of the endpoint.
   "openbot_connections.call": CHECKED,
@@ -284,13 +304,17 @@ export function guardOutboundItem(namespace: string | null, tool: string, args: 
     paths.length > 0 ? { tool: name, files: paths } : null;
   switch (name) {
     case `${BROWSER}.open`:
-    case `${BROWSER}.navigate`: {
+    case `${BROWSER}.navigate`:
+    case `${CHROME}.open`:
+    case `${CHROME}.navigate`: {
       const url = stringField(args, "url");
       return url ? { tool: name, urls: [url] } : null;
     }
     case `${BROWSER}.type`:
+    case `${CHROME}.type`:
       return payload(stringField(args, "text"));
-    case `${BROWSER}.fill_fields`: {
+    case `${BROWSER}.fill_fields`:
+    case `${CHROME}.fill_fields`: {
       const fields = isDynamicRecord(args) && Array.isArray(args.fields) ? args.fields : [];
       return payload(fields.flatMap((field) => stringField(field, "text") ?? []).join("\n"));
     }
@@ -492,6 +516,24 @@ export const GUARD_TOOL_INBOUND: Readonly<Record<string, GuardToolInbound>> = {
   "openbot_browser.run_script": CONTENT_CHECKED,
   "openbot_browser.handle_dialog": CONTENT_CHECKED,
   "openbot_browser.close_tab": CONTENT_CHECKED,
+  "openbot_chrome.open": CONTENT_CHECKED,
+  "openbot_chrome.list_tabs": CONTENT_CHECKED,
+  "openbot_chrome.status": CONTENT_CHECKED,
+  "openbot_chrome.snapshot": CONTENT_CHECKED,
+  "openbot_chrome.navigate": CONTENT_CHECKED,
+  "openbot_chrome.click": CONTENT_CHECKED,
+  "openbot_chrome.type": CONTENT_CHECKED,
+  "openbot_chrome.fill_fields": CONTENT_CHECKED,
+  "openbot_chrome.press": CONTENT_CHECKED,
+  "openbot_chrome.hover": CONTENT_CHECKED,
+  "openbot_chrome.scroll": CONTENT_CHECKED,
+  "openbot_chrome.select_option": CONTENT_CHECKED,
+  "openbot_chrome.set_checked": CONTENT_CHECKED,
+  "openbot_chrome.drag": CONTENT_CHECKED,
+  "openbot_chrome.wait_for": CONTENT_CHECKED,
+  "openbot_chrome.screenshot": notCovered("It returns an image. The Guard reads text, not pictures."),
+  "openbot_chrome.handle_dialog": CONTENT_CHECKED,
+  "openbot_chrome.close_tab": CONTENT_CHECKED,
   "openbot.tool_search": OWN_STATE,
   "openbot.tool_describe": OWN_STATE,
   "openbot.tool_call": noOutsideContent(
@@ -511,6 +553,11 @@ export const GUARD_INBOUND_PATHS = {
   "builders-bot-browser": {
     covered: true,
     where: "BuildersBotToolRouter calls GuardGate.afterTool for each openbot_browser result that is page content.",
+  },
+  "chrome-extension": {
+    covered: true,
+    where:
+      "BuildersBotToolRouter calls GuardGate.beforeTool and afterTool for each openbot_chrome call, as for openbot_browser.",
   },
   "builders-bot-tools": {
     covered: true,

@@ -8,12 +8,35 @@
  * person's routines and the person's agents get the tools. A chat app thread, a channel and a team
  * member never do: they would spend the person's money, and they are a direct path for injection.
  * `unknown` is a turn whose origin the app cannot prove; it never gets the tools.
+ *
+ * `routine_agent` is an agent turn that a routine started, at any distance: a message that a routine's
+ * turn sent, or a run of a routine that an agent or a routine saved (a webhook routine too). For the Hub
+ * connections it is `agent` (`hubConnectionOrigin`). It stays on every message that such a turn sends,
+ * so the owner's Chrome, which no routine may use, stays closed along the whole chain.
  */
-export const HUB_TURN_ORIGINS = ["owner_ui", "routine", "agent", "unknown", "team_member", "messaging"] as const;
+export const HUB_TURN_ORIGINS = [
+  "owner_ui",
+  "routine",
+  "agent",
+  "routine_agent",
+  "unknown",
+  "team_member",
+  "messaging",
+] as const;
 export type HubTurnOrigin = (typeof HUB_TURN_ORIGINS)[number];
 
 /** The origins that get the connection tools. Each other origin is closed. */
-export const CONNECTION_ORIGINS: ReadonlySet<HubTurnOrigin> = new Set(["owner_ui", "routine", "agent"]);
+export const CONNECTION_ORIGINS: ReadonlySet<HubTurnOrigin> = new Set([
+  "owner_ui",
+  "routine",
+  "agent",
+  "routine_agent",
+]);
+
+/** The origin that the Hub connections read: an agent turn that a routine started is an agent turn there. */
+export function hubConnectionOrigin(origin: HubTurnOrigin): HubTurnOrigin {
+  return origin === "routine_agent" ? "agent" : origin;
+}
 
 export function isHubTurnOrigin(value: unknown): value is HubTurnOrigin {
   return HUB_TURN_ORIGINS.some((origin) => origin === value);
@@ -32,21 +55,22 @@ export function narrowerOrigin(left: HubTurnOrigin, right: HubTurnOrigin): HubTu
 /**
  * The origin of a message that a turn of this origin sends to an agent: with `send_message`, as the
  * brief of a task, as the first message of an agent that it creates, as an interrupt notice or as an
- * automatic result. The person's own turns and routines pass on `agent`, which gets no cards and no
- * amounts. A closed origin stays closed.
+ * automatic result. The person's own turns pass on `agent`, and routines pass on `routine_agent`; both
+ * get no cards and no amounts. A closed origin stays closed.
  */
 export function sentOrigin(origin: HubTurnOrigin): HubTurnOrigin {
-  return origin === "owner_ui" || origin === "routine" ? "agent" : origin;
+  if (origin === "owner_ui") return "agent";
+  return origin === "routine" ? "routine_agent" : origin;
 }
 
 /**
  * The origin of the runs of a routine that someone of this origin saved. The person (in the app, or
- * in the person's own turn) makes a routine of the person; an agent's or a routine's turn makes one of
- * an agent. A closed origin makes a closed routine.
+ * in the person's own turn) makes a routine of the person; an agent's or a routine's turn makes one that
+ * runs as `routine_agent`. A closed origin makes a closed routine.
  */
 export function routineOriginOf(savedBy: HubTurnOrigin): HubTurnOrigin {
   if (savedBy === "owner_ui") return "routine";
-  return savedBy === "routine" ? "agent" : savedBy;
+  return savedBy === "routine" || savedBy === "agent" ? "routine_agent" : savedBy;
 }
 
 /** What one delivery of a turn says about who started it. */
@@ -77,6 +101,8 @@ export function deliveryOrigin(
   // An agent or a routine message proves its origin only with a stamp.
   let origin: HubTurnOrigin = delivery.sender === "user" ? "owner_ui" : (delivery.stamp ?? "unknown");
   if (delivery.sender === "user" && delivery.stamp) origin = narrowerOrigin(origin, delivery.stamp);
+  // The run of a routine that an agent saved before `routine_agent` existed is stamped `agent`.
+  if (delivery.sender === "routine" && origin === "agent") origin = "routine_agent";
   for (const memberId of [delivery.memberId, delivery.editorId])
     if (memberId !== null && remotePerson(memberId)) origin = narrowerOrigin(origin, "team_member");
   return origin;

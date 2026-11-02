@@ -26,6 +26,16 @@ export const messages = defineMessages("status.agent", {
   "status.agent.vaultCardFill":
     "Fill the saved card {card} on {site}. After you approve, agents can fill this card on this site with no approval. Remove the site in Server settings > Vault.",
   "status.agent.vaultCardFillFrames": "The card fields are in frames from {origins}.",
+  "status.agent.chromeMessageSend": "Send on {site} in your Chrome ({action}). To: {recipients}. Text: {text}",
+  "status.agent.chromeMessageSendUnknown": "(not shown on the page)",
+  "status.agent.chromeSiteAccess":
+    "Let the agents of {project} use {site} in your Chrome? It is {kind}, signed in as you. The answer holds for this project until Builders Bot restarts.",
+  "status.agent.chromeSiteKind.mail": "a mail site",
+  "status.agent.chromeSiteKind.chat": "a chat site",
+  "status.agent.chromeSiteKind.cloud-console": "a cloud or code console",
+  "status.agent.chromeSiteKind.social": "a social network",
+  "status.agent.chromeSiteKind.payment-frame": "a payment page",
+  "status.agent.chromeSiteKind.private-network": "a site on your own network",
   "status.agent.screenCaptureProgress": "Asking to capture the screen…",
   "status.agent.screenCaptureReviewing": "Reviewing the screen capture…",
   "status.agent.browserOpening": "Opening a web page…",
