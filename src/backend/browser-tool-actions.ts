@@ -1,6 +1,6 @@
 import type { BrowserTarget } from "@openbot/contracts/ipc";
 import { Effect, type Fiber } from "effect";
-import type { BrowserCdpEngine } from "./browser-cdp";
+import type { BrowserCdpEngine, ClickTargetCheck } from "./browser-cdp";
 import { type BrowserOperationError, browserSync } from "./browser-effects";
 import type { BrowserToolCall } from "./browser-tools";
 import type { DynamicToolResult } from "./protocol";
@@ -15,10 +15,10 @@ export interface BrowserDynamicToolHooks {
   /** The saved cards that `fill_card` types. With none, `fill_card` fills nothing. */
   cardVault?: BrowserCardVault | undefined;
   /**
-   * A last check of the element that a click resolved to, just before the click (the send gate of the
-   * person's Chrome): a refusal text stops the click.
+   * A last check of the element that a click resolved to, and of the elements at the click point up to
+   * it, just before the click (the send gate of the person's Chrome): a refusal text stops the click.
    */
-  checkClickTarget?: ((found: { role: string; name: string; visibleText: string }) => string | null) | undefined;
+  checkClickTarget?: ClickTargetCheck | undefined;
 }
 
 /** The saved cards that `fill_card` types, and the owner's approval of each page that they go to. */

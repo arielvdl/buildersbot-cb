@@ -813,10 +813,11 @@ export class BrowserCdpEngine {
       clickCount?: number | undefined;
       modifiers?: string[] | undefined;
       /**
-       * A last check of the element that the target resolved to, just before the click: a refusal
-       * text stops the click. A target with no element (a point) is refused when this is set.
+       * A last check, just before the click, of the element that the target resolved to and of the
+       * elements at the click point up to it: a refusal text stops the click. A target with no element
+       * (a point) is refused when this is set.
        */
-      checkTarget?: ((found: { role: string; name: string; visibleText: string }) => string | null) | undefined;
+      checkTarget?: ClickTargetCheck | undefined;
     } = {},
     deadline?: number,
     onDispatch?: ActionDispatch,
@@ -830,9 +831,25 @@ export class BrowserCdpEngine {
               if (!resolved.backendNodeId)
                 return yield* browserFailure(new Error("The click target could not be checked before the click."));
               const found = yield* this.#targetFingerprint(send, resolved.backendNodeId, resolved.sessionId);
-              const refusal = checkTarget(found);
+              const refusal = checkTarget.target(found);
               if (refusal !== null) return yield* browserFailure(new Error(refusal));
-              return yield* this.#elementPointEffect(send, resolved.backendNodeId, true, resolved.sessionId, true);
+              let hitId = 0;
+              const at = yield* this.#elementPointEffect(
+                send,
+                resolved.backendNodeId,
+                true,
+                resolved.sessionId,
+                true,
+                (hit) => {
+                  hitId = hit;
+                },
+              );
+              // The click lands on the element at the point, which can be a control of its own inside the
+              // target (a child with its own click handler): each element from it up to the target is checked.
+              const chain = hitId ? yield* clickChain(send, hitId, resolved.backendNodeId, resolved.sessionId) : null;
+              const hitRefusal = checkTarget.hit(chain);
+              if (hitRefusal !== null) return yield* browserFailure(new Error(hitRefusal));
+              return at;
             })
           : yield* this.#targetPointEffect(send, target, true, true, deadline);
         const { sessionId, ...coordinates } = point;
@@ -3033,6 +3050,8 @@ export class BrowserCdpEngine {
     hitTest: boolean,
     sessionId?: string,
     scrollIntoView = true,
+    /** Gets the element at the point that the hit test chose (the target or a node inside it). */
+    onHit?: (hitId: number) => void,
   ): Effect.fn.Return<{ x: number; y: number; sessionId?: string | undefined }, BrowserOperationError> {
     if (scrollIntoView) yield* send("DOM.scrollIntoViewIfNeeded", { backendNodeId }, sessionId);
     const box = yield* send("DOM.getBoxModel", { backendNodeId }, sessionId);
@@ -3079,6 +3098,7 @@ export class BrowserCdpEngine {
       );
       const hitId = numberValue(hit.backendNodeId);
       if (hitId && (yield* hitActivatesTarget(send, hitId, backendNodeId, sessionId))) {
+        onHit?.(hitId);
         return { ...point, ...session };
       }
       blockerId ||= hitId;
@@ -3419,6 +3439,104 @@ function uniquePoints(points: Array<{ x: number; y: number }>): Array<{ x: numbe
     return true;
   });
 }
+
+/** One element between the one at a click point and the click target: what names it, and whether it acts. */
+export interface ClickChainEntry {
+  readonly tag: string;
+  readonly role: string;
+  /** Its own names: aria-label, title, alt, a button value, and its visible text. */
+  readonly labels: readonly string[];
+  /** A control of its own: a native control, a control role, a click attribute or a tab stop. */
+  readonly interactive: boolean;
+}
+
+/** The last check of a click (the send gate of the person's Chrome). A text refuses the click. */
+export interface ClickTargetCheck {
+  target(found: { role: string; name: string; visibleText: string }): string | null;
+  /** The elements from the one at the click point up to the target; null when it does not reach the target. */
+  hit(chain: readonly ClickChainEntry[] | null): string | null;
+}
+
+/**
+ * The elements from the one at a click point (`this`) up to the target, the target left out, in the
+ * automation world. A label that names the target is the last one. Null when the walk does not reach
+ * the target.
+ */
+const CLICK_CHAIN_FUNCTION = `function(target) {
+  const start = this instanceof CSSPseudoElement ? this.element : this;
+  const chain = [];
+  const controls = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option', 'treeitem', 'switch', 'checkbox', 'radio']);
+  for (let node = start; node; node = node.parentNode || node.host) {
+    if (node === target) return chain;
+    if (chain.length >= 32) return null;
+    if (node.nodeType !== 1) continue;
+    const tag = node.localName || '';
+    const role = (node.getAttribute('role') || '').trim().split(/\\s+/)[0].toLowerCase();
+    // The text inside a field is what someone writes, not the name of a control.
+    const root = node.getRootNode();
+    const editable = node.isContentEditable ||
+      (root instanceof ShadowRoot && ['input', 'textarea'].includes(root.host?.localName || ''));
+    const labels = [node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('alt'),
+      tag === 'input' && ['button', 'submit', 'reset'].includes(node.type) ? node.value : null,
+      editable ? null : String(node.innerText ?? node.textContent ?? '').replace(/\\s+/g, ' ').trim().slice(0, 500)]
+      .filter((label) => typeof label === 'string' && label.trim() !== '');
+    const interactive = ['button', 'select', 'textarea', 'summary', 'option'].includes(tag) ||
+      (tag === 'a' && node.hasAttribute('href')) || (tag === 'input' && node.type !== 'hidden') ||
+      controls.has(role) || node.hasAttribute('onclick') || node.hasAttribute('tabindex');
+    chain.push({ tag, role, labels, interactive });
+    if (tag === 'label' && node.control === target) return chain;
+  }
+  return null;
+}`;
+
+/** The elements from `hit` up to `target` (`CLICK_CHAIN_FUNCTION`), or null. */
+const clickChain = Effect.fn("Browser.clickChain")(function* (
+  send: SendCommand,
+  hit: number,
+  target: number,
+  sessionId?: string,
+) {
+  if (hit === target) return [];
+  const executionContextId = yield* automationContextId(send, sessionId);
+  const objectIds: string[] = [];
+  return yield* Effect.gen(function* () {
+    for (const backendNodeId of [hit, target]) {
+      const resolved = yield* send("DOM.resolveNode", { backendNodeId, executionContextId }, sessionId);
+      const objectId = stringValue(recordValue(resolved.object)?.objectId);
+      if (!objectId) return null;
+      objectIds.push(objectId);
+    }
+    const result = yield* send(
+      "Runtime.callFunctionOn",
+      {
+        objectId: objectIds[0],
+        functionDeclaration: CLICK_CHAIN_FUNCTION,
+        arguments: [{ objectId: objectIds[1] }],
+        returnByValue: true,
+      },
+      sessionId,
+    );
+    const value = recordValue(result.result)?.value;
+    if (!Array.isArray(value)) return null;
+    return value.filter(isRecord).map(
+      (entry): ClickChainEntry => ({
+        tag: stringValue(entry.tag),
+        role: stringValue(entry.role),
+        labels: Array.isArray(entry.labels) ? entry.labels.filter(isString) : [],
+        interactive: entry.interactive === true,
+      }),
+    );
+  }).pipe(
+    Effect.ensuring(
+      Effect.gen(function* () {
+        yield* Effect.all(
+          objectIds.map((objectId) => send("Runtime.releaseObject", { objectId }, sessionId).pipe(Effect.ignore)),
+          { concurrency: "unbounded" },
+        );
+      }).pipe(Effect.orDie),
+    ),
+  );
+});
 
 const hitActivatesTarget = Effect.fn("Browser.hitActivatesTarget")(function* (
   send: SendCommand,

@@ -20,9 +20,11 @@
  *   name is on a short list of actions that do not send (`NOT_SEND_NAME`: cancel, close, attach, emoji,
  *   format...). A name in a language that the lists do not hold then asks;
  * - just before a click that asks no card, the engine reads the element that the target resolved to,
- *   its accessible name and its visible text, and this gate checks both again
- *   (`clickTargetRefusal`): the click stops when either is a send, when it has no name, or, with a
- *   composer, when it is not on the list of actions that do not send;
+ *   its accessible name and its visible text, and this gate checks both again (`clickTargetCheck`):
+ *   the click stops when either is a send, when it has no name, or, with a composer, when it is not on
+ *   the list of actions that do not send. The click lands on the element at its point, which can be a
+ *   control of its own inside the target: each element from that one up to the target must not name a
+ *   send, and one that acts must pass the same check as the target;
  * - a key is read as the engine reads it (`parseShortcut`): Enter, NumpadEnter, Return and Space (which
  *   presses a focused button) are sends, and so is a key with Ctrl, Cmd or Alt (a mail site sends with
  *   Ctrl+Enter or Alt+S) unless it only edits text; a key that the engine refuses counts as a send;
@@ -36,6 +38,7 @@
  */
 
 import type { BrowserElement, BrowserSnapshot, BrowserTarget } from "@openbot/contracts/ipc";
+import type { ClickTargetCheck } from "./browser-cdp";
 import { parseShortcut, typedCharacters } from "./browser-cdp-input";
 import { ACTIONABLE_ROLES } from "./browser-cdp-snapshot";
 import { textMatches } from "./browser-cdp-values";
@@ -320,20 +323,33 @@ function sendLabel(action: ChromeAction, snapshot: BrowserSnapshot | null, fresh
  * next to a message being written it must be an action that does not send. Null when the page is not
  * a communication site: there is nothing to check.
  */
-export function clickTargetCheck(
-  url: string,
-  snapshot: BrowserSnapshot | null,
-): ((found: { role: string; name: string; visibleText: string }) => string | null) | null {
+export function clickTargetCheck(url: string, snapshot: BrowserSnapshot | null): ClickTargetCheck | null {
   const site =
     isCommunicationSite(url) ||
     (snapshot?.elements ?? []).some((element) => element.frame !== null && isCommunicationSite(element.frame.url));
   if (!site) return null;
   const composer = hasComposer(snapshot);
-  return (found) => {
-    const label = controlSends(found.role || null, [found.name, found.visibleText], composer);
-    return label === null
-      ? null
-      : `The element that the target found now is "${label.slice(0, 80)}", which can send a message: nothing was clicked. Take a fresh snapshot.`;
+  const refusal = (label: string) =>
+    `The element that the target found now is "${label.slice(0, 80)}", which can send a message: nothing was clicked. Take a fresh snapshot.`;
+  return {
+    target: (found) => {
+      // The text of a field is what someone writes in it, not its name.
+      const names = TEXT_ROLES.has(found.role) ? [found.name] : [found.name, found.visibleText];
+      const label = controlSends(found.role || null, names, composer);
+      return label === null ? null : refusal(label);
+    },
+    hit: (chain) => {
+      if (chain === null) return refusal("an element at the click point that is not the target");
+      for (const entry of chain) {
+        const sending = entry.labels.find((label) => SEND_NAME.test(label));
+        if (sending !== undefined) return refusal(sending);
+        if (!entry.interactive) continue;
+        // A control of its own inside the target: the same check as the target.
+        const label = controlSends(entry.role || null, entry.labels, composer);
+        if (label !== null) return refusal(label);
+      }
+      return null;
+    },
   };
 }
 

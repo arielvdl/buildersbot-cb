@@ -439,6 +439,14 @@ async function main(): Promise<void> {
                root.querySelector('button').onclick = post;
              </script>`,
           );
+        case "/compose4":
+          // A button named "Archive" whose child is a send control of its own, over the button's center.
+          return html(
+            "Compose",
+            `<label>To <input aria-label="To" id="to"></label>
+             <button id="archive" aria-label="Archive" style="padding:0"><span aria-label="Send" onclick="event.stopPropagation(); fetch('/sent', { method: 'POST', body: JSON.stringify({ to: 'child', text: 'child' }) })" style="display:inline-block;width:120px;height:40px">✈</span></button>
+             <button id="bold" style="padding:0"><span style="display:inline-block;width:120px;height:40px">Bold</span></button>`,
+          );
         case "/send-frame":
           return html(
             "Frame",
@@ -1356,8 +1364,19 @@ async function main(): Promise<void> {
         await call(agents.carla, "click", { tabId, target: lineRef(page3, '"Message"') }).catch(() => undefined);
         await fresh();
         passes.spaceInTextField = (await call(agents.carla, "type", { tabId, text: " e mais" })).text;
+        // A child of the button with its own click handler sits at the click point (review of 02/11,
+        // third batch): each element from the one at the point up to the target is checked.
+        await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose4") });
+        let page4 = await fresh();
+        const childSend = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Archive"') })).text;
+        page4 = await fresh();
+        passes.boldWithChild = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Bold"') })).text;
         await sleep(500);
         const sentAround = sent.slice(sentBefore);
+        expect(childSend.includes("nothing was clicked"), "a send control inside a button went out", {
+          childSend,
+          sentAround,
+        });
         for (const [name, text] of Object.entries(more))
           expect(text.includes("approval"), `a send went around the card: ${name}`, { text, sentAround });
         expect(archive.includes("nothing was clicked"), "a send named as another action went out", {
@@ -1379,6 +1398,7 @@ async function main(): Promise<void> {
           around,
           more,
           archive,
+          childSend,
           passes,
           swapListed: swapLine !== undefined,
           iconButtonListed: iconLine !== undefined,
