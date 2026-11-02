@@ -20,7 +20,14 @@ export const CULTURA_BUILDER_PROVIDER = "cultura-builder" as const;
 export const CULTURA_BUILDER_HUB = "https://hub.culturabuilder.com";
 export const CULTURA_BUILDER_GATEWAY = `${CULTURA_BUILDER_HUB}/api/builder-ai/gateway/v1`;
 
-const REGISTER_PATH = "/api/mcp-oauth/register";
+/**
+ * The public OAuth client of Builders Bot on the Hub (client name "Builders Bot"). It is not a
+ * secret: the device flow of a public client sends it in the clear. It is fixed, so the Hub can list
+ * it for the proxy routes and give its sign-ins the refresh family that a proxy token needs. Before,
+ * each sign-in registered a new client, which the Hub could never list. Every build uses it.
+ */
+export const CULTURA_BUILDER_CLIENT_ID = "28244c0a-7d6b-4256-be9b-9933cf0e6e94";
+
 const DEVICE_PATH = "/api/mcp-oauth/device";
 const TOKEN_PATH = "/api/mcp-oauth/token";
 const REVOKE_PATH = "/api/mcp-oauth/revoke";
@@ -77,8 +84,7 @@ export type CulturaBuilderTokenPoll =
 
 type Fetcher = typeof fetch;
 
-/** What the Hub answers to a register, a device authorization, a token and a session read. */
-const RegisteredClient = Schema.Struct({ client_id: Schema.String });
+/** What the Hub answers to a device authorization, a token and a session read. */
 const DeviceAuthorization = Schema.Struct({
   device_code: Schema.String,
   user_code: Schema.String,
@@ -160,47 +166,28 @@ export function sessionIsFresh(session: CulturaBuilderSession, now = Date.now())
 async function readJson<S extends Schema.ConstraintDecoder<unknown>>(
   response: Response,
   schema: S,
+  limitBytes = RESPONSE_LIMIT_BYTES,
 ): Promise<S["Type"] | null> {
   const declared = Number(response.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declared) && declared > RESPONSE_LIMIT_BYTES) {
+  if (Number.isFinite(declared) && declared > limitBytes) {
     await response.body?.cancel().catch(() => undefined);
     return null;
   }
   const text = await response.text().catch(() => "");
-  if (text.length > RESPONSE_LIMIT_BYTES) return null;
+  if (text.length > limitBytes) return null;
   return decodeJson(text, schema);
 }
 
-/** Registers the device client. The Hub's MCP register requires a redirect that this flow never uses. */
-async function registerClient(fetcher: Fetcher): Promise<string> {
-  const response = await fetcher(`${CULTURA_BUILDER_HUB}${REGISTER_PATH}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      client_name: "Builders Bot",
-      redirect_uris: ["http://127.0.0.1:0/callback"],
-      token_endpoint_auth_method: "none",
-    }),
-    redirect: "error",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  const value = await readJson(response, RegisteredClient);
-  if (!response.ok || !value) {
-    throw new Error(`Cultura Builder client registration failed (${response.status})`);
-  }
-  return value.client_id;
-}
-
 /**
- * Starts the sign-in: registers a client, asks for a code, and returns what the dialog shows. The
- * caller polls with `pollCulturaBuilderToken`.
+ * Starts the sign-in: asks for a code for the fixed client of Builders Bot, and returns what the
+ * dialog shows. The caller polls with `pollCulturaBuilderToken`.
  */
 export function startCulturaBuilderSignIn(
   fetcher: Fetcher = fetch,
 ): Effect.Effect<CulturaBuilderDeviceCode, ProviderClientOperationError> {
   return Effect.tryPromise({
     try: async () => {
-      const clientId = await registerClient(fetcher);
+      const clientId = CULTURA_BUILDER_CLIENT_ID;
       const response = await fetcher(`${CULTURA_BUILDER_HUB}${DEVICE_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
@@ -361,6 +348,128 @@ export function readCulturaBuilderAccess(
     },
     catch: providerFailure,
   });
+}
+
+/**
+ * One model of the gateway catalog of an account, as the OpenCode config of the provider declares it.
+ * Only the fields that the config needs: the gateway's description and price are not for this client.
+ */
+export interface CulturaBuilderGatewayModel {
+  readonly id: string;
+  readonly name: string;
+  readonly contextLength: number;
+  readonly maxOutputTokens: number;
+  readonly vision: boolean;
+  readonly reasoning: boolean;
+  readonly tools: boolean;
+}
+
+/**
+ * The catalog of the signed-in account, which the `prepare` hook writes and the spawn reads. Main
+ * makes one only on a server with a model policy (`server-model-policy.ts`): without one, the
+ * provider declares `CULTURA_BUILDER_MODELS`, as before.
+ */
+export class CulturaBuilderCatalog {
+  #models: readonly CulturaBuilderGatewayModel[] | null = null;
+
+  /** The last catalog of the gateway, or null: the spawn then declares the built-in models. */
+  read(): readonly CulturaBuilderGatewayModel[] | null {
+    return this.#models;
+  }
+
+  write(models: readonly CulturaBuilderGatewayModel[] | null): void {
+    this.#models = models;
+  }
+}
+
+/** A model id of the gateway: an alias with the `builder-` prefix, never an upstream model id. */
+const GATEWAY_MODEL_ID = /^builder-[a-z0-9][a-z0-9-]{0,62}$/u;
+const GATEWAY_MODEL_NAME_LIMIT = 80;
+const GATEWAY_MODELS_LIMIT = 32;
+const GATEWAY_MODELS_LIMIT_BYTES = 64 * 1024;
+const GATEWAY_MODELS_TIMEOUT_MS = 5_000;
+const DEFAULT_CONTEXT_TOKENS = 262_144;
+const DEFAULT_OUTPUT_TOKENS = 32_768;
+
+const GatewayModelList = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.optional(Schema.String),
+      context_length: Schema.optional(Schema.Finite),
+      max_output_tokens: Schema.optional(Schema.Finite),
+      capabilities: Schema.optional(
+        Schema.Struct({
+          vision: Schema.optional(Schema.Boolean),
+          reasoning: Schema.optional(Schema.Boolean),
+          tools: Schema.optional(Schema.Boolean),
+        }),
+      ),
+    }),
+  ),
+});
+
+/** `value` when it is a whole number from `min` to `max`, else `fallback`. */
+function boundedInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+  return value !== undefined && Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+}
+
+/** A name to show: printable, one line, bounded. The id when the gateway sent none. */
+function gatewayModelName(name: string | undefined, id: string): string {
+  // Control characters out, then each run of white space to one space.
+  const clean = (name ?? "")
+    .replace(/\p{Cc}/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return (clean || id).slice(0, GATEWAY_MODEL_NAME_LIMIT);
+}
+
+/**
+ * Reads the models that the gateway offers to this account (`GET /v1/models`). The gateway filters the
+ * list for the account: a model that the Hub has not granted is not in it. Null when the gateway does
+ * not answer with a usable list: the caller then declares only the built-in models.
+ *
+ * The list is data from the network. Only an alias with the `builder-` prefix passes, a name is made
+ * printable and bounded, and numbers out of range take the built-in values.
+ */
+export function readCulturaBuilderModels(
+  access: string,
+  fetcher: Fetcher = fetch,
+): Effect.Effect<readonly CulturaBuilderGatewayModel[] | null> {
+  return Effect.tryPromise({
+    try: async () => {
+      const response = await fetcher(`${CULTURA_BUILDER_GATEWAY}/models`, {
+        headers: { Authorization: `Bearer ${access}`, Accept: "application/json" },
+        redirect: "error",
+        signal: AbortSignal.timeout(GATEWAY_MODELS_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        return null;
+      }
+      const value = await readJson(response, GatewayModelList, GATEWAY_MODELS_LIMIT_BYTES);
+      if (!value) return null;
+      const models: CulturaBuilderGatewayModel[] = [];
+      const seen = new Set<string>();
+      for (const item of value.data) {
+        if (models.length >= GATEWAY_MODELS_LIMIT) break;
+        const id = item.id.trim();
+        if (!GATEWAY_MODEL_ID.test(id) || seen.has(id)) continue;
+        seen.add(id);
+        models.push({
+          id,
+          name: gatewayModelName(item.name, id),
+          contextLength: boundedInteger(item.context_length, 4_096, 2_097_152, DEFAULT_CONTEXT_TOKENS),
+          maxOutputTokens: boundedInteger(item.max_output_tokens, 1_024, 262_144, DEFAULT_OUTPUT_TOKENS),
+          vision: item.capabilities?.vision === true,
+          reasoning: item.capabilities?.reasoning === true,
+          tools: item.capabilities?.tools !== false,
+        });
+      }
+      return models.length > 0 ? models : null;
+    },
+    catch: () => null,
+  }).pipe(Effect.catch(() => Effect.succeed(null)));
 }
 
 /**

@@ -1,5 +1,6 @@
 import { AppLogo, type AppLogoVariant, ProviderLogo } from "@openbot/brand";
 import {
+  Activity,
   Bot,
   Button,
   CalendarClock,
@@ -179,6 +180,7 @@ function CustomAgentUsageButton(props: { row: CustomAgentUsageRailRow; onOpen: (
 /** The rail pages. Agents and Routines show the same page with a different sidebar list. */
 export type PageRailPage =
   | "agents"
+  | "feed"
   | "routines"
   | "workflows"
   | "tasks"
@@ -189,6 +191,7 @@ export type PageRailPage =
 
 /** The pages that the user can pin to the rail, in rail order. Agents always shows. */
 export const PAGE_RAIL_PINNABLE_PAGES = [
+  "feed",
   "routines",
   "workflows",
   "tasks",
@@ -215,6 +218,8 @@ export interface PageRailProps {
   onTeam?: ((button: HTMLElement) => void) | undefined;
   /** The Team panel is open. */
   teamOpen?: boolean | undefined;
+  /** Opens the feed page: every run of every server. Absent where the window has no feed. */
+  onFeed?: ((button: HTMLElement) => void) | undefined;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
   /** Absent when the server has no workflows. */
@@ -361,7 +366,8 @@ export function PageRail(props: PageRailProps) {
   /** The pages that this server has, in rail order. */
   const pages = createMemo((): RailPage[] => {
     const list: RailPage[] = [];
-    const { onRoutines, onWorkflows, onTasks, onSchedule } = props;
+    const { onFeed, onRoutines, onWorkflows, onTasks, onSchedule } = props;
+    if (onFeed) list.push({ id: "feed", label: t("app.rail.feed"), icon: Activity, open: onFeed });
     if (onRoutines) {
       list.push({
         id: "routines",

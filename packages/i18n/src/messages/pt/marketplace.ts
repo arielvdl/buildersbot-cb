@@ -552,6 +552,14 @@ export const messages = {
   "marketplace.connection.choose.title": "Escolha quem paga",
   "marketplace.connection.choose.description":
     "Mais de uma organização pode pagar. Escolha uma abaixo, ou responda ao cartão no chat na próxima chamada.",
+  "marketplace.connection.consent.title": "Permita o Builders Bot no Hub",
+  "marketplace.connection.consent.description":
+    "O Builders Bot ainda não pode gastar as conexões pagas da sua organização. Permita no Hub da Cultura Builder e depois atualize esta página.",
+  "marketplace.connection.consent.open": "Abrir o Hub",
+  "marketplace.connection.platform.tagline": {
+    one: "Via Cultura Builder · {count} ferramenta",
+    other: "Via Cultura Builder · {count} ferramentas",
+  },
   "marketplace.connection.gives.title": "O que inclui",
   "marketplace.connection.gives.fallback":
     "Dados externos pagos para seus agentes: SEO e palavras-chave, dados de empresas, lojas de apps, avaliações, dados da web aberta e mais.",

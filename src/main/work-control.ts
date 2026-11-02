@@ -35,7 +35,9 @@ import type { ChannelQueueHold } from "../backend/channel-service";
 import {
   AutoRecovery,
   autoReassignee,
+  MAX_RESUMES,
   type MemberInfo,
+  needsPerson,
   type ReassignCandidate,
   RecoveryLedger,
   reassignCandidates,
@@ -87,6 +89,13 @@ export interface WorkControlTaskWatchOptions {
   judge: TaskWatchJudge | null;
   /** The file of its last actions (`TaskWatchDeps.history`). Omitted, they are in memory only. */
   history?: TaskWatchDeps["history"];
+  /** Whether a sleep of the computer holds every task for two looks (`fiscal-resume-grace`). Omitted: no. */
+  sleepGrace?: () => boolean;
+  /**
+   * Tells the reviewer when the computer wakes from a sleep (Electron `powerMonitor` `resume`). Gives
+   * the unsubscribe. Omitted: only the time between two looks shows a sleep.
+   */
+  onResume?: (listener: () => void) => () => void;
 }
 
 export interface WorkControlOptions {
@@ -158,6 +167,7 @@ export class WorkControl {
   /** The removals that the person can still undo, by their id. */
   readonly #undo = new Map<string, PendingUndo>();
   #timer: NodeJS.Timeout | null = null;
+  #unsubscribeResume: (() => void) | null = null;
 
   constructor(options: WorkControlOptions) {
     this.#options = options;
@@ -176,7 +186,10 @@ export class WorkControl {
           ? this.#options.service.channels.store.tasks(channelId).find((entry) => entry.id === taskId)
           : undefined;
         const stopped = (task?.state === "paused" || task?.state === "failed") && Boolean(task.error);
-        return stopped ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried))) : null;
+        // An outside action that may already have happened is for the person: another agent could repeat it.
+        return stopped && !needsPerson(task.error ?? "")
+          ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried)))
+          : null;
       },
       resume: (channelId, taskId) =>
         this.#command({ type: "resume", channelId, taskId, recipientAgentId: null }, "auto").then(() => undefined),
@@ -219,6 +232,7 @@ export class WorkControl {
           onFailure: (kind, channelId, taskId, cause) =>
             options.onFailure(`task reviewer ${kind} ${channelId}/${taskId}`, cause),
           ...(watch.history ? { history: watch.history } : {}),
+          ...(watch.sleepGrace ? { sleepGrace: watch.sleepGrace } : {}),
         })
       : null;
     // A stop that the app did not send is a person's: the task reviewer never touches that task. The
@@ -228,15 +242,35 @@ export class WorkControl {
     );
   }
 
+  /**
+   * The safe resume of a channel turn takes one recovery of a task (`backend/agent/turn-resume.ts`):
+   * one failure, with its tries, counts as one resume in the ledger that "Resume by itself" and the task
+   * reviewer share, so the three keep one limit per task. It also starts the interval of "Resume by
+   * itself" again, so the two do not act on the task one after the other. False when the task has no
+   * resume left: the task then stops as before.
+   */
+  takeSafeResume(channelId: string, taskId: string): boolean {
+    const now = (this.#options.now ?? Date.now)();
+    const record = this.#ledger.see(channelId, taskId, now);
+    if (record.gaveUp || record.resumes >= MAX_RESUMES) return false;
+    record.resumes += 1;
+    record.lastActionAt = now;
+    return true;
+  }
+
   start(): void {
     if (this.#timer) return;
     this.#timer = setInterval(() => void this.#look(), TICK_MS);
     this.#timer.unref();
+    const watch = this.#watch;
+    if (watch) this.#unsubscribeResume = this.#options.taskWatch?.onResume?.(() => watch.noteResume()) ?? null;
   }
 
   stop(): void {
     if (this.#timer) clearInterval(this.#timer);
     this.#timer = null;
+    this.#unsubscribeResume?.();
+    this.#unsubscribeResume = null;
     for (const pending of this.#undo.values()) clearTimeout(pending.timer);
     this.#undo.clear();
   }
@@ -592,12 +626,12 @@ export class WorkControl {
     const agents = this.#agents();
     const runningAgents = new Set(turns.map((turn) => turn.agentId));
     const queueHolds = channels.queuedHolds();
-    // The start of the turn of each agent in each channel.
+    // The start of the turn of each agent in each tab: an agent can run a turn in several tabs at once.
     const turnStarts = new Map<string, number>();
     for (const turn of turns) {
-      const channelId = channels.store.channelForThread(turn.threadId);
-      if (!channelId) continue;
-      const key = `${channelId}\u0000${turn.agentId}`;
+      const context = channels.store.contextOfThread(turn.threadId);
+      if (!context) continue;
+      const key = `${context.channelId}\u0000${context.topicId}\u0000${turn.agentId}`;
       const startedAt = Date.parse(turn.startedAt);
       turnStarts.set(key, Math.min(turnStarts.get(key) ?? startedAt, startedAt));
     }
@@ -692,7 +726,11 @@ export class WorkControl {
           agentName: agent?.name ?? null,
           provider: agent?.provider ?? null,
           turnStartedAt:
-            kind === "running" && agentId ? (turnStarts.get(`${channelId}\u0000${agentId}`) ?? null) : null,
+            kind === "running" && agentId
+              ? (turnStarts.get(
+                  `${channelId}\u0000${task.topicId ?? channels.store.firstTopicId(channelId)}\u0000${agentId}`,
+                ) ?? null)
+              : null,
           lastEventAt: kind === "running" ? signals.lastEventAt : null,
           stepOpen: kind === "running" && signals.stepOpen,
           startingAssignmentId: queue === "starting" ? (ownAssignment.get(task.id) ?? null) : null,
@@ -800,10 +838,15 @@ export class WorkControl {
         if (!channelId || !channels.store.exists(channelId)) return null;
         return { id: channelId, name: channels.store.get(channelId).name };
       },
-      taskOf: (channelId, agentId) => {
-        const active = channels.store
+      taskOf: (channelId, agentId, turnId) => {
+        const working = channels.store
           .assignments(channelId)
-          .find((assignment) => assignment.agentId === agentId && ["starting", "running"].includes(assignment.state));
+          .filter((assignment) => assignment.agentId === agentId && ["starting", "running"].includes(assignment.state));
+        // The assignment of this turn: the agent can work in several tabs of the channel at once. A
+        // start that has no turn id yet is the only other one it can be.
+        const active =
+          working.find((assignment) => assignment.turnId === turnId) ??
+          working.find((assignment) => assignment.turnId === null);
         const task = active ? channels.store.tasks(channelId).find((entry) => entry.id === active.taskId) : undefined;
         return task ? { taskId: task.id, title: task.instruction, topicId: task.topicId ?? null } : null;
       },
@@ -905,6 +948,7 @@ export class WorkControl {
             task.id,
             resumable(error, task.ownerAgentId !== null && !agents.has(task.ownerAgentId)),
             () => {
+              if (needsPerson(error)) return false;
               const tried = new Set(this.#ledger.peek(channelId, task.id)?.tried ?? []);
               return autoReassignee(reassignCandidates(owner, members, tried)) !== null;
             },

@@ -46,8 +46,10 @@ import {
 import { clineFreeModels } from "./cline-free-models";
 import {
   CULTURA_BUILDER_GATEWAY,
+  type CulturaBuilderCatalog,
   ensureCulturaBuilderToken,
   readCulturaBuilderAccess,
+  readCulturaBuilderModels,
   readCulturaBuilderSession,
   requireCulturaBuilderSession,
 } from "./cultura-builder-auth";
@@ -437,6 +439,12 @@ export interface ProviderClientContext {
    * declares the smaller window (`culturaBuilderConfigEnv`).
    */
   readonly culturaBuilderFullContext?: () => boolean;
+  /**
+   * The Cultura Builder models of the signed-in account, from the gateway. Main gives one only on a
+   * server with a model policy: the `prepare` hook then reads the catalog of the account before each
+   * spawn, and the spawn declares those models. Without it, the provider declares its built-in models.
+   */
+  readonly culturaBuilderCatalog?: CulturaBuilderCatalog;
 }
 
 /** The agent environment with the account's home folder after it, so the account folder wins. */
@@ -893,13 +901,22 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
     codeSignIn: { kind: "cultura-device" },
     cliProvider: "opencode",
     resolveCli: resolveOpencodeCli,
+    // On a server with a model policy, the hook then reads the catalog of the account with the token:
+    // a model that the Hub did not grant to this account is not declared, so no picker offers it. A
+    // gateway that does not answer gives null, and the spawn declares the built-in models.
     prepare: (context) =>
       ensureCulturaBuilderToken(
         context.apiKey("cultura-builder"),
         (value) => (context.saveApiKey ? context.saveApiKey("cultura-builder", value) : Effect.void),
         fetch,
         () => context.apiKey("cultura-builder"),
-      ).pipe(Effect.asVoid),
+      ).pipe(
+        Effect.flatMap((access) => {
+          const catalog = context.culturaBuilderCatalog;
+          if (!catalog) return Effect.void;
+          return readCulturaBuilderModels(access).pipe(Effect.map((models) => catalog.write(models)));
+        }),
+      ),
     // The bundled Builders CLI runs it, as one more OpenAI-compatible endpoint, and only that
     // endpoint: the token is the only credential this process should spend.
     createClient: (cli, timeout, context, confinement) => {
@@ -921,6 +938,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
             context.culturaBuilderFullContext?.() ?? false,
             openCodeTregNames(),
+            context.culturaBuilderCatalog?.read() ?? null,
           ),
         }),
         // A missing session and an account without the LLM are sign-ins to do, not a broken
@@ -966,6 +984,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
             readCulturaBuilderSession(context.apiKey("cultura-builder"))?.access ?? null,
             context.culturaBuilderFullContext?.() ?? false,
             openCodeTregNames(),
+            context.culturaBuilderCatalog?.read() ?? null,
           ),
         }),
         authenticate: () =>

@@ -302,6 +302,112 @@ channel) can run its next turn on the other model. An agent cannot give another 
 switch without asking, or a backup on a provider account that the other agent does not use
 (`widensBackupModels`, `error.agent.onlyUserWidensBackups`); only the user can.
 
+## Safe turn resume
+
+A brief provider failure in the middle of a channel task (a 529, a 5xx, a lost connection, a time-out,
+a rate limit: `TURN_RESUME_CAUSES`) used to stop the task until a person, "Resume by itself" or the
+task reviewer resumed it. With the optimization `safe-resume` on (Settings › General › Advanced
+optimizations, off by default), the turn continues by itself in the same provider session. The risk is
+to do an outside action twice, so the turn continues only when its effect journal says that nothing
+can happen twice. With the switch off, every path below is skipped and the task stops as before.
+
+**The effect journal** (`src/backend/agent/turn-effects.ts`, `command-effects.ts`). It is passive and
+always on: `TurnLifecycle` records each tool item of a running turn (`item/started`, `item/completed`),
+and the tool router records each call of the app's own outside tools. Each step gets a reach and a
+state. A step keeps a short name with no arguments (`git push`, `openbot.channel_assign`,
+`MCP slack.post_message`) and, for a shell step, its redacted command for the provider.
+
+The journal fails closed, and the shell reader is a strict allowlist (`command-effects.ts`). A command
+is `read` or `local` only when each part of it is in the tables: a known program, a known subcommand,
+and each flag a known flag of that program, with literal words. A word is literal only when the
+shell keeps it as written: no variable, substitution, arithmetic or `$'…'`, and in its unquoted parts
+no `{` (brace expansion: `-{d,X}` becomes `-d -X`, and `{--pre=x,{y}}` becomes `--pre=x {y}`), no glob
+(`*` can match a file named `-d`), no tilde at its start and no history `!`. An unquoted `(` right
+after a word character fails the whole command: it is an extended glob (`!(cat)` can match a file
+named `--pre=x`) or a function. Anything else is `external`: a program, a subcommand, a flag, a wrapper
+(`env`, `sudo`, `exec`, `nice`, `xargs`), a variable set before a program (other than `LANG`, `TZ`, `TERM`, `CI` and similar), a
+redirection to a variable or to `/dev/tcp`/`/dev/udp` (read from the parsed words, not only the text),
+`>(…)`, and any shell construct other than a list, a pipe, `if`, `while` and `{ }`. The tables are maps,
+so a name such as `__proto__` finds nothing, and an error of the reader is an outside step too. Codex's own reading
+of a command (`commandActions`) does not count: two readers that differ must not make a step safe. The
+cost is that the app asks the person more often; it never repeats an action.
+
+| Reach | Steps |
+| --- | --- |
+| `read`: safe to run again | `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` (search flags; no `--pre`, `-z`), `jq`, `sort`, `uniq`, `cut`, `tr`, `diff`, `echo`, `printf`, `pwd`, `date`, `which`, `stat`, `du`, `df`, `tree`, `test`, `cd`, `set`; `sed` with `-n`/`-E` and a script that only prints, deletes or substitutes; `awk` with `-F`/`-v` and an inline program with no `system`, pipe, `getline`, `>` or `@`; `find` with tests only; `git status/log/diff/show/branch/rev-parse/ls-files/blame/describe/grep/ls-remote/config --get/remote -v/stash list/tag -l` with their listed flags and only `-C`, `--no-pager`, `-P` as global options; `gh pr/issue/run/release/repo/workflow/label … list/view/status/checks/diff/watch`, `gh search`, `gh api PATH` with no field and no method other than GET; `curl` with the flags of a GET (`-sSfLkiI`, `-H` that is not a method override or `@file`, `-X GET`) and only `http://` or `https://` URLs; `http`/`xh` only with an explicit `GET` or `HEAD`, an `http(s)://` URL, `--ignore-stdin`, headers and `==` query items; `bash -c`/`-lc` of a command that is itself in the tables; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `think`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
+| `local`: changes only this computer | file changes (Codex `fileChange`, Claude `Edit`/`Write`, ACP `edit`/`delete`/`move`); `mkdir`, `touch`, `cp`, `mv`, `rm`, `rmdir`, `ln`, `chmod`, `tee`, `tsc`; `sed -i`, `sort -o`, `curl -o`, `find -delete`, output to a file; `git add/commit/checkout/switch/restore/reset/stash/merge/rebase/cherry-pick/revert/fetch/pull/clone/init/mv/rm/apply`, `git branch` and `git tag` that create or delete, with their listed flags; `gh pr checkout`; the app's memory, section, skill, routine and channel-setting tools |
+| `external`: anything else | every program, subcommand and flag that the tables do not list, such as `git push`, `gh pr create`, `curl -d`, `npm test`, `make`, `npx`, `python script.py`, `docker`, `ssh`; `bash -i`, `--rcfile`, `-o`, an operand before `-c` or an argument after the script; a subagent; every MCP tool of a server that is not the app's own; an ACP `fetch`; browser clicks, typing and scripts; an item of a kind that the app does not know; the app's `send_message`, `channel_assign`, `channel_transfer`, `channel_result`, `messaging_post`, agent and routine-test tools (`OWN_EXTERNAL_TOOLS`) |
+
+The state is `done` (it ended with a result), `failed`, or `uncertain`. A read or a local change that
+ended with an error or an exit code other than 0 is `failed`. An outside step is `failed` only when it
+did not run (`declined`): an error, an exit code other than 0, a time-out or an interrupt is
+`uncertain`, because `curl … && false` posted, a push can land before the connection drops, and a tool
+can fail after part of a post. A step that started and has no result is `uncertain`, and so is a call
+that Claude ended with no answer (`unanswered`). For the app's own outside tools the router's record
+replaces the provider's item: a call that the provider announced and never sent did not run, a call
+whose handler returned a result is done, and a call whose handler failed or did not return is
+`uncertain`.
+
+`scripts/safe-resume-adversarial-e2e.ts` runs the real classifier, journal and decision on more than 260
+commands that hide an outside effect or that the tables cannot prove safe (grouped flags, quoting,
+nesting, here-documents, process substitution, aliases, functions, variables, wrappers with options,
+shell options, network files, curl and HTTPie options, awk `@`, pagers, git options, braces, globs,
+tilde, history, URL schemes, headers from a file, inherited names), on more than 1,600 forms that a
+generator makes of 43 outside actions (quoting, `$'…'`, escapes, braces, globs, tabs and line
+continuations, `;`, `&&`, `||`, pipes, `&`, comments, here-documents, here-strings, process
+substitution, subshells, `sh -c` nesting, homoglyphs, wrappers, aliases, variables), and on about 50
+plain reads and local changes. No such command may read as `read` or `local`, and each one, with no
+result or with an exit code, must stop the task for the person.
+
+**The decision** (`DrainScheduler.resumeChannelTurn`, called from `TurnLifecycle.#completeTurn` for a
+failed channel turn that is not a usage limit or a refused session). In order:
+
+1. The switch is on, the provider keeps its session after a failed turn (`TURN_RESUME_PROVIDERS`: all
+   providers but a custom ACP agent), the failure is `retry` for `classifyStartFailure` and one of
+   `TURN_RESUME_CAUSES`, and the delivery has fewer than 3 continuations. Else the turn ends as before.
+2. `planTurnResume`: when an outside step is `uncertain`, the task stops with
+   `error.backend.channelTaskMayBeDone` ("This may already be done: git push, MCP slack.post_message")
+   in place of the provider's text. "Resume by itself" and the task reviewer do not resume it or give
+   it to another agent (`needsPerson` in `src/main/auto-recovery.ts`), so the load panel shows "Needs
+   you". With "Continue also when an outside action is uncertain" on (Settings › Agents › Retries and
+   backup model, `StartRetrySettings.resumeUncertainActions`, off by default), the turn continues and
+   the note marks those steps with the order to check them with a read-only step first. The delivery
+   keeps what the turn did (`TurnResumeMarker.forPerson`), so when the person resumes or reassigns the
+   task, its next turn reads the same note, with the person's resume in its first line
+   (`ChannelService.carriedTurnResume`). The repeat guard of the tool router does not apply then.
+3. The task must still be the one that ran (`ChannelService.mayHoldForStartRetry`): a person's Stop or
+   a change ends it as before.
+4. The first continuation of a failure takes one resume of the task from the ledger that "Resume by
+   itself" and the task reviewer share (`WorkControl.takeSafeResume`, `MAX_RESUMES`). A task with no
+   resume left stops as before. The tries of one failure count as one resume, as the tries of a start
+   retry count as one start.
+5. The delivery goes back to its place with `delivery_json.turnResume` (`TurnResumeMarker`: tries,
+   `nextAt`, cause, the turn ids, the steps with their state and the digests of the own calls that
+   ran; never the text of the request, of a tool result or of the error). The assignment and the
+   delivery stay (`holdForStartRetry` with phase `resuming`): the task is queued with no error, the
+   channel shows "It continues where it stopped (1/3)", and the hold of the task reviewer is
+   `retrying`. The waits are 15, 30 and 60 seconds, 25% up or down. A wait for memory, a turn place or
+   the lane does not spend a try. A restart keeps the wait (`MailboxStore.startRetries`).
+
+**The continuation.** It starts in the same provider session, with a new `clientTurnId` for a provider
+that takes the delivery id as the turn id. The note (`turnResumeNote`) comes before the request: the
+steps that are done, the reads, the steps that failed, the uncertain ones, and the order "Check the
+current state before any outside action. Do not repeat anything that the list says is done. Continue
+only with what is still missing." The app does not trust the model with this alone: in a continued
+turn, a call of an own outside tool with the same arguments as one that ran before the failure
+(`ownCallDigest`) gets "already done" from the tool router, and the handler does not run again.
+
+**What stays as before.** The provider error banner of a turn that continues does not show; any other
+failure shows it at the end of the turn. A channel turn plays no failure sound in either case. After
+3 continuations the task stops with the provider's text, for "Resume by itself" and the task reviewer.
+A Stop, a deleted tab or a deleted channel cancels the queued delivery and its wake-up
+(`ChannelHooks.deliveryCancelled`); a deleted agent clears it with the other timers of the agent. Each
+tab of an agent is its own lane, so only the tab that failed waits.
+
+`scripts/safe-turn-resume-e2e.ts` checks the cases with a stand-in Codex app-server that fails with a
+529 or an ECONNRESET in the middle of a turn. The other providers are checked by code reading only:
+a failed turn keeps their session, and a session that is gone opens a new one with the transcript.
+
 ## Hidden agents
 
 A user hides an agent from its sidebar menu in place of a delete. The agent keeps its thread, files,
@@ -470,7 +576,8 @@ migration 47) holds one row for each side thread, with its title and the source 
 (`auto`, `agent` or `user`). Migration 47 moved every task of `projection_agent_tasks` (migration 38)
 there: a closed task became an archived thread, and the task id stays as `legacy_task_id`. The task id
 of a side thread is `legacy_task_id ?? thread_id`, so a stored mailbox message and a released client
-that name the task still find it. A mailbox message with a `taskId` belongs to that side thread, and `DrainScheduler` drains each task as its own lane. The main chat
+that name the task still find it. A mailbox message with a `taskId` belongs to that side thread, and `DrainScheduler` drains each task as its own lane. A
+channel message is drained in the lane of its channel tab (see [tab lanes](channel-tabs.md#tab-lanes)). The main chat
 lane does not count toward the task limit. At most `limit` task turns of one agent run at the same
 time. `agentTaskLimit` gives the limit: the agent's local `taskLimit` setting (1 to
 `AGENT_TASK_LIMIT_MAX`, in `agent_json`), else `AGENT_TASK_LIMIT_DEFAULT` (2). An owner or admin of
@@ -667,7 +774,8 @@ message in a new one. `AgentService.forceQueuedMessage` calls `QueueControls.for
    schedules starts the message (`interrupted`).
 5. It sends no Stop when the message cannot start after it, and answers `next`
    (`DrainScheduler.holdAfterStop`): channel or messaging work waits at the head of the chat, other
-   channel work reserves the agent (`ChannelService.reservesBeside`), the chat still starts a turn with
+   channel work reserves the agent (`ChannelService.reservesBeside`, which reads every channel tab
+   where the agent runs a turn), the chat still starts a turn with
    no id, or a clause of the drain other than that turn holds the chat, such as a compaction, a session
    settings change, or a task turn on a provider that runs one turn of the agent at a time.
 
@@ -879,7 +987,9 @@ Delete removes the color with the section; Duplicate gives the copy the same col
 local only: the frozen Team API codecs drop it from each section and refuse the action, so a remote
 client does not see it and the desktop shows the menu item only for the local server. The renderer
 draws the color as a light tint (`sidebar-section-color.css`); a section with no color has no new
-attribute or style.
+attribute or style. The open chat and the row under the pointer keep the hue of the box in a stronger
+tint, so the open chat shows both that it is open and where it is; a chat with no color opens in the
+gray of the theme. `scripts/sidebar-section-color-e2e.ts` measures each preset in both themes.
 
 A custom section can also have a rail icon: `SidebarSection.icon` is one or two characters, a glyph
 name of a fixed table (`SIDEBAR_SECTION_GLYPHS` in `ipc-sidebar-section-glyphs.ts`), one emoji, or a
@@ -1050,7 +1160,9 @@ with "All", at the top of the first custom section, or with the chats with no se
 none. Its editor opens at once. The editor sets the text (at most 40 characters, with the suggestions
 Done, Soon and Waiting) and the style of the chats below it, up to the next marker: normal, dimmed,
 black and white, or a tint of a preset color (`#rrggbb`). The open chat, a row under the pointer and
-a row with the focus keep their full strength. A marker drags as a chat does. A section can have 12
+a row with the focus keep their full strength. Below a tint, the open chat and the row under the
+pointer keep the tint color in a stronger tint, as in a box with a color, and the muted text moves
+toward the primary text color for contrast. A marker drags as a chat does. A section can have 12
 markers. An activity filter hides the markers, and the compact list shows a line with no text.
 
 Only the local layout keeps markers. The layout has `markers` and `itemOrder`, which holds the chats

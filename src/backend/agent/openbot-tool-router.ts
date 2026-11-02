@@ -34,7 +34,7 @@ import { isString } from "@openbot/contracts/runtime-values";
 import { isUiBlockId, normalizeUiBlockSpec } from "@openbot/contracts/ui-blocks";
 import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger, redactText } from "@openbot/logging";
-import { Effect, Result } from "effect";
+import { Cause, Effect, Exit, Result } from "effect";
 import { z } from "zod";
 import pluginCatalog from "../../../resources/plugin-catalog/catalog.json";
 import type { AgentApiKeys, SavedApiKey } from "../agent-api-keys";
@@ -139,7 +139,9 @@ import { isDynamicToolCall } from "./thread-items";
 import { toolCallIdempotencyKey } from "./tool-call-idempotency";
 import { deferredToolName, discoverTools, namesInSearch, resolveDeferredTool } from "./tool-catalog";
 import { ToolOperationFailed, toolStep, toToolOperationFailed } from "./tool-operation";
+import { ownCallDigest } from "./turn-effects";
 import type { AgentBrowserHost } from "./turn-lifecycle";
+import { isOwnExternalTool } from "./turn-resume";
 import { handleUpdateAgentsTool } from "./update-agents-tool";
 
 const logger = createBuildersBotLogger("openbot-tool-router");
@@ -236,6 +238,14 @@ export interface BuildersBotToolRouterHooks {
   steerAgentMessage(recipientAgentId: string, deliveryId: string): Effect.Effect<void>;
 }
 
+/** What the tool router tells the effect journal of a turn about the app's own outside tools. */
+export interface OwnCallJournal {
+  /** Whether this exact call already ended with a result in a turn that a brief failure stopped. */
+  repeated(agentId: string, turnId: string, tool: string, digest: string): boolean;
+  started(turnId: string, callId: string, tool: string, digest: string): void;
+  ended(turnId: string, callId: string, ok: boolean): void;
+}
+
 export interface BuildersBotToolRouterOptions {
   capturedSteps?: (session: ProviderSession) => Effect.Effect<Map<string, string> | null, ToolOperationFailed>;
   store: AgentStore;
@@ -278,6 +288,11 @@ export interface BuildersBotToolRouterOptions {
   remotePerson?: ((memberId: string) => boolean) | undefined;
   /** The tabs of the person's own Chrome (`openbot_chrome`); null where this server has no bridge. */
   chromeTabs?: ChromeAgentTabs | null | undefined;
+  /**
+   * The record of the calls to the app's own outside tools (`turn-effects.ts`): whether each one ran,
+   * for the safe resume, and the guard that answers a call that a resumed turn repeats. Omitted: none.
+   */
+  ownCalls?: OwnCallJournal | undefined;
   hooks: BuildersBotToolRouterHooks;
 }
 
@@ -329,6 +344,7 @@ export class BuildersBotToolRouter {
   readonly #mcpServers: AgentMcpServers | null;
   readonly #apiKeys: AgentApiKeys | null;
   readonly #guardGate: GuardGate | null;
+  readonly #ownCalls: OwnCallJournal | null;
   readonly #hubConnections: HubConnectionTools | null;
   readonly #remotePerson: (memberId: string) => boolean;
   readonly #chromeTabs: ChromeAgentTabs | null;
@@ -367,6 +383,7 @@ export class BuildersBotToolRouter {
     this.#mcpServers = options.mcpServers ?? null;
     this.#apiKeys = options.apiKeys ?? null;
     this.#guardGate = options.guardGate ?? null;
+    this.#ownCalls = options.ownCalls ?? null;
     this.#hubConnections = options.hubConnections ?? null;
     // Without a host, nobody but this computer's user writes a user message.
     this.#remotePerson = options.remotePerson ?? (() => false);
@@ -759,12 +776,47 @@ export class BuildersBotToolRouter {
                 return openBotToolFailure(message);
               });
             const correctable = PROFILE_TOOL_NAMES.has(tool) || tool === "attach_files_to_response";
+            // An own outside tool: the router's record says whether it ran, and a resumed turn that
+            // calls it again with the same arguments gets the earlier outcome, not a second action.
+            const ownCalls = this.#ownCalls;
+            const qualified = `openbot.${tool}`;
+            const own = ownCalls && isOwnExternalTool(qualified) ? qualified : null;
+            const callParams = toolRequest.params;
+            if (ownCalls && own) {
+              const digest = ownCallDigest(own, callParams.arguments);
+              const callerId = this.#conversation.agentForThread(callParams.threadId);
+              if (callerId && ownCalls.repeated(callerId, callParams.turnId, own, digest)) {
+                logger.info("A resumed turn called an own outside tool again; it did not run twice.", { tool: own });
+                if (!toolRequest.signal?.aborted && client.running)
+                  client.respond(
+                    toolRequest.id,
+                    openBotToolResult({
+                      alreadyDone: true,
+                      tool: own,
+                      instruction:
+                        "This exact call already ran before the provider failure, so it did not run again. Do not repeat it; continue with what is still missing.",
+                    }),
+                  );
+                return;
+              }
+              ownCalls.started(callParams.turnId, callParams.callId, own, digest);
+            }
             const response = this.#handleBuildersBotTool(toolRequest.params).pipe(
               Effect.catch((failure) => (correctable ? correctableFailure(failure.cause) : Effect.fail(failure))),
               Effect.catchDefect((defect) => (correctable ? correctableFailure(defect) : Effect.die(defect))),
               // A result with content from outside, such as chat app history, passes the Guard first.
               Effect.flatMap((result) => this.#guardAfterBuildersBotTool(client, toolRequest, result)),
               Effect.tap((result) => Effect.sync(() => result && client.respond(toolRequest.id, result))),
+              // An interrupted call keeps no end: the action may have run in part, so it stays uncertain.
+              Effect.onExit((exit) =>
+                Effect.sync(() => {
+                  if (!ownCalls || !own) return;
+                  if (Exit.isSuccess(exit))
+                    ownCalls.ended(callParams.turnId, callParams.callId, exit.value?.success !== false);
+                  else if (!Cause.hasInterruptsOnly(exit.cause))
+                    ownCalls.ended(callParams.turnId, callParams.callId, false);
+                }),
+              ),
             );
             // Both store a file and then add the message that names it.
             yield* tool === "attach_files_to_response" || tool === "html_render"
@@ -854,6 +906,8 @@ export class BuildersBotToolRouter {
       ask,
       guard,
       notify,
+      // The wait for a cost approval on the Hub ends with the turn.
+      signal: request.signal,
     });
     if (!result) return null;
     return this.#guardGate

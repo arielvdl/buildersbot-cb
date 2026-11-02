@@ -45,7 +45,13 @@ const CONNECTION = {
   payer: "pay",
   payerOrgId: "org_a",
   enabled: true,
+  platforms: [
+    { id: "google-ads", name: "Google Ads", group: "seo", endpoints: 4 },
+    { id: "app-store", name: "Lojas de apps", group: "reviews", endpoints: 2 },
+  ],
 };
+
+const PLATFORM = CONNECTION.platforms[0];
 
 const VIEW = { status: "ready", connections: [CONNECTION], readAt: "2026-11-18T14:05:00.000Z" };
 
@@ -89,7 +95,14 @@ describe("decodeHubConnectionsView", () => {
     const decoded = decodeHubConnectionsView({
       ...VIEW,
       token: "cbp_secret",
-      connections: [{ ...CONNECTION, hubUrl: "https://hub", access: [{ ...ROW, refresh: "x" }] }],
+      connections: [
+        {
+          ...CONNECTION,
+          hubUrl: "https://hub",
+          access: [{ ...ROW, refresh: "x" }],
+          platforms: CONNECTION.platforms.map((platform) => ({ ...platform, logoUrl: "https://example.com/x.png" })),
+        },
+      ],
     });
     expect(decoded).toEqual(VIEW);
   });
@@ -105,6 +118,19 @@ describe("decodeHubConnectionsView", () => {
     ["an unknown cap state", { ...CONNECTION, access: [{ ...ROW, state: "over" }] }],
     ["a vendor with markup", { ...CONNECTION, dataPolicy: { ...CONNECTION.dataPolicy, vendor: "<a href=x>" } }],
     ["no enabled flag", { ...CONNECTION, enabled: undefined }],
+    ["no platform list", { ...CONNECTION, platforms: undefined }],
+    ["a platform name with markup", { ...CONNECTION, platforms: [{ ...PLATFORM, name: "<img src=x>" }] }],
+    ["a platform id that is not a slug", { ...CONNECTION, platforms: [{ ...PLATFORM, id: "../x" }] }],
+    ["a platform group that the contract does not know", { ...CONNECTION, platforms: [{ ...PLATFORM, group: "x" }] }],
+    ["a platform with no endpoint", { ...CONNECTION, platforms: [{ ...PLATFORM, endpoints: 0 }] }],
+    ["the same platform twice", { ...CONNECTION, platforms: [PLATFORM, PLATFORM] }],
+    [
+      "more than 40 platforms",
+      {
+        ...CONNECTION,
+        platforms: Array.from({ length: 41 }, (_, index) => ({ ...PLATFORM, id: `p${index}` })),
+      },
+    ],
   ])("refuses %s", (_name, connection) => {
     expect(() => decodeHubConnectionsView({ ...VIEW, connections: [connection] })).toThrow();
   });

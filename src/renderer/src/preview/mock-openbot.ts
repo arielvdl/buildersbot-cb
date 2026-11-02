@@ -131,9 +131,11 @@ import {
   type MemoryReviewPreference,
   nextBrowserProfileHue,
   normalizeMcpConfig,
+  OPTIMIZATION_IDS,
   type OpenAttachmentInput,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
+  type OptimizationId,
   PLAN_CONTINUATION_ITEM_TYPE,
   type PromptCacheTtlSetting,
   type ProviderAccountStatus,
@@ -215,6 +217,7 @@ import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
+import { createMockFeed, type MockFeedOptions } from "./mock-feed";
 import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
@@ -249,6 +252,8 @@ export interface MockBuildersBotOptions
     MockHostUpdateOptions,
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
+  /** The cards of the feed page. 40 cards of a normal day by default. */
+  feed?: MockFeedOptions;
   /** The sound center as main would read it. Not saved by default, so the window moves old choices in. */
   sounds?: Partial<SoundCenterState>;
   analyticsPreference?: AnalyticsPreference;
@@ -469,6 +474,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
   let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
+  let optimizationsOn: OptimizationId[] = [];
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
   let memoryReview: MemoryReviewPreference = { interval: DEFAULT_MEMORY_REVIEW_INTERVAL };
@@ -1198,6 +1204,16 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
       approvalAutomationListeners.add(listener);
       return () => approvalAutomationListeners.delete(listener);
     },
+    getOptimizations: async () => ({ on: [...optimizationsOn] }),
+    setOptimizations: async ({ changes }) => {
+      const on = new Set(optimizationsOn);
+      for (const change of changes) {
+        if (change.enabled) on.add(change.id);
+        else on.delete(change.id);
+      }
+      optimizationsOn = OPTIMIZATION_IDS.filter((id) => on.has(id));
+      return { on: [...optimizationsOn] };
+    },
     getBusyMessageModePreference: async () => clone(busyMessageMode),
     getGuardPreference: async () => clone(securityGuard),
     setGuardPreference: async (change: SecurityGuardPreferenceChange) => {
@@ -1635,6 +1651,12 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     },
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
+    // The cards name the agents of this preview, so a card opens a chat that exists.
+    feed: createMockFeed({
+      ...options.feed,
+      agents:
+        options.feed?.agents ?? agents.map((agent, index) => ({ id: agent.id, name: agent.name, project: index })),
+    }),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),

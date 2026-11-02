@@ -904,7 +904,13 @@ Network traffic can also occur when:
   result; the Hub tells the organization's admins. After a paid call in the person's own turn or
   routine, the chat of the agent keeps one line with the endpoint title, the amount, the currency
   and the organization that paid, in the local conversation like any other message; the Hub's
-  ledger is not copied to the computer;
+  ledger is not copied to the computer. A call above the organization's approval amount is approved
+  on the Hub: Builders Bot opens the Hub page of that cost approval in the default browser (its id is
+  in the address), and reads the state of the approval from the Hub every 2 seconds, with the proxy
+  token, until the person decides, the offer ends (at most 5 minutes) or the turn ends. "Open the Hub"
+  on the connection page opens the Hub's connections page, with no data in the address. The Cultura
+  Builder sign-in sends the fixed public client id of Builders Bot; it no longer registers a new
+  client at the Hub;
 - Builders Bot reads the MCP files of other agent apps on this computer (`~/.codex/config.toml`,
   `~/.config/opencode/opencode.json`, `~/.cursor/mcp.json` and `~/.claude.json`) to find a treg
   connection of the person's own, turn it off inside Builders Bot agents and tell the person in

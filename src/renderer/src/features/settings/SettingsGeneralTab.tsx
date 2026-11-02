@@ -39,6 +39,7 @@ import { DictationKeyField } from "./DictationKeyField";
 import { DictationModeSelect } from "./DictationModeSelect";
 import { ExternalLinkSelect } from "./ExternalLinkSelect";
 import { LidAwakeSettings } from "./LidAwakeSettings";
+import { OptimizationSettings } from "./OptimizationSettings";
 import { PersonalVendorMcpNotice } from "./PersonalVendorMcpNotice";
 import { SecretHealthNotice } from "./SecretHealthNotice";
 
@@ -390,6 +391,8 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
           </Item>
         </ItemGroup>
       </SettingsSection>
+
+      <OptimizationSettings />
     </>
   );
 }

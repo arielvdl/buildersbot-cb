@@ -45,6 +45,7 @@ import type {
   SetAppLogoColorPreferenceInput,
   SetDynamicIslandInteractiveInput,
   SetEnabledSkillInput,
+  SetOptimizationsInput,
   StartRetrySettings,
   StoppedWorkBulkInput,
   StopWorkInput,
@@ -83,6 +84,7 @@ import {
   isResumeInterruptedWorkInput,
   isResumeStoppedWorkInput,
   isRunChannelNowInput,
+  isSetOptimizationsInput,
   isSkillCategory,
   isStartRetrySettings,
   isStoppedWorkBulkInput,
@@ -131,15 +133,28 @@ export function parseBusyMessageModePreference(input: unknown): BusyMessageModeP
   return { mode: input.mode };
 }
 
+/** One to eight known switches, each one at most once, each with a boolean. Anything else is refused. */
+export function parseSetOptimizationsInput(input: unknown): SetOptimizationsInput {
+  if (!isSetOptimizationsInput(input)) throw new Error("Optimization changes are not valid.");
+  return { changes: input.changes.map(({ id, enabled }) => ({ id, enabled })) };
+}
+
 export function parseLoadLanePreference(input: unknown): LoadLanePreference {
   if (!isLoadLanePreference(input)) throw new Error("Channel lane preference is required.");
   return { enabled: input.enabled, order: [...input.order] };
 }
 
-/** The cap must be a whole number of agents from 1 to 64; anything else is refused, not clamped. */
+/**
+ * The cap must be a whole number of agents from 1 to 64, and the tabs of one agent a whole number from
+ * 1 to 4 when they are given; anything else is refused, not clamped.
+ */
 export function parseAgentLimitPreference(input: unknown): AgentLimitPreference {
   if (!isAgentLimitPreference(input)) throw new Error("An agent limit from 1 to 64 is required.");
-  return { enabled: input.enabled, max: input.max };
+  return {
+    enabled: input.enabled,
+    max: input.max,
+    ...(input.tabsPerAgent === undefined ? {} : { tabsPerAgent: input.tabsPerAgent }),
+  };
 }
 
 export function parseAutoRecoveryPreference(input: unknown): AutoRecoveryPreference {

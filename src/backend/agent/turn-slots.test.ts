@@ -13,12 +13,18 @@ function slots(input: {
   turnLimit?: number | null;
   agentLimit?: number | null;
   createdAt?: Record<string, string>;
+  /** The lanes whose head is a routine run. The others start with a message of the person. */
+  routines?: string[];
+  /** The switch `queue-priority-user`. */
+  personPlace?: boolean;
 }) {
   const head = (key: string): QueueDelivery => ({
     id: `delivery-${key}`,
     messageId: `message-${key}`,
     recipientAgentId: key.split("\u0000")[0] ?? key,
-    sender: { kind: "user" },
+    sender: (input.routines ?? []).includes(key)
+      ? { kind: "routine", routineId: "routine", runId: `run-${key}`, routineName: "Routine", scheduledFor: "" }
+      : { kind: "user" },
     text: "",
     attachments: [],
     replyToMessageId: null,
@@ -36,6 +42,7 @@ function slots(input: {
     isRunning: (key) => input.running.includes(key),
     isWaiting: (key) => (input.waiting ?? []).includes(key),
     head,
+    ...(input.personPlace === undefined ? {} : { personPlace: () => input.personPlace === true }),
   });
 }
 
@@ -74,5 +81,66 @@ describe("the cap on the agents that run", () => {
     const turnSlots = slots({ lanes, running: [lane("a")], waiting: [lane("b"), lane("c")], agentLimit: 2, createdAt });
     expect(turnSlots.mayStart(lane("b"))).toBe(true);
     expect(turnSlots.mayStart(lane("c"))).toBe(false);
+  });
+});
+
+describe("one more place for a message of the person (queue-priority-user)", () => {
+  // Two routines fill a cap of two agents, and the person writes to a third agent.
+  const lanes = [lane("a"), lane("b"), lane("c"), lane("d")];
+  const full = { lanes, running: [lane("a"), lane("b")], agentLimit: 2 };
+
+  it("holds the message while the switch is off, as before", () => {
+    expect(slots({ ...full, waiting: [lane("c")] }).mayStart(lane("c"))).toBe(false);
+    expect(slots({ ...full, waiting: [lane("c")], personPlace: false }).mayStart(lane("c"))).toBe(false);
+  });
+
+  it("starts the message on one place over the full cap while the switch is on", () => {
+    expect(slots({ ...full, waiting: [lane("c")], personPlace: true }).mayStart(lane("c"))).toBe(true);
+  });
+
+  it("gives no extra place to a routine run", () => {
+    const turnSlots = slots({ ...full, waiting: [lane("c")], routines: [lane("c")], personPlace: true });
+    expect(turnSlots.mayStart(lane("c"))).toBe(false);
+  });
+
+  it("has one extra place only: a second message of the person waits while the first one runs", () => {
+    const turnSlots = slots({
+      lanes,
+      running: [lane("a"), lane("b"), lane("c")],
+      waiting: [lane("d")],
+      agentLimit: 2,
+      personPlace: true,
+    });
+    expect(turnSlots.mayStart(lane("d"))).toBe(false);
+  });
+
+  it("gives the extra place to the oldest message of the person", () => {
+    const createdAt = { [lane("c")]: "2026-10-31T09:00:00.000Z", [lane("d")]: "2026-10-31T10:00:00.000Z" };
+    const turnSlots = slots({ ...full, waiting: [lane("c"), lane("d")], createdAt, personPlace: true });
+    expect(turnSlots.mayStart(lane("c"))).toBe(true);
+    expect(turnSlots.mayStart(lane("d"))).toBe(false);
+  });
+
+  it("never adds a place to the turns of the memory", () => {
+    const turnSlots = slots({
+      lanes,
+      running: [lane("a"), lane("b")],
+      waiting: [lane("c")],
+      turnLimit: 2,
+      personPlace: true,
+    });
+    expect(turnSlots.mayStart(lane("c"))).toBe(false);
+  });
+
+  it("keeps the cap for a routine while a message of the person uses the extra place", () => {
+    const turnSlots = slots({
+      lanes,
+      running: [lane("a"), lane("c")],
+      waiting: [lane("d")],
+      routines: [lane("d")],
+      agentLimit: 2,
+      personPlace: true,
+    });
+    expect(turnSlots.mayStart(lane("d"))).toBe(false);
   });
 });

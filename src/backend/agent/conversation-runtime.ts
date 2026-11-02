@@ -510,6 +510,16 @@ export class ConversationRuntime {
     )?.[1];
   }
 
+  /**
+   * Every running turn of the agent's own chat and of the channel and messaging threads it serves. An
+   * agent runs a turn in several channel tabs at the same time, so the drain reads them all.
+   */
+  workingSnapshots(agentId: string): ConversationSnapshot[] {
+    return [...this.activeSnapshots()]
+      .filter(([id, snapshot]) => id === agentId && snapshot.activeTurnId && !this.isTaskThread(snapshot.threadId))
+      .map(([, snapshot]) => snapshot);
+  }
+
   /** Any running turn of this agent, a task turn included. */
   anyWorkingSnapshot(agentId: string): ConversationSnapshot | undefined {
     return [...this.activeSnapshots()].find(([id, snapshot]) => id === agentId && snapshot.activeTurnId)?.[1];

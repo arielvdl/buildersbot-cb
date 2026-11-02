@@ -73,6 +73,10 @@ export const messages = defineMessages("status.agent", {
     "An agent wants to run {endpoint} from the tool catalog. It costs up to {amount}, paid by {org}. Allow sends this call once. Deny cancels it.",
   "status.agent.connectionConfirmCostPersonal":
     "An agent wants to run {endpoint} from the tool catalog with your personal plan. It costs up to {amount}. Allow sends this call once. Deny cancels it.",
+  "status.agent.connectionConfirmCostOnHub":
+    "An agent wants to run {endpoint} from the tool catalog. It costs up to {amount}, paid by {org}. You approve this cost on the Cultura Builder Hub: Allow opens the Hub in your browser, and the call runs once after you approve it there. Deny cancels it.",
+  "status.agent.connectionConfirmCostOnHubPersonal":
+    "An agent wants to run {endpoint} from the tool catalog with your personal plan. It costs up to {amount}. You approve this cost on the Cultura Builder Hub: Allow opens the Hub in your browser, and the call runs once after you approve it there. Deny cancels it.",
   "status.agent.connectionChoosePayer":
     "Who pays for {connection}? Allow makes {org} pay for this call and the next ones. Deny does not use this organization.",
   "status.agent.connectionChoosePayerPersonal":

@@ -72,7 +72,7 @@ export async function routeChannels(
         ? channels.store.firstTopic(input.channelId)
         : channels.store.topic(input.channelId, input.topicId);
     if (!topic) throw new HttpError(404, sourceText("error.backend.channelTopicNotFound"));
-    return json(200, channels.store.page(input.channelId, topic.id, input.beforeSequence));
+    return json(200, channels.page(input.channelId, topic.id, input.beforeSequence));
   }
   if (remove) {
     if (!capabilities.has(CHANNEL_DELETE_CAPABILITY))

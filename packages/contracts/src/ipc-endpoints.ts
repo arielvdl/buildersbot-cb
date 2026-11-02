@@ -305,6 +305,14 @@ import type {
   ExternalLinkFallback,
   ExternalLinkPreference,
 } from "./ipc-external-links";
+import type {
+  FeedActionInput,
+  FeedActionResult,
+  FeedDelta,
+  FeedSnapshot,
+  FeedSnapshotInput,
+  FeedWatchInput,
+} from "./ipc-feed";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
 import type { GuardPreferenceChange, GuardState } from "./ipc-guard";
 import type { ApplyHermesImportInput, HermesImportPreview } from "./ipc-hermes-import";
@@ -409,6 +417,7 @@ import type {
   OnePasswordConnectorStatus,
   OnePasswordHostConnectInput,
 } from "./ipc-onepassword-connector";
+import type { OptimizationState, SetOptimizationsInput } from "./ipc-optimizations";
 import type { PromptCacheTtl, PromptCacheTtlSetting } from "./ipc-prompt-cache";
 import type {
   DetectedModelServer,
@@ -709,6 +718,9 @@ export const IPC_ENDPOINTS = {
     // A remote owner or admin can change a grant from a phone or the web client, so main tells the
     // window instead of the window only reading the value at start.
     approvalAutomation: event<ApprovalAutomationPreference>()("app:approval-automation"),
+    // The advanced optimizations (beta) of this computer (`ipc-optimizations.ts`). Each one is off by default.
+    getOptimizations: request<undefined, OptimizationState>()("app:get-optimizations"),
+    setOptimizations: request<SetOptimizationsInput, OptimizationState>()("app:set-optimizations"),
     getBusyMessageModePreference: request<undefined, BusyMessageModePreference>()("app:get-busy-message-mode"),
     setBusyMessageModePreference: request<BusyMessageModePreference, BusyMessageModePreference>()(
       "app:set-busy-message-mode",
@@ -1012,6 +1024,23 @@ export const IPC_ENDPOINTS = {
     performHaptic: request<undefined, void>()("dynamic-island:perform-haptic"),
     action: event<DynamicIslandAction>()("dynamic-island:action"),
     setInteractive: request<SetDynamicIslandInteractiveInput, void>()("dynamic-island:set-interactive"),
+  },
+  /**
+   * The feed page: one card for each run of an agent on every server. Main keeps the cards; a window
+   * reads them all once and then gets only the changes, and only while it shows the page.
+   */
+  feed: {
+    /** The full read, when the page opens or after a gap in the delta cursor. */
+    getSnapshot: request<FeedSnapshotInput | undefined, FeedSnapshot>()("feed:get-snapshot"),
+    /** Whether this window shows the page now. Main sends deltas only to a window that does. */
+    setWatching: request<FeedWatchInput, void>()("feed:set-watching"),
+    delta: event<FeedDelta>()("feed:delta"),
+    /**
+     * An action of the person on cards: approve, deny, answer, stop, resume, reassign. The window sends
+     * ids only; main checks each card again and calls the operation that the conversation or the load
+     * panel calls. It answers which cards it did and why it did not do the others.
+     */
+    act: request<FeedActionInput, FeedActionResult>()("feed:act"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view
@@ -1424,6 +1453,11 @@ export const IPC_ENDPOINTS = {
     requestAccess: request<HubConnectionAccessRequestInput, HubConnectionAccessRequestResult>()(
       "hub-connections:request-access",
     ),
+    /**
+     * Opens the connections page of the Hub in the person's browser, where the person allows this app
+     * to spend an organization's connections. Main opens one fixed URL; the renderer sends none.
+     */
+    openConsent: request<undefined, void>()("hub-connections:open-consent"),
   },
   // The commercial license of the account. Main opens the Checkout page; the renderer never sends a URL.
   license: {
@@ -2100,6 +2134,7 @@ export const IPC_GROUP_PATHS = {
   providerRuntimes: "providerRuntimes",
   voice: "voice",
   dynamicIsland: "dynamicIsland",
+  feed: "feed",
   browserDock: "browserDock",
   computerUse: "computerUse",
   macAutomation: "macAutomation",

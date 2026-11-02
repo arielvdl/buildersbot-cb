@@ -322,7 +322,7 @@ self-hosted host that has a plan.
   writes it; add, change or delete it by hand (`openbot-auth-test` for the test Worker):
 
   ```sh
-  bunx wrangler d1 execute openbot-auth --cwd apps/auth-api --remote --command \
+  bunx wrangler d1 execute buildersbot-auth --cwd apps/auth-api --remote --command \
     "INSERT INTO server_member_limits(server_id, owner_user_id, member_limit, created_at, updated_at)
      SELECT host_id, owner_user_id, 50, unixepoch() * 1000, unixepoch() * 1000
        FROM remote_hosts WHERE host_id = '<server id>'

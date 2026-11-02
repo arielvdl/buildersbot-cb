@@ -28,6 +28,13 @@ export interface StartRetrySettings {
    * failure in a row. The last entry repeats. After the wait, one turn tries the agent's own model.
    */
   breakerMinutes: number[];
+  /**
+   * With the advanced optimization `safe-resume` on: true also continues a channel turn after a brief
+   * provider failure when an outside action of the turn, such as a post or a push, may already have
+   * happened, and tells the agent to check it first. Off, or absent in a file of an earlier version,
+   * such a task waits for the person.
+   */
+  resumeUncertainActions?: boolean;
 }
 
 /** A backup model, with the reasoning effort to use there. Absent effort keeps the agent's own when the model takes it. */
@@ -80,7 +87,8 @@ export function isStartRetrySettings(value: unknown): value is StartRetrySetting
     Array.isArray(value.breakerMinutes) &&
     value.breakerMinutes.length >= 1 &&
     value.breakerMinutes.length <= BREAKER_STEPS &&
-    value.breakerMinutes.every((minutes) => isWholeIn(minutes, 1, MAX_BREAKER_MINUTES))
+    value.breakerMinutes.every((minutes) => isWholeIn(minutes, 1, MAX_BREAKER_MINUTES)) &&
+    (value.resumeUncertainActions === undefined || isBoolean(value.resumeUncertainActions))
   );
 }
 

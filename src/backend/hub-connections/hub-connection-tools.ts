@@ -7,8 +7,11 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import {
+  HUB_CONFIRMATION_REFUSALS,
   HUB_CONNECTIONS_LIMITS,
+  HUB_PAGES,
   type HubAccessRequestKind,
+  type HubConfirmationState,
   type HubConnectionEntry,
   type HubErrorAnswer,
   type HubNeedsPersonAnswer,
@@ -34,6 +37,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { Effect, Option, Result } from "effect";
 import { z } from "zod";
+import { CULTURA_BUILDER_HUB } from "../cultura-builder-auth";
 import type { DynamicToolResult } from "../protocol";
 import { type HubConnectionClient, HubConnectionFailure, type HubOperationOutcome } from "./hub-connection-client";
 import { checkCallInput, type InputRefusal, readCallInput, valueRule } from "./hub-connection-input";
@@ -82,6 +86,8 @@ export interface HubConnectionHooks {
   readonly ask: HubConnectionAsk;
   readonly guard: HubConnectionGuard;
   readonly notify?: HubConnectionNotify | undefined;
+  /** Aborts when the turn ends: a wait for the person's approval on the Hub stops, and nothing is sent. */
+  readonly signal?: AbortSignal | undefined;
 }
 
 export interface HubConnectionToolsOptions {
@@ -90,6 +96,11 @@ export interface HubConnectionToolsOptions {
   readonly enabledOnComputer?: () => boolean;
   /** The connections that the agent's own setting turns off. */
   readonly agentConnectionsOff?: (agentId: string) => readonly string[];
+  /**
+   * Opens a page of the Hub in the person's browser: main's `shell.openExternal`. Only the URLs that
+   * `isHubPageUrl` accepts reach it. Absent: no page opens, so no cost can be approved.
+   */
+  readonly openHub?: ((url: string) => Promise<void>) | undefined;
   readonly now?: () => number;
 }
 
@@ -106,6 +117,10 @@ export const HUB_CALL_LIMITS = { perTurn: 20, lookupsPerTurn: 40, perHour: 200, 
 export const DISCOVERY_WAIT_MS = 750;
 /** A confirmation id is good for 5 minutes at most, whatever the Hub says. */
 const CONFIRMATION_MS = 5 * 60_000;
+/** How often the app reads the state of a cost approval while the person decides on the Hub page. */
+const CONFIRMATION_POLL_MS = 2_000;
+/** The pages of the Hub that the app may open: the connections page, and the page of one cost approval. */
+const HUB_PAGE_PATH = /^\/builder-ai\/conexoes(?:\/aprovar\/[A-Za-z0-9_-]{16,128})?$/u;
 const DESCRIBE_CACHE_MS = 5 * 60_000;
 const TURN_LIMIT = 64;
 /** The most conversations whose people-data approval is kept; the oldest goes first. */
@@ -116,6 +131,29 @@ const PEOPLE_DATA_SUBJECTS = 300;
 const USAGE_CACHE_MS = 30_000;
 /** The most organizations whose use one read asks the Hub for. */
 const USAGE_ORGS = 10;
+
+/**
+ * Whether a URL is a page of the Hub that the app may open in the browser: the Hub origin over https,
+ * the connections page or the page of one cost approval, with no user, query or fragment. Main checks
+ * it again before `shell.openExternal`.
+ */
+export function isHubPageUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    url.origin === CULTURA_BUILDER_HUB &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
+    HUB_PAGE_PATH.test(url.pathname)
+  );
+}
 
 /** An email address in a result. */
 const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}/u;
@@ -287,6 +325,7 @@ export class HubConnectionTools {
   readonly #client: HubConnectionClient;
   readonly #enabledOnComputer: () => boolean;
   readonly #agentConnectionsOff: (agentId: string) => readonly string[];
+  readonly #openHub: ((url: string) => Promise<void>) | null;
   readonly #now: () => number;
   readonly #turns = new Map<string, TurnState>();
   readonly #hourly: number[] = [];
@@ -304,6 +343,7 @@ export class HubConnectionTools {
     this.#client = options.client;
     this.#enabledOnComputer = options.enabledOnComputer ?? (() => true);
     this.#agentConnectionsOff = options.agentConnectionsOff ?? (() => []);
+    this.#openHub = options.openHub ?? null;
     this.#now = options.now ?? Date.now;
   }
 
@@ -362,11 +402,14 @@ export class HubConnectionTools {
     // `active` says whether the account may use the LLM, not the connections (contract §3): only the
     // capability of each connection opens it.
     const session = capabilities.success;
+    // No capability at all: the organization has no connection on for the account, so the page shows
+    // none and the catalog is not read. A connection that the Hub paused still has its entry.
+    if (Object.keys(session.connections).length === 0) return empty("off");
     const catalog = yield* Effect.result(this.#client.catalog(fresh));
     if (Result.isFailure(catalog)) return empty(failureStatus(catalog.failure.code));
     return connectionsView(
       catalog.success,
-      (id) => session.connections[id]?.enabled === true,
+      (id) => session.connections[id],
       (id) => this.#anchor(id),
       new Date(this.#now()).toISOString(),
     );
@@ -422,6 +465,23 @@ export class HubConnectionTools {
     }
     return yield* this.view(false);
   }).bind(this);
+
+  /**
+   * Opens the connections page of the Hub in the person's browser, where the person allows this app to
+   * spend an organization's connections. One fixed URL: the renderer sends none.
+   */
+  readonly openConsent = Effect.fn("HubConnectionTools.openConsent")(function* (this: HubConnectionTools) {
+    yield* this.#openPage(`${CULTURA_BUILDER_HUB}${HUB_PAGES.connections}`);
+  }).bind(this);
+
+  /** Opens a Hub page in the browser. False when no opener is set, the URL is not a Hub page, or it failed. */
+  readonly #openPage = Effect.fn("HubConnectionTools.openPage")(function* (this: HubConnectionTools, url: string) {
+    const open = this.#openHub;
+    if (!open || !isHubPageUrl(url)) return false;
+    const opened = yield* Effect.result(Effect.tryPromise(() => open(url)));
+    if (Result.isFailure(opened)) logger.warn("The Hub page did not open in the browser.");
+    return Result.isSuccess(opened);
+  });
 
   /**
    * The person asks the admins of an organization for access to a connection, or for more money in
@@ -963,7 +1023,7 @@ export class HubConnectionTools {
     if (Result.isSuccess(outcome) && outcome.success.kind === "needs-person") {
       const needs = outcome.success;
       if (needs.needsPerson === "confirm_cost") {
-        const confirmed = yield* this.#confirm(context, orgId, paidBy, described.answer, body, needs, hooks.ask);
+        const confirmed = yield* this.#confirm(context, orgId, paidBy, described.answer, body, needs, hooks);
         if (confirmed.kind === "stop") return confirmed.result;
         outcome = confirmed.outcome;
         approvedMicros = confirmed.approvedMicros;
@@ -1217,8 +1277,12 @@ export class HubConnectionTools {
   });
 
   /**
-   * The cost approval. The confirmation id stays here: the agent never sees it, and it goes to the
-   * Hub once, only after the person's click, and only within 5 minutes.
+   * The cost approval (contract §6.4). The person approves on the Hub, not on a card of this app: the
+   * Hub no longer trusts the app's word. The card says so; Allow opens the Hub page of the confirmation
+   * in the browser, and this process reads the state of the confirmation every 2 seconds until the
+   * person decides, the offer ends, or the turn ends. Only `approved` sends the call, once, with the
+   * id and the approved estimate as the ceiling. The confirmation id stays in this process: the agent
+   * never sees it, and it goes only to the Hub.
    */
   readonly #confirm = Effect.fn("HubConnectionTools.confirm")(function* (
     this: HubConnectionTools,
@@ -1228,7 +1292,7 @@ export class HubConnectionTools {
     described: ToolCatalogDescribeAnswer,
     body: ToolCatalogCallRequest,
     needs: HubNeedsPersonAnswer,
-    ask: HubConnectionAsk,
+    hooks: HubConnectionHooks,
   ) {
     type Confirmed =
       | { readonly kind: "stop"; readonly result: DynamicToolResult | null }
@@ -1245,70 +1309,130 @@ export class HubConnectionTools {
       context.origin === "agent"
         ? { needsPerson: "confirm_cost" }
         : { needsPerson: "confirm_cost", currency, estimateMicros: estimate };
+    const stop = (fields: ResultFields): Confirmed => ({ kind: "stop", result: refusal({ ...costFields, ...fields }) });
     if (context.origin !== "owner_ui")
-      return {
-        kind: "stop",
-        result: refusal({
-          ...costFields,
-          refused: true,
-          message: `${NEEDS_PERSON_TEXT.confirm_cost} Nobody can approve a cost in a routine run or in a turn that another agent started, so the call did not run. Report it, or use a cheaper call.`,
-        }),
-      } satisfies Confirmed;
+      return stop({
+        refused: true,
+        message: `${NEEDS_PERSON_TEXT.confirm_cost} Nobody can approve a cost in a routine run or in a turn that another agent started, so the call did not run. Report it, or use a cheaper call.`,
+      });
     const confirmationId = needs.confirmationId;
     const offered = Date.parse(needs.expiresAt ?? "");
     const deadline = Math.min(Number.isFinite(offered) ? offered : 0, this.#now() + CONFIRMATION_MS);
     if (!confirmationId || deadline <= this.#now())
-      return {
-        kind: "stop",
-        result: refusal({ ...costFields, message: "Cultura Builder gave no valid cost offer. Do not retry." }),
-      } satisfies Confirmed;
+      return stop({ message: "Cultura Builder gave no valid cost offer. Do not retry." });
     const endpoint = described.title;
     const amount = formatConnectionMoney(estimate, currency);
-    const answer = yield* ask(
+    const answer = yield* hooks.ask(
       orgId === PERSONAL_ORG
-        ? sourceText("status.agent.connectionConfirmCostPersonal", { endpoint, amount })
-        : sourceText("status.agent.connectionConfirmCost", { endpoint, amount, org: paidBy }),
+        ? sourceText("status.agent.connectionConfirmCostOnHubPersonal", { endpoint, amount })
+        : sourceText("status.agent.connectionConfirmCostOnHub", { endpoint, amount, org: paidBy }),
     );
     if (answer === "cancel") return { kind: "stop", result: null } satisfies Confirmed;
-    if (answer === "decline")
-      return {
-        kind: "stop",
-        result: refusal({
-          ...costFields,
-          declined: true,
-          message: "The person declined this cost. The call did not run. Do not call it again unless the person asks.",
-        }),
-      } satisfies Confirmed;
-    if (this.#now() > deadline)
-      return {
-        kind: "stop",
-        result: refusal({
-          ...costFields,
-          expired: true,
+    const declined = {
+      declined: true,
+      message: "The person declined this cost. The call did not run. Do not call it again unless the person asks.",
+    };
+    const expired = {
+      expired: true,
+      message:
+        "Nobody approved this cost on the Cultura Builder Hub before the offer ended, so the call did not run. Call it again for a new offer only if the person asks.",
+    };
+    if (answer === "decline") return stop(declined);
+    if (this.#now() > deadline) return stop(expired);
+    const opened = yield* this.#openPage(`${CULTURA_BUILDER_HUB}${HUB_PAGES.approval(confirmationId)}`);
+    if (!opened)
+      return stop({
+        message:
+          "Builders Bot could not open the Cultura Builder Hub, where the person approves this cost. The call did not run. Tell the person.",
+      });
+    const state = yield* this.#awaitApproval(orgId, confirmationId, deadline, hooks.signal);
+    switch (state) {
+      case "approved":
+        break;
+      case "canceled":
+        return { kind: "stop", result: null } satisfies Confirmed;
+      case "denied":
+        return stop(declined);
+      case "expired":
+      case "timeout":
+        return stop(expired);
+      case "used":
+        return stop({ message: "Cultura Builder says that this approval was already used. The call did not run." });
+      default:
+        return stop({
           message:
-            "The approval came after the cost offer ended, so the call did not run. Call it again for a new offer.",
-        }),
-      } satisfies Confirmed;
+            "Cultura Builder did not confirm the approval of this cost, so the call did not run. Do not retry in this turn.",
+        });
+    }
     // The approved amount is the ceiling: the Hub may charge less, never more than the person saw.
     // `maxCostMicros` only lowers the Hub's ceiling, and only this process sets it.
     const outcome = yield* Effect.result(
       this.#client.call(orgId, { ...body, confirmationId, maxCostMicros: estimate }, randomUUID()),
     );
-    // A second cost question for the same call is not asked again: it would be a loop of cards.
-    if (
-      Result.isSuccess(outcome) &&
-      outcome.success.kind === "needs-person" &&
-      outcome.success.needsPerson === "confirm_cost"
-    )
-      return {
-        kind: "stop",
-        result: refusal({
-          ...costFields,
-          message: "Cultura Builder asked again for the same call. The call did not run.",
-        }),
-      } satisfies Confirmed;
+    if (Result.isSuccess(outcome)) {
+      const sent = outcome.success;
+      // A second cost question for the same call is not asked again: it would be a loop of cards.
+      if (sent.kind === "needs-person" && sent.needsPerson === "confirm_cost")
+        return stop({ message: "Cultura Builder asked again for the same call. The call did not run." });
+      // The Hub has no approval of the person for this id: it decides, not this app.
+      if (sent.kind === "error" && sent.error === "not_allowed" && isConfirmationRefusal(sent.reason))
+        return stop({
+          ...(sent.reason === "confirmation_denied" ? { declined: true } : {}),
+          message:
+            "Cultura Builder has no approval of this cost from the person, so the call did not run. Do not call it again unless the person asks.",
+        });
+    }
     return { kind: "sent", outcome, approvedMicros: estimate } satisfies Confirmed;
   });
+
+  /**
+   * Reads the state of a cost approval every 2 seconds until the person decides on the Hub, the offer
+   * ends (`deadline`, and the Hub's own `expiresAt`), or the turn ends (`signal`). A read that fails for
+   * the network, a 5xx or a refused proxy token (a new token is asked for) is read again, and a
+   * `rate_limited` answer waits its `retryAfter` first. A signed-out session, a refused token request,
+   * a gateway with the connections off, and an error answer such as an unknown id end the wait as
+   * `failed`.
+   */
+  readonly #awaitApproval = Effect.fn("HubConnectionTools.awaitApproval")(function* (
+    this: HubConnectionTools,
+    orgId: string,
+    confirmationId: string,
+    deadline: number,
+    signal: AbortSignal | undefined,
+  ) {
+    type Wait = Exclude<HubConfirmationState, "pending"> | "timeout" | "canceled" | "failed";
+    let until = deadline;
+    for (;;) {
+      const left = until - this.#now();
+      if (left <= 0) return "timeout" satisfies Wait;
+      yield* Effect.sleep(Math.min(CONFIRMATION_POLL_MS, left));
+      if (signal?.aborted) return "canceled" satisfies Wait;
+      const read = yield* Effect.result(this.#client.confirmation(orgId, confirmationId));
+      if (Result.isFailure(read)) {
+        const code = read.failure.code;
+        if (code === "signed_out" || code === "token_refused" || code === "disabled") return "failed" satisfies Wait;
+        continue;
+      }
+      const outcome = read.success;
+      // The Hub's own limit of status reads: wait as it asks, within the deadline, then read again.
+      if (outcome.kind === "error" && outcome.error === "rate_limited") {
+        const wait = Math.min((outcome.retryAfterSeconds ?? 60) * 1000, until - this.#now());
+        if (wait > 0) yield* Effect.sleep(wait);
+        continue;
+      }
+      // An unknown id, an id of another person or organization, or another refusal: no approval can come.
+      if (outcome.kind !== "answer") return "failed" satisfies Wait;
+      const status = outcome.answer;
+      if (status.state !== "pending") return status.state satisfies Wait;
+      const expires = Date.parse(status.expiresAt);
+      if (Number.isFinite(expires)) until = Math.min(until, expires);
+    }
+  });
+}
+
+/** Whether a `not_allowed` reason says that the Hub has no approval of the person for the confirmation. */
+function isConfirmationRefusal(reason: string | null): boolean {
+  return HUB_CONFIRMATION_REFUSALS.some((refusalReason) => refusalReason === reason);
 }
 
 function payerName(decision: Extract<PayerDecision, { kind: "pay" }>): string {

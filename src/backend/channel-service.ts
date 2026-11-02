@@ -16,22 +16,28 @@ import {
   type ChannelCommand,
   type ChannelMemory,
   type ChannelMessage,
+  type ChannelPage,
   type ChannelRoutingConversationEventAction,
   type ChannelTask,
+  type ChannelTaskWait,
   type ChannelTopic,
   type ConversationSnapshot,
   type CreateChannelMemoryInput,
   channelRoutingConversationEventItemType,
   type DeleteChannelMemoryInput,
+  type OptimizationId,
   type QueueHold,
   type UpdateChannelMemoryInput,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { isFixedSourceText, matchingSourceKeys, sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Fiber, Result, Schema, Scope } from "effect";
+import type { TurnResumeMarker } from "./agent/turn-resume";
+import { CHANNEL_CONTEXT_SPILL, HISTORY_PAGE_LIMIT, historyLine, readPage } from "./channel-context-spill";
 import { type ChannelOperationError, channelFailure, channelResult, channelSync } from "./channel-effects";
 import {
   assignmentText,
+  type ChannelContextParts,
   ChannelHistory,
   type ChannelTextModel,
   type DeliveredChannelContext,
@@ -51,6 +57,16 @@ import {
   PERSON_REQUEST_REQUIRED,
 } from "./channel-management";
 import { ChannelMemoryStore } from "./channel-memory-store";
+import {
+  asksToResume,
+  CHANNEL_ROUTING,
+  type ChannelRoutingCounts,
+  type ChannelRoutingSample,
+  checkRoutingState,
+  opensFollowUp,
+  type RoutingState,
+  routingTaskState,
+} from "./channel-routing";
 import type { ChannelChange } from "./channel-store";
 import { type ChannelAssignment, type ChannelContext, type ChannelStartFailure, ChannelStore } from "./channel-store";
 import { cleanTopicName, topicNamePrompt } from "./channel-topic-name";
@@ -61,6 +77,11 @@ import { extractJsonObject, StructuredOutputError } from "./structured-output";
 export interface ChannelHooks {
   agents(): AgentSummary[];
   /**
+   * A queued delivery of a task ended before it started: a Stop, or a deleted tab or channel. The drain
+   * drops the wake-up of a safe resume that waits for it (`turn-resume.ts`). Omitted: nothing.
+   */
+  deliveryCancelled?(deliveryId: string): void;
+  /**
    * Whether the user hid this agent. A hidden member keeps its membership, but the channel gives it
    * no new work until the user restores it. A turn that already runs is not affected.
    */
@@ -69,7 +90,26 @@ export interface ChannelHooks {
   schedule(agentId: string): void;
   awaitDrain?(agentId: string): Effect.Effect<void, ChannelOperationError> | undefined;
   interrupt(agentId: string, turnId: string, threadId: string): Effect.Effect<void, ChannelOperationError>;
-  busy(agentId: string): boolean;
+  /**
+   * Whether the agent takes no new channel work now: its own chat or messaging work runs a turn, a
+   * provider that runs one turn at a time runs any turn of it, or a spent plan holds it. A message
+   * that waits in its own chat holds it too: with `since`, only one queued at or before that time,
+   * so a channel request that came first does not wait for a later chat message. Channel tabs are
+   * not here: each one is its own line of work (`tabLimit`).
+   */
+  busy(agentId: string, since?: string): boolean;
+  /**
+   * The most channel tabs of this agent that run a turn at the same time. Omitted: 1, so the agent
+   * works in one tab at a time. A provider that runs one turn at a time gives 1.
+   */
+  tabLimit?(agentId: string): number;
+  /** Whether the computer is low on memory: no new turn starts, and no agent opens a second tab. */
+  memoryLow?(): boolean;
+  /**
+   * Whether this turn of the agent waits for the person: a question, an approval or a browser
+   * takeover. Such a tab takes no place among the agent's parallel tabs while its limit is above 1.
+   */
+  waitsOnPerson?(agentId: string, turnId: string): boolean;
   /** Whether a spent provider plan holds this agent, so a routing turn on its model would be refused. */
   usageLimited?(agentId: string): boolean;
   /**
@@ -85,6 +125,10 @@ export interface ChannelHooks {
    * packet leave out the messages that the session read: a compaction resets what it read.
    */
   reportsCompactions?(agentId: string): boolean;
+  /** Whether an optimization of Settings > Advanced optimizations is on. Omitted, each one is off. */
+  optimizationEnabled?(id: OptimizationId): boolean;
+  /** One routing generation with the `routing` optimization on, as counts and times only (no text). */
+  routingMeasured?(sample: ChannelRoutingSample): void;
   /** The thread's snapshot when main has it in memory, which a streaming turn always has. */
   loadedSnapshot?(threadId: string): ConversationSnapshot | undefined;
   /** Removes live provider state for an execution thread before its durable rows are deleted. */
@@ -243,6 +287,16 @@ export class ChannelService {
   readonly #acceptedContexts = new Set<string>();
   /** By delivery: the count of in-place message changes when its packet was built. */
   readonly #preparedChanges = new Map<string, number>();
+  /**
+   * With `channel-context-spill`. By delivery: the hashes of the fixed parts of its packet. By
+   * channel, agent and session, as `#acceptedContexts`: the hashes of the parts that the session read,
+   * so its next delta leaves out each part that has not changed.
+   */
+  readonly #preparedParts = new Map<string, ChannelContextParts>();
+  readonly #deliveredParts = new Map<string, ChannelContextParts>();
+  /** With the `routing` optimization: by task, the routing answers that a change to its tab discarded. */
+  readonly #routingDiscards = new Map<string, number>();
+  readonly #routingCounts: ChannelRoutingCounts = { generations: 0, discarded: 0, keptAfterLimit: 0 };
 
   constructor(
     database: BuildersBotDatabase,
@@ -616,14 +670,17 @@ export class ChannelService {
           : undefined;
         if (command.replyToMessageId && !referenced)
           return yield* channelFailure(new Error(sourceText("error.backend.channelReferenceUnavailable")));
-        const allTasks = yield* channelSync(() => this.store.tasks(current.id));
+        // With the `routing` optimization on, only the tasks of the message's tab count, so a follow-up
+        // in one tab never continues the work of another tab, and work in another tab does not hide the
+        // one open task of this tab. Child tasks are in the tab of their parent.
+        const optimized = this.#routingOptimized();
+        const allTasks = yield* channelSync(() =>
+          optimized ? this.store.tasks(current.id, topicId) : this.store.tasks(current.id),
+        );
         const open = allTasks.filter((task) => !terminal(task));
         const eligible = this.eligibleMembers(current);
         const recipients = this.#recipients(eligible, text, command.recipientAgentId);
-        const continues =
-          /^(?:also|instead|actually|please change|change that|correction|continue|resume|go on|keep going|yes|no|use that|make it)\b/iu.test(
-            text.trim(),
-          );
+        const continues = opensFollowUp(text, optimized);
         // Each recipient answers separately, so a request to several members starts new work; it
         // does not continue the one task that a reply names. When the open work is the tasks that
         // several members own for one request, a follow-up continues each one that the user stopped,
@@ -656,7 +713,7 @@ export class ChannelService {
               ? allTasks.filter((task) => task.id === referenced.taskId)
               : !continues
                 ? []
-                : !referenced && newestStopped && /^(?:continue|resume|go on|keep going)\b/iu.test(text.trim())
+                : !referenced && newestStopped && asksToResume(text, optimized)
                   ? recipients[0]
                     ? [recipientStopped ?? newestStopped]
                     : stoppedRequest
@@ -1010,15 +1067,101 @@ export class ChannelService {
     // task record while the previous owner still runs its turn, so the identity of the owner
     // alone does not show that the task is free: the assignment of the previous owner does.
     return (
-      assignments.some((assignment) => assignment.agentId === task.ownerAgentId || assignment.taskId === task.id) ||
+      assignments.some((assignment) => assignment.taskId === task.id) ||
+      this.#laneWait(task, tasks, assignments) !== null ||
       // The parallel limit is the tab's, not the channel's: a second tab runs beside a busy first one.
-      // The agent rule above still holds across tabs, so one agent never opens two sessions here.
       assignments.filter((assignment) => {
         const ofAssignment = tasks.get(assignment.taskId);
         return ofAssignment?.channelId === task.channelId && ofAssignment.topicId === task.topicId;
       }).length >= CHANNEL_PARALLEL_LIMIT ||
       task.dependencies.some((id) => tasks.get(id)?.state !== "completed")
     );
+  }
+
+  /**
+   * Why the lines of work of the task's owner hold it, or null. Each tab of a channel is its own line
+   * of work for each agent, with its own provider session: the requests of one tab start one after
+   * the other (`tab`), and the tabs of one agent run beside each other up to its limit (`agent-tabs`).
+   * With a limit above 1, a tab whose turn waits for the person, or whose task waits for its next
+   * start try (`startRetry`), takes no place. While memory is low,
+   * an agent that works opens no second line (`memory`); its first one waits in the drain, as before.
+   */
+  #laneWait(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+  ): ChannelTaskWait | null {
+    const owner = task.ownerAgentId;
+    if (!owner) return null;
+    const own = assignments.filter((assignment) => assignment.agentId === owner && assignment.taskId !== task.id);
+    if (!own.length) return null;
+    const sameTab = own.some((assignment) => {
+      const ofAssignment = tasks.get(assignment.taskId);
+      return ofAssignment?.channelId === task.channelId && ofAssignment.topicId === task.topicId;
+    });
+    if (sameTab) return { reason: "tab" };
+    const limit = this.#tabLimit(owner);
+    // A tab that waits runs no turn: for the person, or for its next start try after a start failed
+    // (`startRetry`, on the agent's own model or a backup). It takes no place while the limit is above 1.
+    const working =
+      limit > 1
+        ? own.filter(
+            (assignment) =>
+              !(
+                (assignment.state === "running" &&
+                  assignment.turnId !== null &&
+                  this.hooks.waitsOnPerson?.(owner, assignment.turnId)) ||
+                (assignment.state === "queued" && assignment.startRetry !== undefined)
+              ),
+          )
+        : own;
+    if (working.length >= limit) return { reason: "agent-tabs", busy: working.length, limit };
+    if (this.hooks.memoryLow?.()) return { reason: "memory" };
+    return null;
+  }
+
+  /** The most channel tabs of this agent that run a turn at the same time (`ChannelHooks.tabLimit`). */
+  #tabLimit(agentId: string): number {
+    const limit = this.hooks.tabLimit?.(agentId) ?? 1;
+    return Number.isInteger(limit) && limit > 1 ? limit : 1;
+  }
+
+  /**
+   * Whether the owner's own chat or other work of the whole agent holds this task (`ChannelHooks.busy`).
+   * A chat message that came after the request does not hold it, so the queue order stays.
+   */
+  #ownerBusy(task: ChannelTask, ownerAgentId: string): boolean {
+    return this.hooks.busy(ownerAgentId, this.store.message(task.channelId, task.requestMessageId)?.message.createdAt);
+  }
+
+  /**
+   * The oldest request of the same owner that waits for a place among its tabs and could start now.
+   * Channels are pumped one after the other, so without this the first channel to see the free place
+   * takes it, and a tab that waited longer in another channel could wait for ever.
+   */
+  #olderTabWaiter(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+    prune = true,
+  ): ChannelTask | undefined {
+    const place = this.#queuePlaces.get(task.id);
+    for (const [id, otherPlace] of this.#queuePlaces) {
+      const waiter = tasks.get(id);
+      if (waiter?.state !== "queued") {
+        if (prune) this.#queuePlaces.delete(id);
+        continue;
+      }
+      if (id === task.id || waiter.ownerAgentId !== task.ownerAgentId) continue;
+      if (place !== undefined && otherPlace > place) continue;
+      // A waiter that a resource holds does not start either, so it must not hold this one back.
+      if (
+        this.#waiterReady(waiter, tasks, assignments) &&
+        !assignments.some((assignment) => resourcesConflict(waiter.resources, assignment.resources))
+      )
+        return waiter;
+    }
+    return undefined;
   }
 
   /** Gives a task that resources hold back its place in the queue, once. */
@@ -1038,7 +1181,7 @@ export class ChannelService {
     const ownerAgentId = waiter.ownerAgentId;
     if (waiter.state !== "queued" || !ownerAgentId || this.#deletedChannels.has(waiter.channelId)) return false;
     if (this.#waitsForWork(waiter, tasks, assignments)) return false;
-    if (this.hooks.busy(ownerAgentId) || this.hooks.usageLimited?.(ownerAgentId)) return false;
+    if (this.#ownerBusy(waiter, ownerAgentId) || this.hooks.usageLimited?.(ownerAgentId)) return false;
     const channel = this.store.get(waiter.channelId);
     return (
       !channel.archived &&
@@ -1113,7 +1256,7 @@ export class ChannelService {
       owner = onlyMember;
     }
     if (this.hooks.usageLimited?.(owner) || this.hooks.hidden?.(owner)) return "waits";
-    if (this.hooks.busy(owner)) return "owner-busy";
+    if (this.#ownerBusy(task, owner)) return "owner-busy";
     // An owner that left the channel or was deleted: the next pass pauses the task with a reason.
     if (
       !channel.members.some((member) => member.agentId === owner) ||
@@ -1121,9 +1264,55 @@ export class ChannelService {
     )
       return null;
     const owned = { ...task, ownerAgentId: owner };
+    // The owner works in this tab or in as many tabs as it may: its own work holds the request, as a
+    // turn of its own chat does, and the request starts when that work ends.
+    const lane = this.#laneWait(owned, tasks, assignments);
+    if (lane && lane.reason !== "memory") return "owner-busy";
     if (this.#waitsForWork(owned, tasks, assignments)) return "waits";
     if (assignments.some((assignment) => resourcesConflict(task.resources, assignment.resources))) return "waits";
+    if (this.#olderTabWaiter(owned, tasks, assignments, false)) return "owner-busy";
     return this.#olderWaiter(owned, tasks, assignments, false) ? "waits" : null;
+  }
+
+  /**
+   * The page of one tab, with the reason each queued task waits (`ChannelTask.wait`) where the person
+   * can act on it or should know it. The IPC and the Team API read a page here, not from the store.
+   */
+  page(channelId: string, topicId: string, before?: number): ChannelPage {
+    const page = this.store.page(channelId, topicId, before);
+    if (this.#stopped || !page.tasks.some((task) => task.state === "queued")) return page;
+    const { tasks, assignments } = this.#scheduling();
+    return {
+      ...page,
+      tasks: page.tasks.map((task) => {
+        const wait = task.state === "queued" ? this.#taskWait(tasks.get(task.id) ?? task, tasks, assignments) : null;
+        return wait ? { ...task, wait } : task;
+      }),
+    };
+  }
+
+  /** Why a queued task waits, as `page` shows it, or null when no reason applies. */
+  #taskWait(
+    task: ChannelTask,
+    tasks: ReadonlyMap<string, ChannelTask>,
+    assignments: readonly ChannelAssignment[],
+  ): ChannelTaskWait | null {
+    const owner = task.ownerAgentId;
+    if (!owner || this.hooks.usageLimited?.(owner) || this.hooks.hidden?.(owner)) return null;
+    const own = assignments.find((assignment) => assignment.taskId === task.id);
+    // A started request waits in the drain while memory is low, as a request to the agent's own chat does.
+    if (own) return own.state === "starting" && this.hooks.memoryLow?.() ? { reason: "memory" } : null;
+    const lane = this.#laneWait(task, tasks, assignments);
+    if (lane) return lane;
+    if (this.#ownerBusy(task, owner)) return { reason: "agent-chat" };
+    const older = this.#olderTabWaiter(task, tasks, assignments, false);
+    if (!older) return null;
+    const limit = this.#tabLimit(owner);
+    return {
+      reason: "agent-tabs",
+      busy: Math.min(limit, assignments.filter((item) => item.agentId === owner).length),
+      limit,
+    };
   }
 
   /**
@@ -1326,6 +1515,86 @@ export class ChannelService {
     });
   }
 
+  /** Whether the `routing` optimization of Settings > Advanced optimizations is on. */
+  #routingOptimized(): boolean {
+    return this.hooks.optimizationEnabled?.(CHANNEL_ROUTING) ?? false;
+  }
+
+  /**
+   * What a routing answer depends on, with the `routing` optimization on: the channel settings and the
+   * routed task (`core`), and the tasks and active assignments of its tab (`tab`). The work of the
+   * other tabs is not in the routing prompt, so a change there does not make the answer stale.
+   */
+  #tabRoutingState(channelId: string, task: ChannelTask): RoutingState {
+    const channel = this.store.get(channelId);
+    const tasks = this.store.tasks(channelId, this.#topicOfTask(task));
+    const ids = new Set(tasks.map((item) => item.id));
+    const routed = tasks.find((item) => item.id === task.id);
+    return {
+      core: JSON.stringify({
+        archived: channel.archived,
+        title: channel.title,
+        instructions: channel.instructions,
+        members: channel.members,
+        leadAgentId: channel.leadAgentId,
+        task: routed ? routingTaskState(routed) : null,
+      }),
+      tab: JSON.stringify({
+        tasks: tasks.map(routingTaskState),
+        assignments: this.store
+          .assignments(channelId)
+          .filter((item) => activeAssignment(item) && ids.has(item.taskId))
+          .map(({ id, agentId, taskRevision, pendingRevision, state }) => ({
+            id,
+            agentId,
+            taskRevision,
+            pendingRevision,
+            state,
+          })),
+      }),
+    };
+  }
+
+  /**
+   * Whether a routing answer is stale, so the lead routes the task again. Off, any change to the
+   * channel makes it stale, as before the switch. On, see `checkRoutingState`: an answer that the
+   * discard limit keeps is `kept-after-limit`.
+   */
+  #routingFreshness(
+    channelId: string,
+    before: string | RoutingState,
+    task: ChannelTask,
+  ): "fresh" | "stale" | "kept-after-limit" {
+    if (typeof before === "string") return this.routingState(channelId) === before ? "fresh" : "stale";
+    const discards = this.#routingDiscards.get(task.id) ?? 0;
+    const after = this.#tabRoutingState(channelId, task);
+    const check = checkRoutingState(before, after, discards);
+    if (check === "discard") {
+      this.#routingCounts.discarded += 1;
+      // A change to the task itself starts its count again; a change to its tab adds one.
+      if (before.core !== after.core) this.#routingDiscards.delete(task.id);
+      else this.#routingDiscards.set(task.id, discards + 1);
+      return "stale";
+    }
+    this.#routingDiscards.delete(task.id);
+    if (check === "same") return "fresh";
+    this.#routingCounts.keptAfterLimit += 1;
+    return "kept-after-limit";
+  }
+
+  #measureRouting(sample: ChannelRoutingSample): void {
+    try {
+      this.hooks.routingMeasured?.(sample);
+    } catch (error) {
+      this.hooks.error(error);
+    }
+  }
+
+  /** The routing totals of this process, with the `routing` optimization on: counts only. */
+  routingCounts(): ChannelRoutingCounts {
+    return { ...this.#routingCounts };
+  }
+
   /**
    * The members a task could actually be given to: a member row alone is not enough, because an
    * agent can be deleted, unavailable or hidden while its membership stays. This is the same
@@ -1455,7 +1724,18 @@ export class ChannelService {
         }
       }
       if (!task.ownerAgentId) {
-        const revision = this.routingState(channelId);
+        // Read once for this routing: a switch that changes while the lead routes applies to the next one.
+        const optimized = this.#routingOptimized();
+        const revision = optimized ? this.#tabRoutingState(channelId, task) : this.routingState(channelId);
+        // With the switch on, the generation of this pass, until its one sample goes to the log.
+        let generation: (Omit<ChannelRoutingSample, "outcome" | "generationMs"> & { startedAt: number }) | null = null;
+        const measure = (outcome: ChannelRoutingSample["outcome"]): void => {
+          if (!generation) return;
+          const { startedAt, ...sample } = generation;
+          generation = null;
+          this.#measureRouting({ ...sample, outcome, generationMs: Date.now() - startedAt });
+        };
+        let answerTaken = false;
         const lead = this.hooks.agents().find((agent) => agent.id === channel.leadAgentId);
         // A hidden lead routes nothing. The task waits queued until the user restores the lead; the
         // queue event of the restore wakes the channel again.
@@ -1501,7 +1781,15 @@ export class ChannelService {
               taskId: item.taskId,
               text: item.message.text.slice(-ROUTING_TEXT_CHARACTERS),
             }));
-          const tasks = channelResult(yield* Effect.result(channelSync(() => this.store.tasks(channelId))))
+          // With the switch on, the lead sees the open work of the request's tab only: a tab is its own
+          // conversation, and an answer that continued a task of another tab moved the request there.
+          const tasks = channelResult(
+            yield* Effect.result(
+              channelSync(() =>
+                optimized ? this.store.tasks(channelId, this.#topicOfTask(task)) : this.store.tasks(channelId),
+              ),
+            ),
+          )
             .filter((item) => !terminal(item))
             .map((item) => ({
               id: item.id,
@@ -1546,14 +1834,33 @@ export class ChannelService {
           }
           if (prompt.length > ROUTING_PROMPT_CHARACTERS)
             throw new ChannelRoutingError(sourceText("error.backend.channelRoutingTooLong"));
+          if (optimized) {
+            this.#routingCounts.generations += 1;
+            generation = {
+              attempt: (this.#routingDiscards.get(task.id) ?? 0) + 1,
+              promptCharacters: prompt.length,
+              members: agents.length,
+              tabTasks: tasks.length,
+              startedAt: Date.now(),
+            };
+          }
+          // With the switch on, the generation asks for the lowest effort of the lead's model.
           const response = channelResult(
-            yield* Effect.result(this.hooks.generate(lead, prompt).pipe(Effect.mapError(channelFailure))),
+            yield* Effect.result(
+              this.hooks
+                .generate(lead, prompt, optimized ? "routing" : undefined)
+                .pipe(Effect.mapError(channelFailure)),
+            ),
           );
           if (this.#deletedChannels.has(channelId)) return;
-          if (this.routingState(channelId) !== revision) {
+          const freshness = this.#routingFreshness(channelId, revision, task);
+          if (freshness === "stale") {
+            measure("discarded");
             this.#wakeAgain.add(channelId);
             continue;
           }
+          measure(freshness === "kept-after-limit" ? "kept-after-limit" : "routed");
+          answerTaken = true;
           channel = channelResult(yield* Effect.result(channelSync(() => this.store.get(channelId))));
           let decision: typeof RoutingDecision.Type;
           let keys: string[] | null = null;
@@ -1577,9 +1884,13 @@ export class ChannelService {
             throw new ChannelRoutingError(sourceText("error.backend.channelRoutingUnreadable"));
           }
           if ("taskId" in decision) {
-            const existing = channelResult(yield* Effect.result(channelSync(() => this.store.tasks(channelId)))).find(
-              (item) => item.id === decision.taskId && item.id !== task?.id && !terminal(item),
-            );
+            const existing = channelResult(
+              yield* Effect.result(
+                channelSync(() =>
+                  optimized ? this.store.tasks(channelId, this.#topicOfTask(task)) : this.store.tasks(channelId),
+                ),
+              ),
+            ).find((item) => item.id === decision.taskId && item.id !== task?.id && !terminal(item));
             if (!existing?.ownerAgentId)
               throw new ChannelRoutingError(sourceText("error.backend.channelRequestMemberRequired"));
             const ownerAgentId = existing.ownerAgentId;
@@ -1691,16 +2002,21 @@ export class ChannelService {
           if (siblings.length) this.#wakeAgain.add(channelId);
           channel = channelResult(yield* Effect.result(channelSync(() => this.store.get(channelId))));
         } catch (error) {
-          if (this.routingState(channelId) !== revision) {
+          // On, an answer that the check above took is not checked again: its decision failed on its
+          // own, and a second check would route again past the discard limit.
+          if ((!optimized || !answerTaken) && this.#routingFreshness(channelId, revision, task) === "stale") {
+            measure("discarded");
             this.#wakeAgain.add(channelId);
             continue;
           }
           // A spent plan refused the routing turn and now holds the lead. The task is not paused for
           // a human: it stays queued, and the reset wakes the channel again.
           if (lead && this.hooks.usageLimited?.(lead.id)) {
+            measure("held");
             yield* channelSync(() => this.#heldByLimit(channelId, task, lead.id));
             continue;
           }
+          measure("paused");
           channel = yield* channelSync(() => this.store.get(channelId));
           // A cause without channel text goes to the redacted error path; without it no one could
           // see why routing failed.
@@ -1732,7 +2048,7 @@ export class ChannelService {
       }
       if (!task.ownerAgentId) continue;
       // A hidden owner keeps the task. It waits, as for a busy owner, until the user restores the agent.
-      if (this.hooks.busy(task.ownerAgentId) || this.hooks.hidden?.(task.ownerAgentId)) {
+      if (this.#ownerBusy(task, task.ownerAgentId) || this.hooks.hidden?.(task.ownerAgentId)) {
         this.#waitingForAgents.add(channelId);
         continue;
       }
@@ -1749,7 +2065,13 @@ export class ChannelService {
         continue;
       }
       const { tasks: allTasks, assignments: allAssignments } = yield* channelSync(() => this.#scheduling());
-      if (this.#waitsForWork(task, allTasks, allAssignments)) continue;
+      if (this.#waitsForWork(task, allTasks, allAssignments)) {
+        // A request that waits for a place among the agent's tabs keeps the time it began to wait, so
+        // the tab that waited longest takes the next free place (`#olderTabWaiter`).
+        const lane = this.#laneWait(task, allTasks, allAssignments);
+        if (lane && lane.reason !== "tab") this.#holdPlace(task.id);
+        continue;
+      }
       // Read the reservation from the assignment, not from its task: a transfer can lower the
       // resources of a task that still runs, and the record of the task would then report a
       // reservation that the running turn has not released.
@@ -1765,6 +2087,17 @@ export class ChannelService {
         this.#holdPlace(task.id);
         const held = this.#heldBehind.get(olderWaiter.id) ?? new Set<string>();
         this.#heldBehind.set(olderWaiter.id, held.add(channelId));
+        continue;
+      }
+      // The free place of the agent goes to its tab that waited longest, in any channel. Another
+      // channel is woken, so that tab does not wait for an event of its own; in this channel the pass
+      // reaches it in its turn.
+      const olderTab = yield* channelSync(() => this.#olderTabWaiter(task, allTasks, allAssignments));
+      if (olderTab) {
+        this.#holdPlace(task.id);
+        const held = this.#heldBehind.get(olderTab.id) ?? new Set<string>();
+        this.#heldBehind.set(olderTab.id, held.add(channelId));
+        if (olderTab.channelId !== channelId) yield* this.wake(olderTab.channelId);
         continue;
       }
       this.#queuePlaces.delete(task.id);
@@ -2004,8 +2337,8 @@ export class ChannelService {
    */
   reservesBeside(agentId: string, turnId: string | null): boolean {
     if (this.store.hasAgentAssignmentInState(agentId, ["starting", "queued"])) return true;
-    const running = this.store.agentAssignment(agentId, ["running"]);
-    return running !== null && running.assignment.turnId !== turnId;
+    // The agent can run a turn in several channel tabs: each one other than `turnId` holds its chat.
+    return this.store.agentAssignments(agentId, ["running"]).some((assignment) => assignment.turnId !== turnId);
   }
 
   /**
@@ -2032,11 +2365,17 @@ export class ChannelService {
   queueHold(agentId: string): QueueHold | null {
     const reserving = this.store.agentAssignment(agentId, ACTIVE_ASSIGNMENT_STATES);
     if (!reserving) return null;
+    const task = this.store.tasks(reserving.channel.id).find((item) => item.id === reserving.assignment.taskId);
+    const topicName = task?.topicId ? this.store.topic(reserving.channel.id, task.topicId)?.name : undefined;
+    // The chat waits for every tab where the agent works, so the queue says how many there are.
+    const tabs = this.store.agentAssignments(agentId, ACTIVE_ASSIGNMENT_STATES).length;
     return {
       reason: "channel-task",
       channelId: reserving.channel.id,
       channelName: reserving.channel.title.trim() || reserving.channel.name,
       agentId: reserving.assignment.agentId,
+      ...(topicName ? { topicName } : {}),
+      tabs: Math.max(1, tabs),
     };
   }
 
@@ -2052,6 +2391,7 @@ export class ChannelService {
     return Effect.gen({ self: this }, function* () {
       this.#deltas.delete(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const assignment = yield* channelSync(() => this.store.assignmentForDelivery(deliveryId));
       if (!assignment || !activeAssignment(assignment)) return;
       const task = (yield* channelSync(() => this.store.tasks(assignment.channelId))).find(
@@ -2093,6 +2433,34 @@ export class ChannelService {
     this.publish(assignment.channelId);
     return true;
   });
+
+  /**
+   * The note of a turn that a brief provider failure stopped for the person ("this may already be done"),
+   * for the next delivery of the same task after the person resumed or reassigned it: the last earlier
+   * assignment of the task keeps it on its delivery (`TurnResumeMarker.forPerson`). Null for any other
+   * delivery.
+   */
+  carriedTurnResume(deliveryId: string): TurnResumeMarker | null {
+    const assignment = this.store.assignmentForDelivery(deliveryId);
+    if (!assignment) return null;
+    const earlier = this.store
+      .assignments(assignment.channelId)
+      .filter((item) => item.taskId === assignment.taskId && item.id !== assignment.id && item.deliveryId);
+    const last = earlier.at(-1);
+    const marker = last?.deliveryId ? this.mailbox.getDelivery(last.deliveryId)?.turnResume : undefined;
+    return marker?.forPerson ? marker : null;
+  }
+
+  /**
+   * Whether `holdForStartRetry` would hold this delivery now: it has an active assignment with no
+   * pending transfer, and its task did not change and still runs or waits. It changes nothing.
+   */
+  mayHoldForStartRetry(deliveryId: string): boolean {
+    const assignment = this.store.assignmentForDelivery(deliveryId);
+    if (!assignment || !activeAssignment(assignment) || assignment.pendingRevision !== null) return false;
+    const task = this.store.tasks(assignment.channelId).find((item) => item.id === assignment.taskId);
+    return task?.revision === assignment.taskRevision && (task.state === "queued" || task.state === "running");
+  }
 
   /**
    * A spent provider plan holds the agent of this delivery. The task goes back to the queue with a
@@ -2400,7 +2768,8 @@ export class ChannelService {
     if (!agent) return yield* channelFailure(new Error(sourceText("error.backend.channelAssigneeUnavailable")));
     const context = yield* channelSync(() => this.store.context(channel.id, this.#topicOfTask(task), agent.id));
     this.#preparedChanges.set(delivery.delivery.id, this.store.completedMessageChanges(channel.id));
-    const delivered = this.#deliveredContext(channel.id, context, agent);
+    const spill = this.#spill();
+    const delivered = this.#deliveredContext(channel.id, context, agent, spill);
     const history = yield* this.#history.prepare(
       task,
       agent,
@@ -2408,10 +2777,13 @@ export class ChannelService {
       delivered,
       this.#peers(tasks, task),
       this.hooks.contextCharacters?.(agent.id, context.threadId),
+      spill,
     );
     if (delivered && history.delta !== null)
       this.#deltas.set(delivery.delivery.id, { sessionId: delivered.sessionId, text: history.delta });
     else this.#deltas.delete(delivery.delivery.id);
+    if (history.parts) this.#preparedParts.set(delivery.delivery.id, history.parts);
+    else this.#preparedParts.delete(delivery.delivery.id);
     const current = (yield* channelSync(() => this.store.tasks(channel.id))).find((item) => item.id === task.id);
     if (
       !current ||
@@ -2438,6 +2810,7 @@ export class ChannelService {
     channelId: string,
     context: ChannelContext,
     agent: AgentSummary,
+    spill = false,
   ): (DeliveredChannelContext & { sessionId: string }) | null {
     if (
       !context.sessionId ||
@@ -2447,20 +2820,33 @@ export class ChannelService {
     )
       return null;
     const session = this.store.database.activeProviderSession(context.threadId, agent.provider);
-    return session?.externalSessionId === context.sessionId
-      ? { sessionId: context.sessionId, throughSequence: context.throughSequence }
-      : null;
+    if (session?.externalSessionId !== context.sessionId) return null;
+    const parts = spill
+      ? this.#deliveredParts.get(JSON.stringify([channelId, agent.id, context.sessionId]))
+      : undefined;
+    return { sessionId: context.sessionId, throughSequence: context.throughSequence, ...(parts ? { parts } : {}) };
+  }
+
+  /** Whether the optimization `channel-context-spill` is on. Off, the channel context is as before it. */
+  #spill(): boolean {
+    return this.hooks.optimizationEnabled?.(CHANNEL_CONTEXT_SPILL) ?? false;
   }
 
   #acceptContext(
     channelId: string,
+    topicId: string,
     agentId: string,
     sessionId: string,
     throughSequence: number,
     summaryVersion: number,
+    parts?: ChannelContextParts,
   ): void {
-    this.store.acceptContext(channelId, agentId, sessionId, throughSequence, summaryVersion);
-    this.#acceptedContexts.add(JSON.stringify([channelId, agentId, sessionId]));
+    this.store.acceptContext(channelId, topicId, agentId, sessionId, throughSequence, summaryVersion);
+    const key = JSON.stringify([channelId, agentId, sessionId]);
+    this.#acceptedContexts.add(key);
+    // A packet without them repeats every part, so the session has read the parts it gave.
+    if (parts) this.#deliveredParts.set(key, parts);
+    else this.#deliveredParts.delete(key);
   }
 
   /** The packet of a delivery with only the unread messages, and the session that read the others. */
@@ -2502,6 +2888,8 @@ export class ChannelService {
       // The cursor goes to zero, and the next packet is complete.
       const prepared = this.#preparedChanges.get(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      const parts = this.#preparedParts.get(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const cursor =
         prepared === undefined || prepared === this.store.completedMessageChanges(assignment.channelId)
           ? { throughSequence: assignment.throughSequence, summaryVersion: assignment.summaryVersion }
@@ -2514,10 +2902,12 @@ export class ChannelService {
         yield* channelSync(() =>
           this.#acceptContext(
             assignment.channelId,
+            this.#topicOfTask(task),
             assignment.agentId,
             sessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            parts,
           ),
         );
       }
@@ -2570,8 +2960,9 @@ export class ChannelService {
       return true;
     }
     if (event.type === "turn-started") {
-      const channelId = this.store.channelForThread(event.threadId);
-      if (!channelId) return false;
+      const context = this.store.contextOfThread(event.threadId);
+      if (!context) return false;
+      const channelId = context.channelId;
       // No delivery was starting, as when Claude or OpenCode starts a turn after a background job
       // ends. That turn is not the member's next assignment: taking it ran the provider's answer as
       // that task, and the task's own start then failed.
@@ -2579,14 +2970,19 @@ export class ChannelService {
         this.#providerTurns.add(event.turnId);
         return true;
       }
-      const assignment = this.store
-        .assignments(channelId)
-        .find((item) => item.agentId === event.agentId && activeAssignment(item));
+      // The assignment of this tab: the agent can run a turn in another tab of the same channel too.
+      const assignment = this.#tabAssignment(channelId, context.topicId, event.agentId);
       const agent = this.hooks.agents().find((item) => item.id === event.agentId);
       const session = agent ? this.store.database.activeProviderSession(event.threadId, agent.provider) : null;
       if (assignment?.deliveryId && session)
         this.#dispatchEvent(this.accepted(assignment.deliveryId, session.externalSessionId, event.turnId));
       return true;
+    }
+    // A turn that begins to wait for the person frees its place among the agent's tabs
+    // (`#laneWait`), so a tab that waited for that place can start now.
+    if (event.type === "prompt" || event.type === "approval" || event.type === "browser-takeover-requested") {
+      if (this.store.hasAssignmentInState(["running"])) this.#dispatchEvent(this.wake());
+      return false;
     }
     if (event.type === "turn-progress") return this.store.channelForThread(event.threadId) !== null;
     if (event.type === "queue-changed") {
@@ -2619,31 +3015,42 @@ export class ChannelService {
     );
   }
 
+  /** The active assignment of an agent in one tab. An agent has at most one there (`#laneWait`). */
+  #tabAssignment(channelId: string, topicId: string, agentId: string): ChannelAssignment | undefined {
+    const tasks = new Map(this.store.tasks(channelId, topicId).map((task) => [task.id, task] as const));
+    return this.store
+      .assignments(channelId)
+      .find((item) => item.agentId === agentId && activeAssignment(item) && tasks.has(item.taskId));
+  }
+
   private capture(snapshot: ConversationSnapshot, turnId?: string): boolean {
-    const channelId = snapshot.threadId ? this.store.channelForThread(snapshot.threadId) : null;
-    if (!channelId) return false;
+    const context = snapshot.threadId ? this.store.contextOfThread(snapshot.threadId) : null;
+    if (!context) return false;
+    const channelId = context.channelId;
     const assignments = this.store.assignments(channelId);
     const name = this.hooks.agents().find((agent) => agent.id === snapshot.agentId)?.name ?? "Former member";
     // Indexed once, not per message: a streaming turn calls this for every delta, and the thread
     // holds every message of the whole conversation. A read of the task table and two scans of the
     // channel history for each of them made one capture cost the square of the transcript.
     const tasks = new Map(this.store.tasks(channelId).map((task) => [task.id, task] as const));
-    const topicOfTask = assignments.length ? tasks.get(assignments[0]?.taskId ?? "")?.topicId : undefined;
-    // A delta reads the few messages of its turn by id. A whole snapshot reads the history once.
+    // The thread is one tab's, so its rows are that tab's history.
     const history =
       turnId === undefined
-        ? new Map(
-            this.store
-              .messages(channelId, topicOfTask ?? this.#topicId(channelId, undefined))
-              .map((message) => [message.id, message] as const),
-          )
+        ? new Map(this.store.messages(channelId, context.topicId).map((message) => [message.id, message] as const))
         : new Map<string, ChannelMessage | null>();
     const existing = (id: string): ChannelMessage | undefined => {
       if (turnId !== undefined && !history.has(id)) history.set(id, this.store.message(channelId, id));
       return history.get(id) ?? undefined;
     };
     const messages: ChannelMessage[] = [];
-    const active = assignments.find((item) => item.agentId === snapshot.agentId && activeAssignment(item));
+    // The running assignment of this thread's tab. Another tab of the same channel can run a turn of
+    // the same agent at the same time, and its rows must not go to this one.
+    const active = assignments.find(
+      (item) =>
+        item.agentId === snapshot.agentId &&
+        activeAssignment(item) &&
+        tasks.get(item.taskId)?.topicId === context.topicId,
+    );
     for (let message of turnId === undefined
       ? snapshot.messages
       : snapshot.messages.filter((item) => item.turnId === turnId)) {
@@ -2929,17 +3336,57 @@ export class ChannelService {
         if (!attachment) return yield* channelFailure(new Error("The attachment is unavailable."));
         return attachment;
       }
-      const page = yield* channelSync(() =>
-        this.store.page(
-          channelId,
-          this.#topicOfTask(task),
-          typeof args.beforeSequence === "number" &&
-            Number.isSafeInteger(args.beforeSequence) &&
-            args.beforeSequence >= 0
-            ? args.beforeSequence
-            : undefined,
-        ),
-      );
+      const topicId = this.#topicOfTask(task);
+      // One message of this tab, by id, from `offset`: a packet with spill gives a message in part.
+      if (isString(args.messageId)) {
+        const messageId = args.messageId;
+        const message = yield* channelSync(() => this.store.message(channelId, messageId));
+        if (
+          !message ||
+          isMemberThinking(message) ||
+          (message.topicId ?? (yield* channelSync(() => this.#topicId(channelId, undefined)))) !== topicId
+        )
+          return yield* channelFailure(new Error("Message not found in this channel tab."));
+        const text = message.message.text;
+        const offset = args.offset ?? 0;
+        if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0 || offset > text.length)
+          return yield* channelFailure(new Error(`Give an offset from 0 to ${text.length}.`));
+        return {
+          id: message.id,
+          sequence: message.sequence,
+          author: message.author,
+          taskId: message.taskId,
+          replyToMessageId: message.message.replyToMessageId,
+          attachments: message.message.attachments,
+          chars: text.length,
+          ...readPage(text, offset),
+        };
+      }
+      const beforeSequence =
+        typeof args.beforeSequence === "number" && Number.isSafeInteger(args.beforeSequence) && args.beforeSequence >= 0
+          ? args.beforeSequence
+          : undefined;
+      // The compact page: with spill, or when the caller gives a limit. Each row has the size and the
+      // start of its message, and no page carries the channel or its tasks.
+      if (this.#spill() || args.limit !== undefined) {
+        const limit =
+          typeof args.limit === "number" && Number.isFinite(args.limit)
+            ? Math.min(HISTORY_PAGE_LIMIT, Math.max(1, Math.trunc(args.limit)))
+            : HISTORY_PAGE_LIMIT;
+        const rows = yield* channelSync(() => this.store.messages(channelId, topicId, beforeSequence, limit + 1));
+        const older = rows.length > limit;
+        if (older) rows.shift();
+        return {
+          topicId,
+          messages: rows.filter((message) => !isMemberThinking(message)).map(historyLine),
+          // The cursors still count every row, so the next page starts where this one ended.
+          olderCursor: older ? (rows[0]?.sequence ?? null) : null,
+          throughSequence:
+            (yield* channelSync(() => this.store.messages(channelId, topicId, undefined, 1)))[0]?.sequence ?? 0,
+          read: 'Read one whole message with {"messageId":"<id>"}, and the rest of a long one with "offset" from nextOffset.',
+        };
+      }
+      const page = yield* channelSync(() => this.store.page(channelId, topicId, beforeSequence));
       // The cursors still count every row, so the next page starts where this one ended.
       return { ...page, messages: page.messages.filter((message) => !isMemberThinking(message)) };
     }
@@ -3136,6 +3583,7 @@ export class ChannelService {
     const threadId = context.threadId;
     const prepared = this.store.completedMessageChanges(channelId);
     const tasks = yield* channelSync(() => this.store.tasks(channelId));
+    const spill = this.#spill();
     let history: Effect.Success<ReturnType<ChannelHistory["prepare"]>>;
     try {
       history = channelResult(
@@ -3144,9 +3592,10 @@ export class ChannelService {
             task,
             agent,
             this.hooks.agents().find((item) => item.id === this.store.get(channelId).leadAgentId),
-            this.#deliveredContext(channelId, context, agent),
+            this.#deliveredContext(channelId, context, agent, spill),
             this.#peers(tasks, task),
             this.hooks.contextCharacters?.(agent.id, threadId),
+            spill,
           ),
         ),
       );
@@ -3224,10 +3673,12 @@ export class ChannelService {
         yield* channelSync(() =>
           this.#acceptContext(
             channelId,
+            this.#topicOfTask(task),
             agent.id,
             session.externalSessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            history.parts ?? undefined,
           ),
         );
     }
@@ -3287,6 +3738,7 @@ export class ChannelService {
         if (delivery?.delivery.status === "queued") {
           const deliveryId = assignment.deliveryId;
           yield* this.mailbox.cancel(assignment.agentId, deliveryId).pipe(Effect.mapError(channelFailure));
+          this.hooks.deliveryCancelled?.(deliveryId);
           yield* channelSync(() =>
             this.store.update(this.store.get(channelId), { assignments: [{ ...assignment, state: "interrupted" }] }),
           );

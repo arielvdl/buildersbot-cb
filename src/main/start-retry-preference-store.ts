@@ -43,6 +43,7 @@ export function startRetrySettings(value: StartRetrySettings): StartRetrySetting
         }
       : null,
     breakerMinutes: [...value.breakerMinutes],
+    resumeUncertainActions: value.resumeUncertainActions === true,
   };
 }
 

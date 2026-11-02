@@ -1,0 +1,732 @@
+/* The feed page: the Team on the side and one timeline of every run, the newest at the bottom. Only
+ * palette tokens: the light and dark themes come from `tokens.css` and `tokens-light.css`. */
+
+.feed-page {
+  --feed-edge: var(--openbot-border);
+  --feed-state: var(--openbot-text-muted);
+
+  container-type: inline-size;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: var(--openbot-text-primary);
+  background: var(--openbot-bg-canvas);
+}
+
+.feed-page :where([data-state="working"]) {
+  --feed-state: var(--openbot-accent);
+}
+
+.feed-page :where([data-state="needs-you"]) {
+  --feed-state: var(--openbot-warning);
+}
+
+.feed-page :where([data-state="stopped"], [data-state="failed"]) {
+  --feed-state: var(--openbot-danger);
+}
+
+.feed-page :where([data-state="done"]) {
+  --feed-state: var(--openbot-success);
+}
+
+.feed-page :where([data-state="waiting"], [data-state="idle"]) {
+  --feed-state: var(--openbot-text-muted);
+}
+
+.feed-page-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1) var(--openbot-space-3);
+  padding: var(--openbot-space-3) var(--openbot-space-6);
+  border-bottom: 1px solid var(--feed-edge);
+}
+
+.feed-page-header h1 {
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-page-subtitle {
+  margin: 0;
+  min-width: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-page-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.feed-page-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The Team. */
+.feed-team {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--feed-edge);
+  background: var(--openbot-bg-sidebar);
+}
+
+.feed-team-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-4) 0;
+}
+
+.feed-team-head h2 {
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-team-active,
+.feed-team-hint {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-team-hint {
+  margin: var(--openbot-space-1) var(--openbot-space-4) var(--openbot-space-2);
+}
+
+.feed-team-list {
+  display: grid;
+  gap: var(--openbot-space-0-5);
+  margin: 0;
+  padding: 0 var(--openbot-space-2) var(--openbot-space-4);
+  list-style: none;
+}
+
+.feed-team-member {
+  font-size: var(--openbot-text-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-2);
+  width: 100%;
+  padding: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  color: var(--openbot-text-primary);
+  text-align: left;
+  transition: background-color var(--openbot-duration-fast) var(--openbot-ease-out);
+}
+
+.feed-team-member:hover {
+  background: var(--openbot-bg-control-hover);
+}
+
+.feed-team-member[aria-pressed="true"] {
+  background: var(--openbot-bg-control-active);
+  box-shadow: inset 0 0 0 1px var(--openbot-border-strong);
+}
+
+.feed-team-member:focus-visible {
+  outline: 2px solid var(--openbot-focus-ring);
+  outline-offset: -2px;
+}
+
+.feed-team-text {
+  display: grid;
+  flex: 1;
+  gap: var(--openbot-space-0-5);
+  min-width: 0;
+}
+
+.feed-team-name {
+  overflow: hidden;
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-team-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-team-detail {
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-avatar {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.feed-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--feed-state);
+}
+
+.feed-count {
+  flex: none;
+  min-width: 20px;
+  padding: 0 var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* The filters. */
+.feed-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3) var(--openbot-space-4) var(--openbot-space-2);
+}
+
+.feed-search {
+  display: flex;
+  align-items: center;
+  flex: 1 1 200px;
+  gap: var(--openbot-space-1-5);
+  min-width: 160px;
+  color: var(--openbot-text-muted);
+}
+
+.feed-select {
+  flex: 0 1 190px;
+  width: auto;
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-search .ui-input {
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-search svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.feed-group-choice {
+  display: inline-flex;
+  gap: var(--openbot-space-0-5);
+  margin: 0;
+  padding: var(--openbot-space-0-5);
+  border: 1px solid var(--feed-edge);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-control);
+}
+
+.feed-group-button {
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-sm);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-group-button[aria-pressed="true"] {
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+  box-shadow: var(--openbot-shadow-ring);
+}
+
+.feed-group-button:focus-visible,
+.feed-counter:focus-visible {
+  outline: 2px solid var(--openbot-focus-ring);
+  outline-offset: 1px;
+}
+
+.feed-showing {
+  margin-left: auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live or paused, and the counters that go to the next card. */
+.feed-jumpbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+  padding: 0 var(--openbot-space-4) var(--openbot-space-2);
+  border-bottom: 1px solid var(--feed-edge);
+}
+
+.feed-live {
+  --feed-state: var(--openbot-text-muted);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin-right: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-live[data-following] {
+  --feed-state: var(--openbot-accent);
+}
+
+.feed-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border: 1px solid var(--feed-edge);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  transition: background-color var(--openbot-duration-fast) var(--openbot-ease-out);
+}
+
+.feed-counter:hover:not(:disabled) {
+  background: var(--openbot-bg-control-hover);
+}
+
+.feed-counter:disabled {
+  opacity: 0.55;
+}
+
+.feed-error {
+  margin: var(--openbot-space-2) var(--openbot-space-4) 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+}
+
+/* The timeline. */
+.feed-timeline-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.feed-timeline {
+  position: absolute;
+  inset: 0;
+  overflow-anchor: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--openbot-space-2) var(--openbot-space-4) var(--openbot-space-8);
+}
+
+.feed-timeline-empty {
+  margin: var(--openbot-space-8) auto;
+  max-width: 480px;
+  color: var(--openbot-text-muted);
+  text-align: center;
+}
+
+.feed-virtual-list {
+  position: relative;
+  width: 100%;
+}
+
+.feed-virtual-row {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  padding-top: var(--openbot-space-2);
+}
+
+.feed-virtual-list-static .feed-virtual-row {
+  position: relative;
+  inset: auto;
+}
+
+.feed-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin: var(--openbot-space-2) 0 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-card {
+  display: grid;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--feed-edge);
+  border-left: 3px solid var(--feed-state);
+  border-radius: var(--openbot-radius-card);
+  background: var(--openbot-bg-surface);
+}
+
+.feed-card:focus-visible {
+  outline: 2px solid var(--openbot-focus-ring);
+  outline-offset: 2px;
+}
+
+.feed-card-head,
+.feed-card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  min-width: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-agent {
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-chip {
+  flex: none;
+  max-width: 180px;
+  overflow: hidden;
+  padding: 0 var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin-left: auto;
+  color: var(--openbot-text-primary);
+  white-space: nowrap;
+}
+
+.feed-card-time {
+  flex: none;
+  color: var(--openbot-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Each part of a card is one line, so the timeline knows the height of a card before it draws it. */
+.feed-card-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-card-step,
+.feed-card-quiet {
+  margin: 0;
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-card-step[data-live] {
+  font-style: italic;
+}
+
+.feed-card-quiet {
+  color: var(--openbot-warning-text);
+}
+
+.feed-card-quiet[data-quiet="stalled"] {
+  color: var(--openbot-danger-text);
+}
+
+.feed-card-need,
+.feed-card-stop {
+  display: flex;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid color-mix(in srgb, var(--openbot-warning) 40%, transparent);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-warning-soft);
+  color: var(--openbot-warning-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-stop {
+  border-color: color-mix(in srgb, var(--openbot-danger) 40%, transparent);
+  background: var(--openbot-danger-soft);
+  color: var(--openbot-danger-text);
+}
+
+.feed-card-need strong,
+.feed-card-stop strong {
+  flex: none;
+}
+
+.feed-card-need-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  text-overflow: ellipsis;
+}
+
+.feed-card-need-hint {
+  flex: none;
+  color: var(--openbot-text-secondary);
+}
+
+.feed-card-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-card-foot .feed-card-action,
+.feed-card-actions .ui-button,
+.feed-card-answer .ui-button,
+.feed-card-confirm .ui-button,
+.feed-bulk .ui-button {
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.feed-card-steps {
+  display: grid;
+  gap: var(--openbot-space-1);
+  margin: var(--openbot-space-1) 0 0;
+  padding: var(--openbot-space-2) 0 0;
+  border-top: 1px solid var(--feed-edge);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  list-style: none;
+}
+
+.feed-card-steps li {
+  display: flex;
+  gap: var(--openbot-space-2);
+  min-width: 0;
+}
+
+.feed-card-steps time {
+  flex: none;
+  color: var(--openbot-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The actions on a card: what an approval asks for, the answer of a question, the buttons, the second
+   step of a confirmation, an action that runs, and the notice of an action that main refused. */
+.feed-card-risk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.feed-chip-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  background: var(--openbot-danger-soft);
+  color: var(--openbot-danger-text);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-chip-risk svg {
+  width: 12px;
+  height: 12px;
+}
+
+.feed-card-reason {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-answer,
+.feed-card-choices,
+.feed-card-text,
+.feed-card-actions,
+.feed-card-confirm,
+.feed-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.feed-card-answer {
+  gap: var(--openbot-space-2);
+}
+
+fieldset.feed-card-choices,
+fieldset.feed-card-actions,
+fieldset.feed-bulk {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feed-card-text {
+  flex: 1 1 260px;
+  flex-wrap: nowrap;
+}
+
+.feed-card-text .ui-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-choice-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-card-confirm {
+  flex: 1;
+  padding: var(--openbot-space-1-5) var(--openbot-space-2);
+  border: 1px solid color-mix(in srgb, var(--openbot-warning) 40%, transparent);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-warning-soft);
+}
+
+.feed-card-confirm[data-step="deny"],
+.feed-card-confirm[data-step="stop"] {
+  border-color: color-mix(in srgb, var(--openbot-danger) 40%, transparent);
+  background: var(--openbot-danger-soft);
+}
+
+.feed-card-confirm-hint {
+  flex: 1 1 200px;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-notice svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.feed-card-recipient {
+  max-width: 200px;
+}
+
+.feed-card-select {
+  flex: none;
+}
+
+/* The bar of the selection of stopped work and the keys of the page. */
+.feed-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1-5) var(--openbot-space-4);
+  border-bottom: 1px solid var(--feed-edge);
+}
+
+.feed-bulk-count {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-shortcuts {
+  margin: 0 0 0 auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+/* The way back to the newest card while the timeline is paused. */
+.feed-newest {
+  position: absolute;
+  bottom: var(--openbot-space-4);
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+.feed-newest-button {
+  gap: var(--openbot-space-1-5);
+  box-shadow: var(--openbot-shadow-raised);
+}
+
+/* A narrow window puts the Team above the timeline. */
+@container (max-width: 760px) {
+  .feed-page-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .feed-team {
+    max-height: 168px;
+    border-right: 0;
+    border-bottom: 1px solid var(--feed-edge);
+  }
+
+  .feed-page-header {
+    padding: var(--openbot-space-3) var(--openbot-space-4);
+  }
+}

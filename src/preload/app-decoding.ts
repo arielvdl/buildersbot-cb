@@ -91,6 +91,7 @@ import {
   isInterruptedWorkOffer,
   isLoadSnapshot,
   isMicrophoneAccess,
+  isOptimizationState,
   isPersonalVendorMcpNotice,
   isProviderDetectionSettings,
   isRemoteDesktopSetupStatus,
@@ -107,6 +108,7 @@ import {
   isVoiceModelId,
   isVoiceServerProbe,
   isVoiceServerSettings,
+  knownOptimizationIds,
   type LoadSnapshot,
   type MicrophoneAccess,
   type MobileConnectedDevice,
@@ -115,6 +117,7 @@ import {
   type NotificationOpenedEvent,
   type NotificationPreference,
   type OnePasswordConnectorStatus,
+  type OptimizationState,
   type PersonalVendorMcpNotice,
   type ProviderDetectionSettings,
   parseGitHubConnectorRepositories,
@@ -231,6 +234,12 @@ export const decodeResumeInterruptedWorkResult: (value: unknown) => ResumeInterr
   isResumeInterruptedWorkResult,
   "resume result",
 );
+
+/** The switches that are on. An id of a newer main that this version does not know is left out. */
+export function decodeOptimizationState(value: unknown): OptimizationState {
+  if (!isOptimizationState(value)) throw new Error("Invalid optimization state.");
+  return { on: knownOptimizationIds(value.on) };
+}
 
 export function decodeBusyMessageModePreference(value: unknown): BusyMessageModePreference {
   const preference = decodeRecord(value, "busy message mode preference");

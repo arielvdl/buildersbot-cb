@@ -307,6 +307,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.customAgentTooMany": "You can save at most {count} custom agents.",
   "error.provider.customAgentEnvValueMissing": "Enter a value for {name}.",
   "error.provider.off": "{provider} is off in Builders Bot. Turn it on in provider settings first.",
+  "error.provider.offByServerPolicy":
+    "The administrator of this server keeps {provider} off. Ask the administrator to allow it in the model policy of the server.",
   "error.provider.inUse": "An agent uses {provider}. Change its model before you turn this provider off.",
   "error.provider.useBusy": "Wait for the provider check or sign-in to finish, then try again.",
   "error.provider.useSettingsReadOnly":

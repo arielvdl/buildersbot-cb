@@ -6,17 +6,18 @@ import type {
   HubConnectionsView,
 } from "@openbot/contracts/ipc";
 import {
-  connectionApp,
+  hubConnectionApps,
   type MarketplaceConnectionAgent,
   type MarketplaceConnections,
 } from "@openbot/ui/features/marketplace/marketplace-connections";
 import type { MarketplaceApp } from "@openbot/ui/features/marketplace/marketplace-model";
+import { useText } from "@openbot/ui/text";
 import { createEffect, createStore } from "solid-js";
 
 /** What the Marketplace calls for Hub connections. The desktop app reaches main; other clients have none. */
 export type HubConnectionCalls = Pick<
   BuildersBotDesktopApi["hubConnections"],
-  "getView" | "refresh" | "choosePayer" | "requestAccess"
+  "getView" | "refresh" | "choosePayer" | "requestAccess" | "openConsent"
 >;
 
 export interface MarketplaceConnectionsOptions {
@@ -41,6 +42,7 @@ export interface MarketplaceConnectionsOptions {
  * the Hub is a status of the view, not an error line: the page says why.
  */
 export function createMarketplaceConnections(options: MarketplaceConnectionsOptions) {
+  const { t } = useText();
   const [state, setState] = createStore<{
     view: HubConnectionsView | null;
     busy: Record<string, true>;
@@ -128,11 +130,23 @@ export function createMarketplaceConnections(options: MarketplaceConnectionsOpti
         options.onError,
       );
     },
+    openConsent: async () => {
+      const calls = options.calls();
+      if (!calls) return;
+      // Main opens the one fixed page of the Hub; the person allows it there, then refreshes.
+      await calls.openConsent().catch(options.onError);
+    },
   };
 
   return {
-    /** The connection rows of the Apps list. Empty until main answers, or when it has none. */
-    apps: (): MarketplaceApp[] => (state.view?.connections ?? []).map(connectionApp),
+    /**
+     * The connection rows of the Apps list, and the tiles of their platforms. Empty until main answers,
+     * or when it has none.
+     */
+    apps: (): MarketplaceApp[] =>
+      hubConnectionApps(state.view?.connections ?? [], (count) =>
+        t("marketplace.connection.platform.tagline", { count }),
+      ),
     /** Absent where this Marketplace has no Hub connections. */
     model: (): MarketplaceConnections | undefined => (options.calls() ? model : undefined),
   };

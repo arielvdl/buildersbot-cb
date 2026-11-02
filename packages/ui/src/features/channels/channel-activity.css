@@ -70,12 +70,14 @@
 .channel-paused-task + .channel-paused-task {
   border-top: 1px solid var(--openbot-accent-soft);
 }
-.channel-start-retries {
+.channel-start-retries,
+.channel-task-waits {
   margin: 0 var(--openbot-space-3);
   padding: 0;
   list-style: none;
 }
-.channel-start-retry {
+.channel-start-retry,
+.channel-task-wait {
   padding: var(--openbot-space-1) var(--openbot-space-3);
   color: var(--openbot-text-dim);
   font-size: var(--openbot-text-sm);

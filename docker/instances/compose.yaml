@@ -44,6 +44,12 @@ services:
       # update-request in openbot-instance.
       - /srv/openbot/${OPENBOT_NAME:?}/update-requests:/var/lib/openbot-update/requests
       - /srv/openbot/${OPENBOT_NAME:?}/update-status:/var/lib/openbot-update/status:ro
+      # The model policy of the instance: the providers and models that its picker offers (see
+      # docs/architecture/providers.md#server-model-policy). Root on the host writes it, and the
+      # container can only read it, so an agent cannot change it. With no file, there is no policy.
+      - /srv/openbot/${OPENBOT_NAME:?}/policy:/etc/openbot/policy:ro
+    environment:
+      OPENBOT_MODEL_POLICY_FILE: /etc/openbot/policy/model-policy.json
     # The network of all instances. They cannot reach each other, and openbot-firewall lets them
     # reach only the internet.
     networks:

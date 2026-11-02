@@ -201,6 +201,12 @@ export function StartRetrySettingsSection(props: {
           label={t("settings.startRetry.usageLimit.title")}
           description={t("settings.startRetry.usageLimit.description")}
         />
+        <SwitchField
+          checked={settings().resumeUncertainActions === true}
+          onChange={(resumeUncertainActions) => change({ resumeUncertainActions })}
+          label={t("settings.startRetry.resumeUncertain.title")}
+          description={t("settings.startRetry.resumeUncertain.description")}
+        />
         <Item class="settings-modal-row">
           <ItemContent>
             <ItemTitle>{t("settings.startRetry.fallback.title")}</ItemTitle>

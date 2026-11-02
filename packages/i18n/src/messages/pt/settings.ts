@@ -188,6 +188,9 @@ export const messages = {
   "settings.startRetry.usageLimit.title": "Tentar de novo depois do aviso de limite",
   "settings.startRetry.usageLimit.description":
     "Algumas contas passam sozinhas para outra conta, como depois do limite de 5 horas do Claude. Desligado, o limite vai direto para o modelo de reserva.",
+  "settings.startRetry.resumeUncertain.title": "Continuar também com ação externa incerta",
+  "settings.startRetry.resumeUncertain.description":
+    'Só com "Continuar após uma falha curta" ligado, em Otimizações avançadas. Quando um post, uma mensagem, um push ou um pagamento começou antes da falha e não voltou resultado, o agente continua e confere antes se aconteceu. Risco: o agente pode fazer a ação duas vezes. Desligado, a tarefa espera por você.',
   "settings.startRetry.fallback.title": "Modelo de reserva padrão",
   "settings.startRetry.fallback.description":
     "Para o agente que não tem modelo de reserva próprio. A tarefa e os arquivos dela vão para esse provedor.",
@@ -384,6 +387,36 @@ export const messages = {
   "settings.analytics.title": "Análises de uso",
   "settings.analytics.description":
     "Desligado. O Builders Bot não envia análises de uso nem relatórios de erro deste app.",
+  "settings.optimizations.section": "Otimizações avançadas (beta)",
+  "settings.optimizations.title": "Todas as otimizações",
+  "settings.optimizations.description":
+    "Beta. Cada uma muda como os agentes funcionam neste computador, e cada uma fica desligada até você ligar. Você pode desligar qualquer uma a qualquer momento.",
+  "settings.optimizations.allOn": "Ligar todas",
+  "settings.optimizations.allOff": "Desligar todas",
+  "settings.optimizations.queuePriorityUser.title": "Suas mensagens primeiro",
+  "settings.optimizations.queuePriorityUser.description":
+    "Uma mensagem sua pode usar uma vaga a mais que o limite de agentes. Com pouca memória, uma mensagem sua pode começar num agente com a sessão aberta. Risco: mais memória em uso.",
+  "settings.optimizations.idleReleaseLow.title": "Liberar agentes ociosos com pouca memória",
+  "settings.optimizations.idleReleaseLow.description":
+    "Quando a memória fica baixa, as sessões paradas há 2 minutos fecham. Elas abrem de novo pelo histórico. Risco: a próxima mensagem a esse agente demora alguns segundos a mais.",
+  "settings.optimizations.fiscalResumeGrace.title": "Fiscal espera depois do repouso",
+  "settings.optimizations.fiscalResumeGrace.description":
+    "Quando o computador sai do repouso, o Fiscal espera duas olhadas antes de agir. Risco: uma tarefa que parou de verdade é movida uns 2 minutos depois.",
+  "settings.optimizations.turnStartUnify.title": "Início de turno mais rápido",
+  "settings.optimizations.turnStartUnify.description":
+    "As duas revisões de segurança antes de um turno viram uma revisão rápida, e o agente acorda ao mesmo tempo. A revisão continua antes da sua mensagem. Risco: uma revisão menos detalhada.",
+  "settings.optimizations.channelContextSpill.title": "Contexto de canal mais curto",
+  "settings.optimizations.channelContextSpill.description":
+    "Mensagens antigas e longas de um canal vão aos agentes cortadas, com um link para ler o resto. Risco: um agente pode decidir sem a parte cortada.",
+  "settings.optimizations.safeResume.title": "Continuar após uma falha curta",
+  "settings.optimizations.safeResume.description":
+    "Uma tarefa de canal que para por uma falha curta do provedor ou da rede continua sozinha na mesma sessão, no máximo 3 vezes, quando nada do que ela fez pode acontecer duas vezes. Quando um post, um push ou outra ação externa pode já ter acontecido, a tarefa espera por você. Risco: o agente pode pular ou refazer um passo que o app não vê.",
+  "settings.optimizations.routing.title": "Roteamento de canal mais leve",
+  "settings.optimizations.routing.description":
+    'A escolha de quem responde num canal usa menos raciocínio. Um seguimento em português ou espanhol, como "continua", continua o trabalho da sua aba, e o trabalho de outra aba não faz o líder escolher de novo. Risco: uma escolha pior para um pedido pouco claro.',
+  "settings.optimizations.streamingCheckpoints.title": "Menos gravações durante uma resposta",
+  "settings.optimizations.streamingCheckpoints.description":
+    "Uma resposta em andamento é salva a cada 1 a 2 segundos, não várias vezes por segundo. Risco: se o app parar, até 2 segundos de uma resposta podem se perder.",
   "settings.tab.general.title": "Geral",
   "settings.tab.general.description": "Controle como o Builders Bot se comporta neste computador.",
   "settings.tab.agents.title": "Agentes",
@@ -1119,6 +1152,8 @@ export const messages = {
   "settings.search.keywords.mobileConnectPublish":
     "publicar, publicado, publicar servidor, acesso remoto, alcançar este computador, conectar pelo celular, não publicado",
   "settings.search.keywords.notifications": "notificações, alertas, avisos, sons, banners",
+  "settings.search.keywords.optimizations":
+    "otimizações, beta, experimental, desempenho, velocidade, memória, avançado",
   "settings.search.keywords.profile": "perfil, conta, nome, foto, avatar, sair",
   "settings.search.keywords.promptGuard": "injeção de prompt, segurança, verificar mensagens, proteção",
   "settings.search.keywords.providers":

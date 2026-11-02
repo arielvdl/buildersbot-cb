@@ -81,6 +81,9 @@ export type BillingDesktopApi = GroupApi<IpcEndpoints["billing"]>;
 export type LicenseDesktopApi = GroupApi<IpcEndpoints["license"]>;
 export type RoutineFeedDesktopApi = GroupApi<IpcEndpoints["routineFeed"]>;
 
+/** The feed page: a full read, the watch switch and the deltas. */
+export type FeedDesktopApi = GroupApi<IpcEndpoints["feed"]>;
+
 export type HostedServersDesktopApi = GroupApi<IpcEndpoints["hostedServers"]>;
 
 /**

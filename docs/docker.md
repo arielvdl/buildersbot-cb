@@ -182,6 +182,7 @@ BUILDERSBOT_IMAGE=<image> /opt/openbot-docker/instances/openbot-instance create 
 | `/srv/openbot/<name>/data` | The mount of the image, which is `/data` in the container. `/etc/fstab` mounts it before Docker starts. `X-fstrim.notrim` stops `fstrim.timer` from freeing the reserved space. |
 | `/srv/openbot/<name>/update-requests` | The update requests of the app. The container writes empty files here. It is a tmpfs of 64 KiB and 16 files, which `/etc/fstab` mounts. |
 | `/srv/openbot/<name>/update-status` | The state of an update, which root writes. The container can only read it. |
+| `/srv/openbot/<name>/policy` | The model policy of the instance, `model-policy.json`, which root writes. The container can only read it, on `/etc/openbot/policy`. With no file, there is no policy. See [Server model policy](architecture/providers.md#server-model-policy). |
 
 The container is `openbot-<name>`. Its root file system is read-only: the container layer is on the
 disk of the host, where Docker on ext4 cannot limit its size. Outside `/data`, the container writes

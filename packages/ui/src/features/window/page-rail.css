@@ -497,6 +497,12 @@ input.window-rail-load-number:focus-visible {
   font-size: var(--openbot-text-sm);
 }
 
+.window-rail-load-hint {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+}
+
 .window-rail-load-recent li {
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);

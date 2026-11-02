@@ -49,7 +49,9 @@ import { StoredStateFailure, storedIO, storedSync, toStoredStateFailure } from "
 export type { ExportedAttachmentFile, GeneratedAttachmentSource } from "./attachment-files";
 
 import { isStartRetryMarker, type StartRetryMarker, startRetryView, untilMs } from "./agent/start-retry";
+import { isTurnResumeMarker, type TurnResumeMarker, turnResumeView } from "./agent/turn-resume";
 import { isEmptyStoredFile, parseStoredJson } from "./atomic-json-file";
+import { channelTabLane } from "./channel-tab-lane";
 import { mailboxReactionRowKey } from "./database/mailbox-projection";
 import {
   type HubDeliveryOrigin,
@@ -176,6 +178,8 @@ interface StoredDelivery {
   planContinuation?: PlanContinuationMarker;
   /** The provider did not start this delivery, and the drain tries it again (`start-retry.ts`). */
   startRetry?: StartRetryMarker;
+  /** A brief provider failure stopped its channel turn, and the turn continues (`turn-resume.ts`). */
+  turnResume?: TurnResumeMarker;
 }
 
 /** A delivery that waits for its automatic plan continuation. It is queued, but not in the queue the user sees. */
@@ -255,6 +259,7 @@ export interface DeliveryContext {
   resumeAfterUsageLimit?: UsageLimitContinuation;
   planContinuation?: PlanContinuationMarker;
   startRetry?: StartRetryMarker;
+  turnResume?: TurnResumeMarker;
   channelId?: string;
 }
 
@@ -1004,6 +1009,64 @@ export class MailboxStore {
     return message?.taskId ?? null;
   }
 
+  /** The channel tab lane a delivery runs in (`channelTabLane`), or null for every other delivery. */
+  tabForDelivery(deliveryId: string): string | null {
+    const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
+    return delivery ? this.#tabOf(delivery) : null;
+  }
+
+  /**
+   * The tab lane of channel work: each tab of a channel is its own line of work for the agent, beside
+   * its own chat and its tasks. Null for any other delivery.
+   */
+  #tabOf(delivery: StoredDelivery, messages?: ReadonlyMap<string, StoredMessage>): string | null {
+    const message = messages
+      ? messages.get(delivery.messageId)
+      : this.#state.messages.find((candidate) => candidate.id === delivery.messageId);
+    return message?.channelId ? channelTabLane(message.channelId, message.channelTopicId) : null;
+  }
+
+  /** Whether a delivery is in the lane of `taskId` and `tab`: the agent's own chat when both are null. */
+  #inLane(
+    delivery: StoredDelivery,
+    taskId: string | null,
+    tab: string | null,
+    messages?: ReadonlyMap<string, StoredMessage>,
+  ): boolean {
+    return this.#taskIdOf(delivery, messages) === taskId && this.#tabOf(delivery, messages) === tab;
+  }
+
+  /** The channel tab lanes of this agent with a queued message, in queue order of their first one. */
+  queuedTabs(agentId: string): string[] {
+    const messages = this.#messagesById();
+    const tabs = new Set<string>();
+    for (const delivery of this.#queuedFor(agentId)) {
+      const tab = this.#tabOf(delivery, messages);
+      if (tab) tabs.add(tab);
+    }
+    return [...tabs];
+  }
+
+  /**
+   * The channel tab lanes of this agent with a message that waits, starts or runs. The drain reads it
+   * for the lanes of every agent, so an agent with no such message costs no read of the messages.
+   */
+  tabLanes(agentId: string): string[] {
+    const live = this.#state.deliveries.filter(
+      (delivery) =>
+        delivery.recipientAgentId === agentId &&
+        (delivery.status === "queued" || delivery.status === "starting" || delivery.status === "running"),
+    );
+    if (live.length === 0) return [];
+    const messages = this.#messagesById();
+    const tabs = new Set<string>();
+    for (const delivery of live) {
+      const tab = this.#tabOf(delivery, messages);
+      if (tab) tabs.add(tab);
+    }
+    return [...tabs];
+  }
+
   /**
    * Indexes the positions and messages once, so a list of contexts does not sort or scan for each one.
    * Only a queued delivery has a position, so a list of started deliveries does not sort the queue.
@@ -1046,21 +1109,24 @@ export class MailboxStore {
     });
   }
 
-  /** Whether a delivery of this lane is starting or running: the agent's own chat when `taskId` is null. */
-  laneActive(agentId: string, taskId: string | null): boolean {
+  /**
+   * Whether a delivery of this lane is starting or running: the agent's own chat when `taskId` and
+   * `tab` are null, a task, or a channel tab (`channelTabLane`).
+   */
+  laneActive(agentId: string, taskId: string | null, tab: string | null = null): boolean {
     return this.#state.deliveries.some(
       (delivery) =>
         delivery.recipientAgentId === agentId &&
         (delivery.status === "starting" || delivery.status === "running") &&
-        this.#taskIdOf(delivery) === taskId,
+        this.#inLane(delivery, taskId, tab),
     );
   }
 
   /** The queued deliveries of one lane, without those that wait for their automatic plan continuation. */
-  laneQueuedIds(agentId: string, taskId: string | null): string[] {
+  laneQueuedIds(agentId: string, taskId: string | null, tab: string | null = null): string[] {
     const messages = this.#messagesById();
     return this.#queuedFor(agentId)
-      .filter((delivery) => !waitsForPlanContinuation(delivery) && this.#taskIdOf(delivery, messages) === taskId)
+      .filter((delivery) => !waitsForPlanContinuation(delivery) && this.#inLane(delivery, taskId, tab, messages))
       .map((delivery) => delivery.id);
   }
 
@@ -1531,31 +1597,35 @@ export class MailboxStore {
   }
 
   /**
-   * The delivery that starts the next turn in one lane of this agent: its own chat (`taskId` null,
-   * with its channel and messaging work), or one task. Each lane runs one turn at a time.
+   * The delivery that starts the next turn in one lane of this agent: its own chat (`taskId` and `tab`
+   * null, with its messaging work), one task, or one channel tab. Each lane runs one turn at a time.
    */
-  nextQueued(agentId: string, taskId: string | null = null): DeliveryContext | null {
-    if (this.laneActive(agentId, taskId)) return null;
+  nextQueued(agentId: string, taskId: string | null = null, tab: string | null = null): DeliveryContext | null {
+    if (this.laneActive(agentId, taskId, tab)) return null;
     const messages = this.#messagesById();
     const delivery = this.#queuedFor(agentId).find(
-      (candidate) => this.#taskIdOf(candidate, messages) === taskId && !this.#isHeldReply(candidate),
+      (candidate) => this.#inLane(candidate, taskId, tab, messages) && !this.#isHeldReply(candidate),
     );
     return delivery && this.#mayStart(delivery) ? this.#context(delivery, undefined, messages) : null;
   }
 
   /** The start retry of the delivery at the head of this lane, whatever its wait, or undefined. */
-  queuedStartRetry(agentId: string, taskId: string | null = null): StartRetryMarker | undefined {
+  queuedStartRetry(
+    agentId: string,
+    taskId: string | null = null,
+    tab: string | null = null,
+  ): StartRetryMarker | undefined {
     // The drain asks this for each lane it reads, and almost no delivery has a retry.
     if (
       !this.#state.deliveries.some(
         (delivery) => delivery.startRetry && delivery.status === "queued" && delivery.recipientAgentId === agentId,
       ) ||
-      this.laneActive(agentId, taskId)
+      this.laneActive(agentId, taskId, tab)
     )
       return undefined;
     const messages = this.#messagesById();
     return this.#queuedFor(agentId).find(
-      (candidate) => this.#taskIdOf(candidate, messages) === taskId && !this.#isHeldReply(candidate),
+      (candidate) => this.#inLane(candidate, taskId, tab, messages) && !this.#isHeldReply(candidate),
     )?.startRetry;
   }
 
@@ -1570,12 +1640,13 @@ export class MailboxStore {
     const message = this.#requireMessage(next.messageId);
     const requestId = isAnswer(message) ? message.replyToMessageId : null;
     if (message.sender.kind !== "user" && !requestId) return [];
-    // One turn runs in one lane: the agent's own chat, or the side thread that sent the request.
+    // One turn runs in one lane: the agent's own chat, the side thread that sent the request, or a tab.
     const lane = message.taskId ?? null;
     const messages = this.#messagesById();
+    const tab = this.#tabOf(next, messages);
     return this.#contexts(
       this.#queuedFor(next.recipientAgentId).filter((candidate) => {
-        if (candidate.id === next.id || !this.#mayStart(candidate) || this.#taskIdOf(candidate, messages) !== lane)
+        if (candidate.id === next.id || !this.#mayStart(candidate) || !this.#inLane(candidate, lane, tab, messages))
           return false;
         if (!requestId) return this.#isHeldReply(candidate);
         const reply = this.#requireMessage(candidate.messageId, messages);
@@ -1596,9 +1667,10 @@ export class MailboxStore {
     const messages = this.#messagesById();
     const first = this.#requireMessage(next.messageId, messages);
     if (!isChatMessageFromPerson(first)) return [];
+    // A person's chat message is never channel work, so its run stays out of every channel tab.
     const lane = first.taskId ?? null;
     const queued = this.#queuedFor(next.recipientAgentId).filter(
-      (candidate) => this.#taskIdOf(candidate, messages) === lane && !this.#isHeldReply(candidate),
+      (candidate) => this.#inLane(candidate, lane, null, messages) && !this.#isHeldReply(candidate),
     );
     const start = queued.findIndex((candidate) => candidate.id === next.id);
     if (start < 0) return [];
@@ -1660,7 +1732,10 @@ export class MailboxStore {
 
   #mayStart(delivery: StoredDelivery): boolean {
     return (
-      !delivery.editId && !this.#queueUpdates.has(delivery.id) && untilMs(delivery.startRetry?.nextAt ?? null) === 0
+      !delivery.editId &&
+      !this.#queueUpdates.has(delivery.id) &&
+      untilMs(delivery.startRetry?.nextAt ?? null) === 0 &&
+      untilMs(delivery.turnResume?.nextAt ?? null) === 0
     );
   }
 
@@ -1678,13 +1753,16 @@ export class MailboxStore {
     );
   }
 
-  /** The deliveries that wait for a start retry, with the time each may start. Read at boot to arm the timers. */
+  /**
+   * The deliveries that wait for a start retry or a safe resume, with the time each may start. Read at
+   * boot to arm the timers.
+   */
   startRetries(): { agentId: string; deliveryId: string; nextAt: string | null }[] {
-    return this.#state.deliveries.flatMap((delivery) =>
-      delivery.status === "queued" && delivery.startRetry
-        ? [{ agentId: delivery.recipientAgentId, deliveryId: delivery.id, nextAt: delivery.startRetry.nextAt }]
-        : [],
-    );
+    return this.#state.deliveries.flatMap((delivery) => {
+      if (delivery.status !== "queued") return [];
+      const nextAt = delivery.startRetry?.nextAt ?? delivery.turnResume?.nextAt;
+      return nextAt === undefined ? [] : [{ agentId: delivery.recipientAgentId, deliveryId: delivery.id, nextAt }];
+    });
   }
 
   /**
@@ -1781,26 +1859,37 @@ export class MailboxStore {
     );
   }
 
-  /** Without `taskId`, any lane of the agent; with it, only that lane (null: the agent's own chat). */
-  startingDeliveryForAgent(agentId: string, taskId?: string | null): DeliveryContext | null {
-    const delivery = this.#state.deliveries.find((candidate) => this.#startingIn(candidate, agentId, taskId));
+  /**
+   * Without `taskId`, any lane of the agent; with it, only that lane: the agent's own chat when
+   * `taskId` and `tab` are null, a task, or a channel tab.
+   */
+  startingDeliveryForAgent(agentId: string, taskId?: string | null, tab: string | null = null): DeliveryContext | null {
+    const delivery = this.#state.deliveries.find((candidate) => this.#startingIn(candidate, agentId, taskId, tab));
     return delivery ? this.#context(delivery) : null;
   }
 
   /**
    * Every delivery that starts the next turn of this agent: one, or several teammate answers.
-   * Without `taskId`, any lane of the agent; with it, only that lane (null: the agent's own chat).
+   * Without `taskId`, any lane of the agent; with it, only that lane, as `startingDeliveryForAgent`.
+   * Two channel tabs of one agent can start at the same time, so a turn takes only its own lane's.
    */
-  startingDeliveriesForAgent(agentId: string, taskId?: string | null): DeliveryContext[] {
-    return this.#contexts(this.#state.deliveries.filter((candidate) => this.#startingIn(candidate, agentId, taskId)));
+  startingDeliveriesForAgent(agentId: string, taskId?: string | null, tab: string | null = null): DeliveryContext[] {
+    return this.#contexts(
+      this.#state.deliveries.filter((candidate) => this.#startingIn(candidate, agentId, taskId, tab)),
+    );
   }
 
-  #startingIn(delivery: StoredDelivery, agentId: string, taskId: string | null | undefined): boolean {
+  #startingIn(
+    delivery: StoredDelivery,
+    agentId: string,
+    taskId: string | null | undefined,
+    tab: string | null,
+  ): boolean {
     return (
       delivery.recipientAgentId === agentId &&
       delivery.status === "starting" &&
       delivery.turnId === null &&
-      (taskId === undefined || this.#taskIdOf(delivery) === taskId)
+      (taskId === undefined || this.#inLane(delivery, taskId, tab))
     );
   }
 
@@ -2617,6 +2706,43 @@ export class MailboxStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * A channel turn that a brief provider failure stopped, back at its place in the queue with its safe
+   * resume. The queue does not start it before `marker.nextAt`, and the same delivery continues.
+   */
+  requeueForTurnResume = Effect.fn("MailboxStore.requeueForTurnResume")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: TurnResumeMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], {
+        status: "queued",
+        turnId: null,
+        error: null,
+        turnResume: marker,
+      });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * Keeps what a turn of this delivery did when a brief provider failure stopped it for the person
+   * (`TurnResumeMarker.forPerson`). The turn then ends as before; a resume of the task reads the note.
+   */
+  recordTurnResume = Effect.fn("MailboxStore.recordTurnResume")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: TurnResumeMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], { turnResume: marker });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
   /** Ends the start retry of a queued delivery, so it starts at once, such as when the person sends it again. */
   clearStartRetry(deliveryId: string): void {
     const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
@@ -3122,6 +3248,7 @@ export class MailboxStore {
       ...(delivery.resumeAfterUsageLimit ? { resumeAfterUsageLimit: delivery.resumeAfterUsageLimit } : {}),
       ...(delivery.planContinuation ? { planContinuation: delivery.planContinuation } : {}),
       ...(delivery.startRetry ? { startRetry: delivery.startRetry } : {}),
+      ...(delivery.turnResume ? { turnResume: delivery.turnResume } : {}),
       ...(message.channelId ? { channelId: message.channelId } : {}),
       managedAttachments: message.attachments.map((attachment) => ({
         ...toAttachmentSummary(attachment),
@@ -3151,6 +3278,7 @@ export class MailboxStore {
       resumeAfterUsageLimit: _resumeAfterUsageLimit,
       planContinuation: _planContinuation,
       startRetry,
+      turnResume,
       ...publicDelivery
     } = delivery;
     // Between two turns of one request, the request still runs for the person who sent it.
@@ -3162,6 +3290,9 @@ export class MailboxStore {
       ...publicDelivery,
       ...(steerFallback && delivery.status === "queued" ? { steerFallback } : {}),
       ...(startRetry && delivery.status === "queued" ? { startRetry: startRetryView(startRetry) } : {}),
+      ...(!startRetry && turnResume?.nextAt && delivery.status === "queued"
+        ? { startRetry: turnResumeView(turnResume) }
+        : {}),
       sender: structuredClone(message.sender),
       text: message.text,
       attachments: message.attachments.map(toAttachmentSummary),
@@ -3590,6 +3721,7 @@ function isStoredDelivery(value: unknown): value is StoredDelivery {
         Array.isArray(value.resumeAfterUsageLimit.previousTurnIds) &&
         value.resumeAfterUsageLimit.previousTurnIds.every(isString))) &&
     (value.startRetry === undefined || isStartRetryMarker(value.startRetry)) &&
+    (value.turnResume === undefined || isTurnResumeMarker(value.turnResume)) &&
     (value.planContinuation === undefined ||
       (isRecord(value.planContinuation) &&
         Array.isArray(value.planContinuation.turnIds) &&

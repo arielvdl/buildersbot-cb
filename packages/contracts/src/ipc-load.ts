@@ -75,6 +75,11 @@ export interface StoppedWork {
   /** Why it stopped, clipped. */
   reason: string;
   agentName: string | null;
+  /**
+   * The agent that owns the task. Null or absent when the task has no owner; absent from an older main
+   * process. The stopped work page sets it on every entry.
+   */
+  agentId?: string | null;
   state: "paused" | "failed";
   /** The agents that can take it, for Reassign. Never the owner. */
   candidates: StoppedWorkCandidate[];
@@ -289,11 +294,27 @@ export interface AgentLimitPreference {
   enabled: boolean;
   /** The most agents that run at the same time, from 1 to 64. */
   max: number;
+  /**
+   * The most channel tabs of one agent that run a turn at the same time, from 1 to 4, whether the cap
+   * on agents is on or off. Each tab is its own line of work: its requests start in order, and a tab
+   * does not wait for another tab while the agent has a free place. With 1, the agent works in one
+   * tab at a time, as before tabs ran in parallel. Absent: `DEFAULT_AGENT_TABS`, also from an older
+   * main process.
+   */
+  tabsPerAgent?: number;
 }
 
 export const AGENT_LIMIT_MIN = 1;
 export const AGENT_LIMIT_MAX = 64;
 export const DEFAULT_AGENT_LIMIT_PREFERENCE: AgentLimitPreference = { enabled: false, max: 10 };
+export const AGENT_TABS_MIN = 1;
+export const AGENT_TABS_MAX = 4;
+/** Two tabs: the user sees a second tab answer, and the memory of one more provider session is small. */
+export const DEFAULT_AGENT_TABS = 2;
+
+export function isAgentTabsLimit(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value) && value >= AGENT_TABS_MIN && value <= AGENT_TABS_MAX;
+}
 
 export function isAgentLimitPreference(value: unknown): value is AgentLimitPreference {
   return (
@@ -302,7 +323,8 @@ export function isAgentLimitPreference(value: unknown): value is AgentLimitPrefe
     isNumber(value.max) &&
     Number.isInteger(value.max) &&
     value.max >= AGENT_LIMIT_MIN &&
-    value.max <= AGENT_LIMIT_MAX
+    value.max <= AGENT_LIMIT_MAX &&
+    (value.tabsPerAgent === undefined || isAgentTabsLimit(value.tabsPerAgent))
   );
 }
 
@@ -392,6 +414,7 @@ function isStoppedWork(value: unknown): value is StoppedWork {
     isString(value.title) &&
     isString(value.reason) &&
     (value.agentName === null || isString(value.agentName)) &&
+    (value.agentId === undefined || value.agentId === null || isIdentifier(value.agentId)) &&
     (value.state === "paused" || value.state === "failed") &&
     isBoundedList(value.candidates, 8, isStoppedWorkCandidate) &&
     (value.auto === null || value.auto === "waiting" || value.auto === "gave-up") &&

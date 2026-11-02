@@ -16,9 +16,11 @@ import { Deferred, Effect, Result, Schema } from "effect";
 import { type AgentProvider, ProviderTurnActiveError } from "../agent-client";
 import type { AgentStore } from "../agent-store";
 import type { ChannelService } from "../channel-service";
+import { channelTabOfLane } from "../channel-tab-lane";
 import { causeHelpers } from "../effect-boundary";
 import type { DeliveryContext, MailboxStore } from "../mailbox-store";
 import type { MessagingThreads } from "../messaging/messaging-threads";
+import { OPTIMIZATIONS_OFF, type OptimizationPort } from "../optimizations";
 import { decodeTurnResponse } from "../protocol";
 import type { ContextCompaction } from "./context-compaction";
 import type { ConversationRuntime } from "./conversation-runtime";
@@ -52,6 +54,7 @@ import {
   startRetryView,
   untilMs,
 } from "./start-retry";
+import { type StartTiming, startTimingReporter } from "./start-timings";
 import {
   isCodexCompactionRefusal,
   isMissingProviderSessionError,
@@ -59,6 +62,17 @@ import {
   providerForAgent,
 } from "./thread-items";
 import type { ThreadLifecycle } from "./thread-lifecycle";
+import { JOURNAL_LIMIT, type OwnToolCall, type TurnEffect } from "./turn-effects";
+import {
+  nextTurnResumeMarker,
+  planTurnResume,
+  TURN_RESUME_CAUSES,
+  TURN_RESUME_MAX,
+  TURN_RESUME_PROVIDERS,
+  type TurnResumeMarker,
+  turnResumeView,
+  uncertainActions,
+} from "./turn-resume";
 import { TurnSlots } from "./turn-slots";
 import type { UsageLimitGate } from "./usage-limit-gate";
 import { checkAgentFolders, codexSandboxPolicy, workspaceWritableRoots } from "./workspace-sandbox";
@@ -120,6 +134,18 @@ export interface DrainHooks {
    * automatic backup, else the default backup of the settings when it is ready. Null when there is none.
    */
   startFallback?(agentId: string, primary: AgentModelChoice): AgentModelChoice | null;
+  /**
+   * The safe resume of a channel turn (`turn-resume.ts`): null while the optimization `safe-resume` is
+   * off. `delaysSeconds` are the waits before each continuation. `takeRecovery` takes one recovery of
+   * the task from the ledger that the task reviewer and "Resume by itself" share; false when the task
+   * has none left. Omitted: no ledger, as in a host with no task reviewer.
+   */
+  safeResume?(): {
+    delaysSeconds: readonly number[];
+    takeRecovery?: (channelId: string, taskId: string) => boolean;
+  } | null;
+  /** The time of each step of a start (`start-timings.ts`): names, numbers and status words only. */
+  startTiming?(timing: StartTiming): void;
 }
 
 /** The tasks of the agents, as the drain reads them. */
@@ -135,27 +161,37 @@ export interface TaskLanes {
 }
 
 /**
- * One queue that runs one turn at a time: the agent's own chat (`taskId` null, with its channel and
- * messaging work), or one of its tasks.
+ * One queue that runs one turn at a time: the agent's own chat (`taskId` and `tab` null, with its
+ * messaging work), one of its tasks, or one channel tab (`tab`, a `channelTabLane` key).
  */
 interface Lane {
   readonly agentId: string;
   readonly taskId: string | null;
+  readonly tab: string | null;
 }
+
+/** Marks the key of a tab lane, so a tab key never reads as a task id. */
+const TAB_KEY = "\u0001";
 
 /** The key of a lane. The agent's own chat keeps the agent id, so its maps read as before tasks. */
 function laneKey(lane: Lane): string {
+  if (lane.tab !== null) return `${lane.agentId}\u0000${TAB_KEY}${lane.tab}`;
   return lane.taskId === null ? lane.agentId : `${lane.agentId}\u0000${lane.taskId}`;
 }
 
 function laneOf(key: string): Lane {
   const separator = key.indexOf("\u0000");
-  return separator < 0
-    ? { agentId: key, taskId: null }
-    : { agentId: key.slice(0, separator), taskId: key.slice(separator + 1) };
+  if (separator < 0) return { agentId: key, taskId: null, tab: null };
+  const agentId = key.slice(0, separator);
+  const rest = key.slice(separator + 1);
+  return rest.startsWith(TAB_KEY)
+    ? { agentId, taskId: null, tab: rest.slice(TAB_KEY.length) }
+    : { agentId, taskId: rest, tab: null };
 }
 
-const mainLane = (agentId: string): Lane => ({ agentId, taskId: null });
+const mainLane = (agentId: string): Lane => ({ agentId, taskId: null, tab: null });
+const taskLane = (agentId: string, taskId: string): Lane => ({ agentId, taskId, tab: null });
+const tabLane = (agentId: string, tab: string): Lane => ({ agentId, taskId: null, tab });
 
 /**
  * Puts the verdict of the security reviewer in front of the turn. It goes before the first text
@@ -180,6 +216,8 @@ export interface DrainSchedulerOptions {
   routines: RoutineScheduler;
   threads: ThreadLifecycle;
   memory: MemoryHold;
+  /** The advanced optimizations (beta). Omitted: every switch off. */
+  optimizations?: OptimizationPort;
   /** The most agents that run turns at the same time, as the person set it, or null for no cap. */
   agentLimit?: () => number | null;
   usageLimits: UsageLimitGate;
@@ -228,8 +266,19 @@ export class DrainScheduler {
   readonly #tasks: TaskLanes;
   readonly #security: Pick<PromptInjectionGuard, "review"> | undefined;
   readonly #slots: TurnSlots;
+  readonly #optimizations: OptimizationPort;
+  readonly #unsubscribeOptimizations: () => void;
+  readonly #timing: ReturnType<typeof startTimingReporter>;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
   readonly #slotWaiters = new Set<string>();
+  /**
+   * Lanes with a message of the person that low memory held while `queue-priority-user` is on. The one
+   * pass of a person's turn at `low` (`#lowMemoryPass`) can free, so a drain that may free it tries
+   * them again, as it tries the slot waiters.
+   */
+  readonly #lowMemoryWaiters = new Set<string>();
+  /** The lane whose turn of the person started at `low` memory (`#lowMemoryPass`), or null. */
+  #lowMemoryPassLane: string | null = null;
   #wakingSlotWaiters = false;
   readonly #hooks: DrainHooks;
   readonly #channels: ChannelService | undefined;
@@ -302,6 +351,16 @@ export class DrainScheduler {
     this.#breakers = options.startBreakers;
     this.#random = options.random ?? Math.random;
     this.#now = options.now ?? Date.now;
+    this.#optimizations = options.optimizations ?? OPTIMIZATIONS_OFF;
+    this.#timing = startTimingReporter(
+      options.hooks.startTiming ? (timing) => this.#hooks.startTiming?.(timing) : undefined,
+    );
+    // The switch can let a waiting lane start now: one that the full cap holds, or a message of the
+    // person that low memory holds, which no other list keeps.
+    this.#unsubscribeOptimizations = this.#optimizations.onOptimizationChange((id, enabled) => {
+      if (id !== "queue-priority-user" || !enabled) return;
+      for (const agent of this.#store.list()) this.scheduleDrain(agent.id);
+    });
     const agentLimit = options.agentLimit ?? (() => null);
     this.#slots = new TurnSlots({
       limit: () => this.#memory.turnLimit(),
@@ -322,13 +381,14 @@ export class DrainScheduler {
         return (
           this.#mayStartNow(lane) &&
           this.#memory.mayDrain(lane.agentId) &&
-          this.#mailbox.nextQueued(lane.agentId, lane.taskId) !== null
+          this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab) !== null
         );
       },
       head: (key) => {
         const lane = laneOf(key);
-        return this.#mailbox.nextQueued(lane.agentId, lane.taskId)?.delivery ?? null;
+        return this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab)?.delivery ?? null;
       },
+      personPlace: () => this.#optimizations.optimizationEnabled("queue-priority-user"),
     });
   }
 
@@ -337,9 +397,13 @@ export class DrainScheduler {
     return this.#heldBy(mainLane(agentId)) === null;
   }
 
-  /** The agent's own chat and its open tasks. */
+  /** The agent's own chat, its open tasks, and each channel tab with a message queued or at work. */
   #lanesOf(agentId: string): Lane[] {
-    return [mainLane(agentId), ...this.#tasks.openTaskIds(agentId).map((taskId) => ({ agentId, taskId }))];
+    return [
+      mainLane(agentId),
+      ...this.#tasks.openTaskIds(agentId).map((taskId) => taskLane(agentId, taskId)),
+      ...this.#mailbox.tabLanes(agentId).map((tab) => tabLane(agentId, tab)),
+    ];
   }
 
   /**
@@ -350,29 +414,51 @@ export class DrainScheduler {
     return (
       this.#drainingLanes.has(laneKey(lane)) ||
       this.#laneTurnActive(lane) ||
-      this.#mailbox.laneActive(lane.agentId, lane.taskId)
+      this.#mailbox.laneActive(lane.agentId, lane.taskId, lane.tab)
     );
   }
 
   #laneTurnActive(lane: Lane): boolean {
-    if (lane.taskId === null) return Boolean(this.#conversation.workingSnapshot(lane.agentId)?.activeTurnId);
+    if (lane.tab !== null) {
+      const threadId = this.#tabThread(lane);
+      return threadId !== null && Boolean(this.#conversation.loadedExecutionSnapshot(threadId)?.activeTurnId);
+    }
+    // The agent's own chat and its messaging work. A turn of a channel tab is that tab's.
+    if (lane.taskId === null)
+      return this.#conversation
+        .workingSnapshots(lane.agentId)
+        .some((snapshot) => !this.#isTabThread(snapshot.threadId));
     const threadId = this.#tasks.threadId(lane.taskId);
     return this.#conversation
       .workingTaskSnapshots(lane.agentId)
       .some((snapshot) => snapshot.threadId === threadId && snapshot.activeTurnId);
   }
 
+  /** The agent's thread in the channel tab of a tab lane, or null before its first turn there. */
+  #tabThread(lane: Lane): string | null {
+    if (lane.tab === null || !this.#channels) return null;
+    const { channelId, topicId } = channelTabOfLane(lane.tab);
+    return this.#channels.store.existingContextThread(channelId, topicId, lane.agentId);
+  }
+
+  /** Whether a thread is an agent's thread in a channel tab: its turns belong to that tab's lane. */
+  #isTabThread(threadId: string | null): boolean {
+    return threadId !== null && (this.#channels?.store.channelForThread(threadId) ?? null) !== null;
+  }
+
   /**
-   * Whether a compaction holds this lane. A side thread waits for a compaction of its own thread
-   * only; the agent's own chat waits for one of any other thread (its chat, channel or messaging
-   * thread), so threads that run in parallel do not wait for each other.
+   * Whether a compaction holds this lane. A side thread and a channel tab wait for a compaction of
+   * their own thread only; the agent's own chat waits for one of its chat or messaging thread, so
+   * threads that run in parallel do not wait for each other.
    */
   #compactionHolds(lane: Lane): boolean {
-    const sideThreadId = lane.taskId === null ? null : this.#tasks.threadId(lane.taskId);
+    const ownThreadId =
+      lane.taskId !== null ? this.#tasks.threadId(lane.taskId) : lane.tab !== null ? this.#tabThread(lane) : null;
     return this.#compaction.heldThreads(lane.agentId).some((externalThreadId) => {
       const publicThreadId = this.#conversation.publicThreadId(lane.agentId, externalThreadId);
-      if (!this.#conversation.isTaskThread(publicThreadId)) return lane.taskId === null;
-      return publicThreadId === sideThreadId;
+      if (this.#conversation.isTaskThread(publicThreadId) || this.#isTabThread(publicThreadId))
+        return publicThreadId === ownThreadId;
+      return lane.taskId === null && lane.tab === null;
     });
   }
 
@@ -382,36 +468,42 @@ export class DrainScheduler {
    * the lane is read as it will be when that turn has ended.
    */
   #heldBy(lane: Lane, besideTurn?: { turnId: string | null }): string | null {
-    const { agentId, taskId } = lane;
+    const { agentId, taskId, tab } = lane;
+    const key = laneKey(lane);
     if (this.#settingsHolds.has(agentId)) return "session-settings";
     if (!besideTurn && this.#laneTurnActive(lane)) return "active-turn";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
-      this.#lanesOf(agentId).some((other) => other.taskId !== taskId && this.#laneRunning(other))
+      this.#lanesOf(agentId).some((other) => laneKey(other) !== key && this.#laneRunning(other))
     )
       return "one-turn";
     if (taskId !== null) {
       if (this.#tasks.threadId(taskId) === null) return "task-closed";
       const running = this.#tasks
         .openTaskIds(agentId)
-        .filter((other) => other !== taskId && this.#laneRunning({ agentId, taskId: other })).length;
+        .filter((other) => other !== taskId && this.#laneRunning(taskLane(agentId, other))).length;
       if (running >= this.#tasks.limit(agentId)) return "task-limit";
     }
+    // A channel tab waits for a turn of the agent's own chat or messaging work, as that chat waits for
+    // the channel work (`channel`). The channel gives a tab no work while the chat has a message that
+    // came first, so the two do not wait for each other.
+    if (tab !== null && this.#laneRunning(mainLane(agentId))) return "agent-chat";
     // The agent's own process restarts when its access or account changed. A turn of another lane
     // runs on it, so this lane waits for that turn to end.
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
     if (
       agent &&
       !this.#providers.agentClientCurrent(agent) &&
-      this.#lanesOf(agentId).some((other) => other.taskId !== taskId && this.#laneRunning(other))
+      this.#lanesOf(agentId).some((other) => laneKey(other) !== key && this.#laneRunning(other))
     )
       return "agent-client-changing";
     // A hidden agent finishes the turn that runs. Its queued messages wait until the user restores it.
     if (agent?.hiddenAt !== undefined) return "hidden";
-    // Channel work holds only the agent's own chat. Its tasks run beside a channel turn.
+    // Channel work holds only the agent's own chat. Its tasks and its other tabs run beside it.
     if (
       taskId === null &&
+      tab === null &&
       (besideTurn
         ? (this.#channels?.reservesBeside(agentId, besideTurn.turnId) ?? false)
         : !(this.#channels?.mayDrain(agentId) ?? true))
@@ -422,7 +514,7 @@ export class DrainScheduler {
     if (this.#compactionHolds(lane)) return "compaction";
     if (!this.#routines.mayDrain(agentId)) return "routine";
     if (!this.#usageLimits.mayDrain(agentId) && !this.#usageLimits.mayTry(agentId)) return "usage-limit";
-    if (agent && this.#waitsForStartFallback(agent, taskId)) return "start-fallback";
+    if (agent && this.#waitsForStartFallback(agent, lane)) return "start-fallback";
     return null;
   }
 
@@ -434,9 +526,9 @@ export class DrainScheduler {
    *   the wait ends, so a start in the wait is never taken for the one probe after it.
    * When no backup is ready any more, the lane is not held, and the start decides.
    */
-  #waitsForStartFallback(agent: AgentSummary, taskId: string | null): boolean {
+  #waitsForStartFallback(agent: AgentSummary, lane: Lane): boolean {
     const current = agentChoice(agent);
-    const marker = this.#mailbox.queuedStartRetry(agent.id, taskId);
+    const marker = this.#mailbox.queuedStartRetry(agent.id, lane.taskId, lane.tab);
     const toBackup =
       marker?.phase === "fallback" &&
       marker.fallback !== null &&
@@ -495,13 +587,17 @@ export class DrainScheduler {
    */
   #reportHold(lane: Lane, reason: string): void {
     const key = laneKey(lane);
-    if (this.#reportedHolds.get(key) === reason || !this.#mailbox.nextQueued(lane.agentId, lane.taskId)) return;
+    if (this.#reportedHolds.get(key) === reason || !this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab))
+      return;
     this.#reportedHolds.set(key, reason);
     const working =
-      reason === "active-turn" && lane.taskId === null ? this.#conversation.workingSnapshot(lane.agentId) : undefined;
+      reason === "active-turn" && lane.taskId === null && lane.tab === null
+        ? this.#conversation.workingSnapshot(lane.agentId)
+        : undefined;
     logger.info("A queued message waits.", {
       agentId: lane.agentId,
       ...(lane.taskId === null ? {} : { taskId: lane.taskId }),
+      ...(lane.tab === null ? {} : { channelTab: true }),
       reason,
       ...(working ? { threadId: working.threadId, turnId: working.activeTurnId } : {}),
     });
@@ -509,7 +605,7 @@ export class DrainScheduler {
 
   /** Why the next message of this task waits, or null when it can start or nothing waits. */
   taskHold(agentId: string, taskId: string): string | null {
-    const lane = { agentId, taskId };
+    const lane = taskLane(agentId, taskId);
     if (!this.#mailbox.nextQueued(agentId, taskId)) return null;
     return this.#heldBy(lane) ?? (this.#slotWaiters.has(laneKey(lane)) ? "machine" : null);
   }
@@ -530,21 +626,23 @@ export class DrainScheduler {
    * memory sample calls this too, for a turn that ended on a path that schedules no drain.
    */
   retrySlotWaiters(): void {
-    if (this.#wakingSlotWaiters || this.#slotWaiters.size === 0) return;
+    if (this.#wakingSlotWaiters || this.#slotWaiters.size + this.#lowMemoryWaiters.size === 0) return;
     this.#wakingSlotWaiters = true;
     try {
-      const waiters = [...this.#slotWaiters];
+      const waiters = [...this.#slotWaiters, ...this.#lowMemoryWaiters];
       this.#slotWaiters.clear();
+      this.#lowMemoryWaiters.clear();
       for (const key of waiters) this.#scheduleLane(laneOf(key));
     } finally {
       this.#wakingSlotWaiters = false;
     }
   }
 
-  /** Schedules the agent's own chat, then each task with a message that can start. */
+  /** Schedules the agent's own chat, then each task and each channel tab with a message that can start. */
   #scheduleDrain(agentId: string, followUsageLimit = true): void {
     if (this.#scheduleLane(mainLane(agentId), followUsageLimit)) return;
     this.#scheduleTasks(agentId);
+    this.#scheduleTabs(agentId, followUsageLimit);
   }
 
   /**
@@ -553,7 +651,19 @@ export class DrainScheduler {
    */
   #scheduleTasks(agentId: string): void {
     for (const taskId of this.#mailbox.queuedTaskIds(agentId))
-      if (this.#mailbox.nextQueued(agentId, taskId)) this.#scheduleLane({ agentId, taskId }, false);
+      if (this.#mailbox.nextQueued(agentId, taskId)) this.#scheduleLane(taskLane(agentId, taskId), false);
+  }
+
+  /**
+   * Schedules each channel tab whose next message can start. A tab follows a usage limit or a backup
+   * model itself: channel work holds the agent's own chat (`channel`), so that chat does not. The move
+   * waits until no turn of the agent runs, as it does for the chat.
+   */
+  #scheduleTabs(agentId: string, followUsageLimit = true): void {
+    for (const tab of this.#mailbox.queuedTabs(agentId)) {
+      if (!this.#mailbox.nextQueued(agentId, null, tab)) continue;
+      if (this.#scheduleLane(tabLane(agentId, tab), followUsageLimit)) return;
+    }
   }
 
   /** True when a move for a usage limit started: the move schedules the agent again when it ends. */
@@ -636,10 +746,22 @@ export class DrainScheduler {
     return completions.length > 0 ? Effect.all(completions, { discard: true }) : undefined;
   }
 
+  /**
+   * A delivery that waited for a safe resume ended before it started, as after a Stop or a deleted tab
+   * or channel: its wake-up goes. The wake-up of a start retry stays, as before.
+   */
+  cancelResumeWake(deliveryId: string): void {
+    const entry = this.#retryTimers.get(deliveryId);
+    if (!entry || !this.#mailbox.getDelivery(deliveryId)?.turnResume) return;
+    clearTimeout(entry.timer);
+    this.#retryTimers.delete(deliveryId);
+  }
+
   forgetAgent(agentId: string): void {
     const ofAgent = (key: string) => laneOf(key).agentId === agentId;
-    for (const keys of [this.#drainingLanes, this.#scheduledDrains, this.#slotWaiters])
+    for (const keys of [this.#drainingLanes, this.#scheduledDrains, this.#slotWaiters, this.#lowMemoryWaiters])
       for (const key of [...keys]) if (ofAgent(key)) keys.delete(key);
+    if (this.#lowMemoryPassLane !== null && ofAgent(this.#lowMemoryPassLane)) this.#lowMemoryPassLane = null;
     for (const key of [...this.#reportedHolds.keys()]) if (ofAgent(key)) this.#reportedHolds.delete(key);
     for (const key of [...this.#turnModels.keys()]) if (ofAgent(key)) this.#turnModels.delete(key);
     this.#requeuedAtLimit.delete(agentId);
@@ -666,6 +788,9 @@ export class DrainScheduler {
     this.#drainingLanes.clear();
     this.#scheduledDrains.clear();
     this.#slotWaiters.clear();
+    this.#lowMemoryWaiters.clear();
+    this.#lowMemoryPassLane = null;
+    this.#unsubscribeOptimizations();
     this.#reportedHolds.clear();
     this.#requeuedAtLimit.clear();
     this.#startsAlone.clear();
@@ -676,14 +801,73 @@ export class DrainScheduler {
    * about the memory, and a lane held by the slots waits for the next free slot.
    */
   #heldByMachine(lane: Lane): boolean {
-    if (!this.#memory.mayDrain(lane.agentId)) {
-      if (this.#mailbox.nextQueued(lane.agentId, lane.taskId)) this.#memory.held(lane.agentId);
+    if (!this.#memory.mayDrain(lane.agentId) && !this.#lowMemoryPass(lane)) {
+      if (this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab)) this.#memory.held(lane.agentId);
       return true;
     }
     const key = laneKey(lane);
     if (this.#slots.mayStart(key)) return false;
     this.#slotWaiters.add(key);
     return true;
+  }
+
+  /**
+   * Whether this lane is the one turn of the person that may start while the memory of the computer
+   * is `low` (`queue-priority-user`): its next message is the person's, the provider thread it runs
+   * on is open, so no process starts for it, and no other such turn runs. At `critical`, on a server,
+   * or with the switch off, nothing passes. A lane held here waits in `#lowMemoryWaiters`.
+   */
+  #lowMemoryPass(lane: Lane): boolean {
+    if (!this.#optimizations.optimizationEnabled("queue-priority-user") || !this.#memory.personMayPassLow())
+      return false;
+    const key = laneKey(lane);
+    const context = this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab);
+    if (context?.delivery.sender.kind !== "user") return false;
+    const current = this.#lowMemoryPassLane;
+    if (current !== null && current !== key && this.#laneRunning(laneOf(current))) {
+      this.#lowMemoryWaiters.add(key);
+      return false;
+    }
+    if (!this.#providerThreadOpen(lane, context.delivery.id)) return false;
+    this.#lowMemoryPassLane = key;
+    return true;
+  }
+
+  /**
+   * Whether the provider session that the next turn of this lane runs on is open now: loaded on a
+   * running client, and not closed for being idle (`AgentClient.threadOpen`).
+   */
+  #providerThreadOpen(lane: Lane, deliveryId: string): boolean {
+    const agent = this.#store.list().find((candidate) => candidate.id === lane.agentId);
+    if (!agent) return false;
+    const publicThreadId =
+      lane.tab !== null
+        ? this.#tabThread(lane)
+        : lane.taskId !== null
+          ? this.#tasks.threadId(lane.taskId)
+          : this.#chatThreadFor(agent, deliveryId);
+    if (!publicThreadId) return false;
+    const session = this.#store.database.activeProviderSession(publicThreadId, agent.provider);
+    if (!session) return false;
+    const client = this.#conversation.loadedClientFor(session.externalSessionId);
+    return client !== undefined && (client.threadOpen?.(session.externalSessionId) ?? true);
+  }
+
+  /**
+   * The public thread of a delivery of the agent's own lane: the channel thread of its assignment, the
+   * thread of its external conversation, or the agent's chat.
+   */
+  #chatThreadFor(agent: AgentSummary | undefined, deliveryId: string): string | null | undefined {
+    const assignment = this.#channels?.store.assignmentForDelivery(deliveryId);
+    return assignment
+      ? this.#channels?.store.context(
+          assignment.channelId,
+          this.#channels.store.tasks(assignment.channelId).find((task) => task.id === assignment.taskId)?.topicId ??
+            this.#channels.store.firstTopic(assignment.channelId)?.id ??
+            "",
+          assignment.agentId,
+        ).threadId
+      : (this.#messaging?.threadForDelivery(deliveryId) ?? agent?.threadId);
   }
 
   /** The checks of `drainAgent` other than the clauses: the service runs and the provider can start. */
@@ -704,7 +888,7 @@ export class DrainScheduler {
 
   readonly #drainLane = Effect.fn("DrainScheduler.drainLane")(function* (this: DrainScheduler, lane: Lane) {
     if (this.#hooks.isStopping()) return;
-    const { agentId, taskId } = lane;
+    const { agentId, taskId, tab } = lane;
     const key = laneKey(lane);
     const hold =
       (this.#drainingLanes.has(key) && "drain-running") ||
@@ -725,10 +909,10 @@ export class DrainScheduler {
     this.#drainingLanes.add(key);
     yield* Effect.gen({ self: this }, function* () {
       if (this.#laneTurnActive(lane)) return;
-      const context = this.#mailbox.nextQueued(agentId, taskId);
+      const context = this.#mailbox.nextQueued(agentId, taskId, tab);
       if (!context) {
         // Here, so that a message that arrives during the new chat waits for this drain to end.
-        if (taskId === null) yield* this.#hooks.startRequestedNewChat(agentId);
+        if (taskId === null && tab === null) yield* this.#hooks.startRequestedNewChat(agentId);
         return;
       }
       // An automatic plan continuation runs only when nothing else waits in the lane and its chain
@@ -738,7 +922,7 @@ export class DrainScheduler {
             agentId,
             taskId,
             context.delivery.id,
-            this.#mailbox.laneQueuedIds(agentId, taskId).length > 0,
+            this.#mailbox.laneQueuedIds(agentId, taskId, tab).length > 0,
           )
         : null;
       if (context.planContinuation?.queued && planNote === null) {
@@ -746,20 +930,11 @@ export class DrainScheduler {
         return;
       }
       // A side thread compacts at the end of its own turns (`TurnLifecycle`), and that compaction
-      // holds its own lane only. Here the agent's own chat compacts its chat, or the thread of the
-      // channel or messaging work it serves.
+      // holds its own lane only. Here the agent's own chat compacts its chat or the thread of the
+      // messaging work it serves, and a channel tab compacts the agent's thread of that tab.
       if (taskId === null) {
         const agent = this.#store.list().find((candidate) => candidate.id === agentId);
-        const assignment = this.#channels?.store.assignmentForDelivery(context.delivery.id);
-        const publicThreadId = assignment
-          ? this.#channels?.store.context(
-              assignment.channelId,
-              this.#channels.store.tasks(assignment.channelId).find((task) => task.id === assignment.taskId)?.topicId ??
-                this.#channels.store.firstTopic(assignment.channelId)?.id ??
-                "",
-              assignment.agentId,
-            ).threadId
-          : (this.#messaging?.threadForDelivery(context.delivery.id) ?? agent?.threadId);
+        const publicThreadId = this.#chatThreadFor(agent, context.delivery.id);
         if (agent && publicThreadId === agent.threadId) this.#hooks.dropRequestedNewChat(agentId);
         // A routine run in its own session leaves the chat session as it is.
         const session =
@@ -780,8 +955,10 @@ export class DrainScheduler {
           this.#drainingLanes.delete(key);
           if (this.#requeuedAtLimit.delete(agentId) || this.#mailbox.nextQueued(agentId))
             this.#scheduleLane(mainLane(agentId));
-          // Every task too: this lane can have held another one for the task limit or the process.
+          // Every task and tab too: this lane can have held another one for the task limit, the
+          // process, or the agent's own chat.
           this.#scheduleTasks(agentId);
+          this.#scheduleTabs(agentId);
           this.retrySlotWaiters();
         }),
       ),
@@ -830,6 +1007,7 @@ export class DrainScheduler {
     const channelDelivery = this.#channels ? this.#channels.store.assignmentForDelivery(delivery.id) !== null : false;
     const messagingDelivery = this.#messaging?.ownsDelivery(delivery.id) ?? false;
     const taskId = this.#mailbox.taskIdForDelivery(delivery.id);
+    const tab = this.#mailbox.tabForDelivery(delivery.id);
     const ownSession = this.#runsInOwnSession(context);
     // The teammate answers that start in this turn too. A channel task, an external message and a
     // routine run in its own session always run alone; a teammate's answer in an external
@@ -876,6 +1054,8 @@ export class DrainScheduler {
     let startChoice: AgentModelChoice | null = null;
     // This start is the one try of the agent's own model after the wait of its breaker.
     let probing = false;
+    // The start of the timings of this start (`start-timings.ts`).
+    const claimedAt = performance.now();
     yield* Effect.gen({ self: this }, function* () {
       for (const item of batch) yield* this.#mailbox.markStarting(item.delivery.id).pipe(toDeliveryStartFailed);
       this.#mailboxSync.emitQueue(delivery.recipientAgentId);
@@ -929,10 +1109,13 @@ export class DrainScheduler {
       yield* drainStep(requireServedModel);
       yield* this.#threads.applyPendingRuntimeRefresh(agent, new Set(batch.map((item) => item.delivery.id)));
       releaseRuntimeRefresh = this.#threads.holdRuntimeRefresh(agent.id, taskId !== null);
+      const clientAt = performance.now();
       const client = yield* this.#providers.ensureAgentClient(agent).pipe(toDeliveryStartFailed);
+      this.#timing("client", clientAt, "ok");
       const messaging = this.#messaging;
       const channels = this.#channels;
       const taskThreadId = taskId === null ? null : this.#tasks.threadId(taskId);
+      const prepareAt = performance.now();
       const execution: { threadId: string; text?: string } | null | undefined =
         taskId !== null
           ? taskThreadId
@@ -945,6 +1128,11 @@ export class DrainScheduler {
             : channels
               ? yield* channels.prepare(context).pipe(toDeliveryStartFailed)
               : null;
+      this.#timing(
+        "prepare",
+        prepareAt,
+        channelDelivery ? "channel" : messagingDelivery ? "messaging" : taskId !== null ? "task" : "chat",
+      );
       if ((channelDelivery || messagingDelivery || taskId !== null) && !execution) {
         // Every delivery of the batch, so no later message stays `starting` in a removed lane.
         for (const item of batch) {
@@ -976,9 +1164,11 @@ export class DrainScheduler {
         }
         routineThreadId = yield* this.#threads.startRoutineThread(agent, client).pipe(toDeliveryStartFailed);
       }
+      const threadAt = performance.now();
       let threadId =
         routineThreadId ??
         (yield* this.#threads.ensureThread(agent, client, execution?.threadId).pipe(toDeliveryStartFailed));
+      this.#timing("thread", threadAt, routineThreadId ? "routine" : "ok");
       const snapshot = this.#conversation.ensureSnapshot(agent.id, threadId);
       // A turn started on this thread while the provider and the thread were prepared. The user
       // cannot see that race, so the delivery goes back to the head of the queue rather than
@@ -1001,10 +1191,21 @@ export class DrainScheduler {
         const continued = new Set<string>();
         return combinedPromptInput(
           batch.map((item) => {
-            const { resumeAfterUsageLimit, ...rest } = item;
+            const { resumeAfterUsageLimit, turnResume: own, ...rest } = item;
+            // A task that the person resumed after "this may already be done" reads what its stopped turn did.
+            const turnResume = own ?? this.#channels?.carriedTurnResume(item.delivery.id) ?? undefined;
             const repeated = resumeAfterUsageLimit !== undefined && continued.has(resumeAfterUsageLimit.turnId);
             if (resumeAfterUsageLimit) continued.add(resumeAfterUsageLimit.turnId);
-            return deliveryPromptInput(repeated ? rest : item, {
+            // The same for the note of a safe resume: one note for the failed turn.
+            const resumedTurn = turnResume?.turnIds.at(-1);
+            const repeatedNote = resumedTurn !== undefined && continued.has(`resume:${resumedTurn}`);
+            if (resumedTurn !== undefined) continued.add(`resume:${resumedTurn}`);
+            const shown = {
+              ...rest,
+              ...(resumeAfterUsageLimit && !repeated ? { resumeAfterUsageLimit } : {}),
+              ...(turnResume && !repeatedNote ? { turnResume } : {}),
+            };
+            return deliveryPromptInput(shown, {
               agentNames,
               snapshot,
               routineRun:
@@ -1067,6 +1268,7 @@ export class DrainScheduler {
       if (security) {
         const fromUser = batch.filter(({ delivery: item }) => item.sender.kind === "user");
         if (fromUser.length) {
+          const reviewAt = performance.now();
           const annotation = yield* security.review({
             agent,
             text: fromUser.map(({ delivery: item }) => item.text).join("\n\n---\n\n"),
@@ -1076,6 +1278,7 @@ export class DrainScheduler {
                 .map((attachment) => ({ path: attachment.path, mimeType: attachment.mimeType })),
             ),
           });
+          this.#timing("review", reviewAt, annotation ? "annotated" : "none");
           if (annotation) completeInput = withGuardAnnotation(completeInput, annotation);
         }
       }
@@ -1100,7 +1303,8 @@ export class DrainScheduler {
                 ),
                 clientUserMessageId: delivery.id,
                 // The delivery stays the same; a continuation must not overwrite the first turn's items.
-                ...((context.resumeAfterUsageLimit || planNote !== undefined) && client.provider !== "codex"
+                ...((context.resumeAfterUsageLimit || context.turnResume || planNote !== undefined) &&
+                client.provider !== "codex"
                   ? { clientTurnId: randomUUID() }
                   : {}),
                 // A teammate message that wants no answer tells the model to write nothing, so an empty
@@ -1125,13 +1329,23 @@ export class DrainScheduler {
         });
       // The guard reads the message before the agent does. It runs after the messages show in the chat,
       // and a scan that fails leaves the turn without a block.
+      const scanAt = performance.now();
       const guard = yield* this.#hooks.scanPrompt(agent.id, scanInput);
+      this.#timing("scan", scanAt, guard ? (guard.note ? "suspicious" : "clean") : "none");
       guardBlock = guard?.block ?? null;
       if (guard?.note) this.#postSecurityNote(snapshot, guard.note);
       // Claude, ACP and Pi take the delivery id as the turn id. A delivery that a refused turn put back
       // in the queue keeps its id, and the end of that turn must not end this new run (#2468).
       this.#hooks.turnRestarting(delivery.id);
+      // A session that the client closed for being idle opens again in `turn/start`.
+      const open = client.threadOpen?.(threadId);
+      const turnStartAt = performance.now();
       const firstStart = yield* Effect.result(startTurn(threadId));
+      this.#timing(
+        "turn-start",
+        turnStartAt,
+        Result.isFailure(firstStart) ? "failed" : open === undefined ? "unknown" : open ? "open" : "woke",
+      );
       let response: Effect.Success<ReturnType<typeof startTurn>>;
       if (Result.isSuccess(firstStart)) response = firstStart.success;
       else {
@@ -1164,7 +1378,11 @@ export class DrainScheduler {
       // event would end it, and it would hold every message of this agent.
       if (!this.#hooks.turnEnded(response.turn.id)) snapshot.activeTurnId = response.turn.id;
       confirmedTurnId = response.turn.id;
-      this.#turnModels.set(laneKey({ agentId: agent.id, taskId }), { turnId: response.turn.id, model: agent.model });
+      this.#timing("accepted", claimedAt, "ok");
+      this.#turnModels.set(laneKey({ agentId: agent.id, taskId, tab }), {
+        turnId: response.turn.id,
+        model: agent.model,
+      });
       this.#startedAfterRetry(agent, context, channelDelivery);
       // A usage limit can still refuse this turn before it does work: its retry goes on from here.
       if (context.startRetry || probing)
@@ -1521,6 +1739,119 @@ export class DrainScheduler {
       this.#mailboxSync.emitQueue(input.agentId);
       for (const { delivery } of input.deliveries) this.#armStartRetry(input.agentId, delivery.id, step.marker.nextAt);
       return step.type;
+    });
+
+  /**
+   * A brief provider failure (`TURN_RESUME_CAUSES`) ended a channel turn in the middle. The turn
+   * continues by itself in the same session, at most `TURN_RESUME_MAX` times with a growing wait, when
+   * the safe resume is on, the provider keeps its session, and the effect journal of the turn says that
+   * nothing can happen twice (`planTurnResume`). `requeue` puts the deliveries back in the queue with
+   * the marker. `{ ask }` when an outside step may already have happened: the task stops for the person
+   * with that text. Null when the safe resume does not take the failure: the turn ends as before.
+   */
+  readonly resumeChannelTurn = <E>(
+    input: {
+      agentId: string;
+      turnId: string;
+      provider: AgentProvider;
+      deliveries: readonly DeliveryContext[];
+      error: string;
+      effects: readonly TurnEffect[];
+      ownCalls: readonly OwnToolCall[];
+    },
+    requeue: (marker: TurnResumeMarker) => Effect.Effect<void, E>,
+  ): Effect.Effect<"resumed" | { ask: string } | null, E> =>
+    Effect.gen({ self: this }, function* () {
+      const options = this.#hooks.safeResume?.();
+      const head = input.deliveries[0];
+      const channels = this.#channels;
+      if (!options || !head || !channels || this.#hooks.isStopping()) return null;
+      const now = this.#now();
+      const failure = classifyStartFailure(undefined, input.error, { retryAfterUsageLimit: false }, now);
+      const previous = head.turnResume;
+      // Ids, classes and counts only: never the text of the request, of a tool or of the error.
+      const facts = {
+        agentId: input.agentId,
+        deliveryId: head.delivery.id,
+        provider: input.provider,
+        cause: failure.cause,
+        attempt: previous?.attempt ?? 0,
+        steps: input.effects.length,
+        ownCalls: input.ownCalls.length,
+      };
+      const skip = (reason: string) => {
+        logger.info("A channel turn failed, and it does not continue by itself.", { ...facts, reason });
+        return null;
+      };
+      if (!TURN_RESUME_PROVIDERS.has(input.provider)) return skip("provider");
+      if (failure.class !== "retry" || failure.usageLimit || !TURN_RESUME_CAUSES.has(failure.cause))
+        return skip("failure");
+      if ((previous?.attempt ?? 0) >= TURN_RESUME_MAX) return skip("tries");
+      if (input.effects.length >= JOURNAL_LIMIT) return skip("journal");
+      const settings = this.#hooks.startRetrySettings?.();
+      const plan = planTurnResume({
+        effects: input.effects,
+        ownCalls: input.ownCalls,
+        resumeUncertain: settings?.resumeUncertainActions === true,
+      });
+      if (plan.kind === "ask") {
+        logger.info("A channel turn failed after an outside step with no result: the person decides.", {
+          ...facts,
+          uncertain: plan.uncertain.length,
+        });
+        // What the turn did stays with the delivery, so a resume by the person reads it in its note.
+        const { marker } = nextTurnResumeMarker({
+          previous,
+          plan,
+          turnId: input.turnId,
+          cause: failure.cause,
+          delays: options.delaysSeconds,
+          now,
+          random: 0,
+        });
+        for (const { delivery } of input.deliveries)
+          yield* this.#mailbox
+            .recordTurnResume(delivery.id, {
+              ...marker,
+              attempt: previous?.attempt ?? 0,
+              nextAt: null,
+              forPerson: true,
+            })
+            .pipe(Effect.catch(() => Effect.void));
+        return { ask: sourceText("error.backend.channelTaskMayBeDone", { actions: uncertainActions(plan.uncertain) }) };
+      }
+      // Each delivery must stay with its task: a person who stopped or changed the task ends it as before.
+      if (!input.deliveries.every(({ delivery }) => channels.mayHoldForStartRetry(delivery.id))) return skip("task");
+      // The first continuation of a failure takes one recovery of the task from the shared ledger.
+      if (!previous && options.takeRecovery) {
+        const assignment = channels.store.assignmentForDelivery(head.delivery.id);
+        if (!assignment || !options.takeRecovery(assignment.channelId, assignment.taskId)) return skip("ledger");
+      }
+      const { marker, delayMs } = nextTurnResumeMarker({
+        previous,
+        plan,
+        turnId: input.turnId,
+        cause: failure.cause,
+        delays: options.delaysSeconds,
+        now,
+        random: this.#random(),
+      });
+      for (const { delivery } of input.deliveries) {
+        const held = yield* channels
+          .holdForStartRetry(delivery.id, turnResumeView(marker))
+          .pipe(Effect.catch(() => Effect.succeed(false)));
+        if (!held) return skip("task");
+      }
+      yield* requeue(marker);
+      this.#mailboxSync.emitQueue(input.agentId);
+      for (const { delivery } of input.deliveries) this.#armStartRetry(input.agentId, delivery.id, marker.nextAt);
+      logger.info("A channel turn continues by itself after a brief provider failure.", {
+        ...facts,
+        attempt: marker.attempt,
+        delayMs,
+        uncertain: plan.uncertain,
+      });
+      return "resumed";
     });
 
   /**

@@ -14,7 +14,10 @@ import type { McpConnectFlow } from "@openbot/contracts/mcp-connect-flows";
 import { CONNECTOR_LISTINGS } from "@openbot/ui/features/connectors/connector-catalog";
 import { Marketplace } from "@openbot/ui/features/marketplace/Marketplace";
 import { AgentsDialog } from "@openbot/ui/features/marketplace/MarketplaceAgentsDialog";
-import { connectionApp, type MarketplaceConnections } from "@openbot/ui/features/marketplace/marketplace-connections";
+import {
+  hubConnectionApps,
+  type MarketplaceConnections,
+} from "@openbot/ui/features/marketplace/marketplace-connections";
 import type { MarketplaceApp, MarketplaceModel } from "@openbot/ui/features/marketplace/marketplace-model";
 import {
   createMarketplaceNavigation,
@@ -489,6 +492,7 @@ function MarketplaceWindow(props: StoryProps) {
                 ? current.filter((id) => id !== connectionId)
                 : [...current, connectionId];
             }),
+          openConsent: fn(async () => undefined),
         }
       : undefined;
 
@@ -534,7 +538,16 @@ function MarketplaceWindow(props: StoryProps) {
     createSkill: member ? undefined : fn(),
     trySkill: fn(),
 
-    apps: () => (state.connection ? [...state.apps, connectionApp(state.connection)] : state.apps),
+    // The connection row, and a tile per platform of the catalog while the person uses it.
+    apps: () =>
+      state.connection
+        ? [
+            ...state.apps,
+            ...hubConnectionApps([state.connection], (count) =>
+              t("marketplace.connection.platform.tagline", { count }),
+            ),
+          ]
+        : state.apps,
     curation: curated ? marketplaceAppCuration : undefined,
     connections,
     canConnectApps: () => !member,
@@ -895,7 +908,12 @@ export const ConnectionsHidden: Story = {
   beforeEach: before({ kind: "signed-out" }),
 };
 
-/** The person uses the tool catalog: the list shows it in Connections, and the side panel names it. */
+/**
+ * The person uses the tool catalog: the list shows it in Connections, and the side panel names it.
+ * Each platform of the catalog is a tile in the category of its group (SEO and reviews in Research,
+ * company and market data in Data & Analytics, developer data in Coding, image tools in Design, ads in
+ * Other), with the status of the connection and no install button. A tile opens the catalog's page.
+ */
 export const ConnectionsInUse: Story = {
   args: curatedApps({ connection: "ok" }),
   beforeEach: before({ kind: "signed-out" }),
@@ -946,8 +964,23 @@ export const ConnectionPageChoosePayer = connectionPage("choose");
 /** Cultura Builder paused the connection: the page says so. */
 export const ConnectionPagePaused = connectionPage("paused");
 
-/** This app may not spend the organization's connections yet: the person allows it on the Hub. */
+/**
+ * This app may not spend the organization's connections yet: the alert opens the connections page of
+ * the Hub, where the person allows it, and Refresh reads the Hub again.
+ */
 export const ConnectionPageConsent = connectionPage("consent");
+
+/**
+ * Every provider of the catalog is on: 40 platform tiles (the most that the contract keeps), in every
+ * category, and the person's monthly limit in US dollars.
+ */
+export const ConnectionsAllProviders: Story = {
+  args: curatedApps({ connection: "allProviders" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+/** The page with every provider on: thousands of tools and a limit of US$ 20. */
+export const ConnectionPageAllProviders = connectionPage("allProviders");
 
 /** A link to the tool catalog while the person is not signed in to Cultura Builder. */
 export const ConnectionSignedOut: Story = {

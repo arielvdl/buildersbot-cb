@@ -376,7 +376,11 @@ export function agentIpcHandlers({
       readChannel: scopedHandler(parseChannelRead, {
         local: (input) => {
           const { store } = service.channels;
-          return store.page(input.channelId, store.readTopicId(input.channelId, input.topicId), input.beforeSequence);
+          return service.channels.page(
+            input.channelId,
+            store.readTopicId(input.channelId, input.topicId),
+            input.beforeSequence,
+          );
         },
         remote: (input, serverId) =>
           runCauseEffect(

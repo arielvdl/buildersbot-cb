@@ -126,6 +126,7 @@ import {
   agentTaskLimit,
   type BusyMessageMode,
   CONTEXT_RESET_ITEM_TYPE,
+  DEFAULT_AGENT_TABS,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_GUARD_PREFERENCE,
@@ -237,11 +238,13 @@ import { type RoutineMutationOptions, RoutineScheduler, toRoutineOperationFailed
 import { localTimezone } from "./agent/routine-tools";
 import { buildRuntimeSnapshot } from "./agent/runtime-snapshot";
 import type { ScreenCaptureHost } from "./agent/screen-capture";
+import type { ServerModelPolicy } from "./agent/server-model-policy";
 import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
 import { type StartBreakerStorage, StartBreakers } from "./agent/start-retry";
+import type { StartTiming } from "./agent/start-timings";
 import {
   agentProviderAccount,
   isRequestTimeout,
@@ -252,6 +255,7 @@ import {
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
 import { type AgentBrowserHost, type RunningTurn, TurnLifecycle } from "./agent/turn-lifecycle";
+import { TURN_RESUME_DELAYS_SECONDS } from "./agent/turn-resume";
 import { memoryReviewUsageObserver, workflowUsageObserver } from "./agent/usage-collection";
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import { WarmGenerations } from "./agent/warm-generations";
@@ -269,6 +273,7 @@ import { automationRunCommand } from "./automation-command";
 import { toChannelOperationError } from "./channel-effects";
 import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
+import { channelTabLane } from "./channel-tab-lane";
 import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
 import type { ProviderSession } from "./database/provider-sessions";
@@ -288,6 +293,7 @@ import { toMcpOperationError } from "./mcp-effects";
 import type { McpSignInOpener } from "./mcp-oauth-provider";
 import { McpServerStore } from "./mcp-server-store";
 import { MessagingThreads, toMessagingThreadFailed } from "./messaging/messaging-threads";
+import { OPTIMIZATIONS_OFF, type OptimizationPort } from "./optimizations";
 import type { PasswordVault } from "./password-vault";
 import { decodeRecordResponse, getString } from "./protocol";
 import { NO_PROVIDER_CREDENTIALS, type ProviderClientContext } from "./provider-drivers";
@@ -328,6 +334,11 @@ interface AgentServiceEvents {
   toolUsage: [usage: ToolUsageSignal];
   /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
   workflowRun: [end: WorkflowRunEnd];
+  /**
+   * The time of one step of a turn start, for the local trace (`start-timings.ts`). Names, numbers and
+   * status words only. Never forwarded to a client.
+   */
+  startTiming: [timing: StartTiming];
 }
 
 export interface AgentServiceOptions {
@@ -366,6 +377,8 @@ export interface AgentServiceOptions {
    */
   credentials?: ProviderClientContext;
   offProviders?: readonly AgentProvider[];
+  /** The model policy of the server (`server-model-policy.ts`). Absent: every provider and model is offered. */
+  modelPolicy?: ServerModelPolicy | null;
   /** The provider accounts after the first. Omitted, each provider holds its own sign-in only. */
   providerAccounts?: ProviderAccountStore;
   saveProviderUse?: (provider: AgentProvider, on: boolean) => Effect.Effect<void, AgentLifecycleFailed>;
@@ -385,6 +398,11 @@ export interface AgentServiceOptions {
    */
   busyMessageMode?: () => BusyMessageMode;
   /**
+   * The advanced optimizations (beta) of this host (`src/backend/optimizations.ts`). The main process owns
+   * the file. Omitted, every switch is off: the behavior of the app before the switches existed.
+   */
+  optimizations?: OptimizationPort;
+  /**
    * The security reviewer of the messages the user sends. The main process owns the preference.
    * Omitted, the reviewer is on for every message, which is the default of a new install.
    */
@@ -394,6 +412,17 @@ export interface AgentServiceOptions {
    * own models. The main process owns both. Omitted, a start that fails is not tried again.
    */
   startRetry?: { settings: () => StartRetrySettings; breakers: StartBreakerStorage };
+  /**
+   * The safe resume of a channel turn after a brief provider failure (`agent/turn-resume.ts`), which
+   * runs only while the optimization `safe-resume` is on. `delaysSeconds` replaces the waits for a
+   * test. `recoveryBudget` is the ledger of the task reviewer and "Resume by itself": one failure takes
+   * one recovery of the task, so the three share one limit. Omitted: the waits of the product, and no
+   * ledger.
+   */
+  safeResume?: {
+    delaysSeconds?: () => readonly number[];
+    recoveryBudget?: { take(channelId: string, taskId: string): boolean };
+  };
   /**
    * The Guard of tool calls and their results. The main process owns the preference. Omitted, the
    * Guard runs at Light, the default of a new install.
@@ -480,9 +509,15 @@ export interface AgentServiceOptions {
   /**
    * The Hub connections of the Cultura Builder session (`openbot_connections`). `fetch` is for tests
    * only: production always reaches the Hub origin. `enabled` is the setting of this computer;
-   * omitted, on. Null turns the tools off for this service.
+   * omitted, on. `openHub` opens a page of the Hub in the person's browser (main's
+   * `shell.openExternal`): the cost approval page and the consent page. Omitted, no page opens, so no
+   * cost can be approved. Null turns the tools off for this service.
    */
-  hubConnections?: { readonly fetch?: typeof fetch; readonly enabled?: () => boolean } | null;
+  hubConnections?: {
+    readonly fetch?: typeof fetch;
+    readonly enabled?: () => boolean;
+    readonly openHub?: (url: string) => Promise<void>;
+  } | null;
   /**
    * The memory of a server, or `null` on a desktop computer. With it, no new turn starts
    * while memory is low, and only a fixed number of turns run at the same time.
@@ -502,6 +537,11 @@ export interface AgentServiceOptions {
    * memory turn limit applies too; the cap that is reached first holds the turn.
    */
   agentLimit?: () => number | null;
+  /**
+   * The most channel tabs of one agent that run a turn at the same time, as the person set it. Each
+   * tab is its own line of work with its own session. Omitted: `DEFAULT_AGENT_TABS`.
+   */
+  channelTabLimit?: () => number;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -585,6 +625,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #security: PromptInjectionGuard;
   readonly #toolGuard: ToolGuard;
   readonly #hubConnections: HubConnectionTools | null;
+  /**
+   * The advanced optimizations (beta) of this host. Each part of the service that has a switch reads it
+   * here when it decides, so a change applies to the next decision.
+   */
+  readonly optimizations: OptimizationPort;
   /** Whether a person that the host stamped is someone other than this computer's user. */
   readonly #remotePerson: (personId: string) => boolean;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
@@ -628,6 +673,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     } = options;
     this.#developmentDefaults = developmentDefaults;
     this.#busyMessageMode = busyMessageMode;
+    this.optimizations = options.optimizations ?? OPTIMIZATIONS_OFF;
     this.#securityGuard = securityGuard;
     this.#startRetrySettings = options.startRetry?.settings ?? null;
     this.#startBreakers = options.startRetry ? new StartBreakers(options.startRetry.breakers) : null;
@@ -802,6 +848,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#providers = new ProviderRuntime({
       offProviders: options.offProviders ?? [],
+      modelPolicy: options.modelPolicy ?? null,
       ...(options.providerAccounts ? { accounts: options.providerAccounts } : {}),
       saveProviderUse: (provider, on) =>
         (options.saveProviderUse?.(provider, on) ?? Effect.void).pipe(toProviderOperationFailed),
@@ -1201,6 +1248,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.channels = new ChannelService(store.database, mailbox, {
       agents: () => this.listAgents(),
+      deliveryCancelled: (deliveryId) => this.#drain.cancelResumeWake(deliveryId),
       hidden: (agentId) => this.#store.isHidden(agentId),
       generate: (lead, prompt, purpose) =>
         Effect.gen({ self: this }, function* () {
@@ -1214,7 +1262,12 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             });
           return yield* this.#generateForAgent(
             lead,
-            { ...model, defaultReasoningEffort: purpose === "summary" ? summaryEffort(model) : lead.reasoningEffort },
+            // Only the `routing` optimization sends the `routing` purpose: off, routing keeps the lead's effort.
+            {
+              ...model,
+              defaultReasoningEffort:
+                purpose === "summary" || purpose === "routing" ? summaryEffort(model) : lead.reasoningEffort,
+            },
             prompt,
           ).pipe(
             // A routing turn can be the first one a spent plan refuses: in its completion, or as the
@@ -1237,16 +1290,29 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         return session ? this.#compaction.contextInputCharacters(session.externalSessionId) : 120_000;
       },
       reportsCompactions: (agentId) => this.#reportsCompactions(agentId),
+      optimizationEnabled: (id) => this.optimizations.optimizationEnabled(id),
+      // Counts and times only: the sample has no text of the request, the prompt or the answer.
+      routingMeasured: (sample) => logger.info("A channel routing generation ended.", { ...sample }),
       forgetThread: (threadId) => this.#forgetExecutionThread(threadId).pipe(toChannelOperationError),
       loadedSnapshot: (threadId) => this.#conversation.loadedExecutionSnapshot(threadId),
       // A held agent gets no channel assignment: one that waited for the reset would hold its
-      // resources. A channel turn runs beside the agent's tasks, unless its provider runs one turn
-      // of the agent at a time.
-      busy: (agentId) =>
-        Boolean(this.#conversation.workingSnapshot(agentId)?.activeTurnId || this.#mailbox.nextQueued(agentId)) ||
-        (this.#tasks.oneTurnAtATime(agentId) &&
-          this.#conversation.workingTaskSnapshots(agentId).some((snapshot) => snapshot.activeTurnId)) ||
-        !this.#usageLimits.mayDrain(agentId),
+      // resources. A channel turn runs beside the agent's tasks and its other channel tabs, unless its
+      // provider runs one turn of the agent at a time. The agent's own chat holds new channel work
+      // while it runs, and while a message of the chat that came before the request waits.
+      busy: (agentId, since) => {
+        if (!this.#usageLimits.mayDrain(agentId)) return true;
+        if (this.#tasks.oneTurnAtATime(agentId) && this.#conversation.anyWorkingSnapshot(agentId)) return true;
+        const chatTurn = this.#conversation
+          .workingSnapshots(agentId)
+          .some((snapshot) => !snapshot.threadId || !this.channels.store.channelForThread(snapshot.threadId));
+        if (chatTurn || this.#mailbox.laneActive(agentId, null)) return true;
+        const queued = this.#mailbox.nextQueued(agentId);
+        return queued !== null && (since === undefined || queued.delivery.createdAt <= since);
+      },
+      tabLimit: (agentId) =>
+        this.#tasks.oneTurnAtATime(agentId) ? 1 : (options.channelTabLimit?.() ?? DEFAULT_AGENT_TABS),
+      memoryLow: () => !this.#memoryHold.mayDrain(""),
+      waitsOnPerson: (agentId, turnId) => this.#attention.waitsOnPerson(agentId, turnId),
       usageLimited: (agentId) => !this.#usageLimits.mayDrain(agentId),
       skipAtLimit: (task) => this.#channelRoutines.skipAtLimit(task.channelId, task.requestMessageId),
       usageLimitBackup: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
@@ -1344,13 +1410,24 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#memoryHold = new MemoryHold({
       memory: hostMemory ?? memoryPressure,
+      optimizations: this.optimizations,
       hooks: {
         scheduleAll: () => {
           for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
         },
         retryWaiting: () => this.#drain.retrySlotWaiters(),
-        releaseIdleThreads: () => this.#providers.releaseIdleThreads(),
+        releaseIdleThreads: (minIdleMs) => this.#providers.releaseIdleThreads(minIdleMs),
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
+        memoryReturned: () =>
+          Effect.runFork(
+            this.channels
+              .wake()
+              .pipe(
+                Effect.catch((failure) =>
+                  Effect.sync(() => this.#emitError("channel_coordination_failed", failure.cause)),
+                ),
+              ),
+          ),
       },
     });
     this.#usageLimits = new UsageLimitGate({
@@ -1414,6 +1491,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       routines: this.#routines,
       threads: this.#threads,
       memory: this.#memoryHold,
+      optimizations: this.optimizations,
       ...(options.agentLimit ? { agentLimit: options.agentLimit } : {}),
       usageLimits: this.#usageLimits,
       planContinuation: this.#planContinuation,
@@ -1430,10 +1508,19 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
               startFallback: (agentId: string) => this.#startFallbackChoice(agentId) ?? null,
             }
           : {}),
+        safeResume: () => {
+          if (!this.optimizations.optimizationEnabled("safe-resume")) return null;
+          const budget = options.safeResume?.recoveryBudget;
+          return {
+            delaysSeconds: options.safeResume?.delaysSeconds?.() ?? TURN_RESUME_DELAYS_SECONDS,
+            ...(budget ? { takeRecovery: (channelId: string, taskId: string) => budget.take(channelId, taskId) } : {}),
+          };
+        },
         servesModel: (model, provider) => this.#endpoints.serves(model, provider),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         scanPrompt: (agentId, input) => this.scanPrompt(agentId, input),
+        startTiming: (timing) => this.emit("startTiming", timing),
         turnEnded: (turnId) => this.#turn.hasEnded(turnId),
         turnRestarting: (turnId) => this.#turn.forgetEnded(turnId),
         startRequestedNewChat: (agentId) => this.#startRequestedNewChat(agentId),
@@ -1551,8 +1638,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         ...(this.#startRetrySettings
           ? { retryLimitedTurn: (input, requeue) => this.#drain.retryLimitedTurn(input, requeue) }
           : {}),
+        safeResumeOn: () => this.optimizations.optimizationEnabled("safe-resume"),
+        resumeChannelTurn: (input, requeue) => this.#drain.resumeChannelTurn(input, requeue),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         quietRoutineDelivery: (deliveryId) => this.#routines.quietRunForDelivery(deliveryId),
+        startTiming: (timing) => this.emit("startTiming", timing),
         takeRoutinePreview: (deliveryId) => this.#routines.takePreviewBeforeRun(deliveryId),
         closeRoutineSession: (externalThreadId) => this.#threads.closeRoutineThread(externalThreadId),
         conversationTurnEnded: (agentId, sideThreadId, counts, memoryCommitted) =>
@@ -1582,6 +1672,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
               ),
             ),
         taskForThread: (threadId) => this.#tasks.taskForThread(threadId),
+        tabForThread: (threadId) => {
+          const context = this.channels.store.contextOfThread(threadId);
+          return context ? channelTabLane(context.channelId, context.topicId) : null;
+        },
         taskOpen: (taskId) => this.#tasks.threadId(taskId) !== null,
         taskFailed: (taskId, message) => this.#tasks.failed(taskId, this.#mcp.redact(message)),
         turnOrigin: (agentId, threadId, turnId) => this.#tools.turnOrigin(agentId, threadId, turnId),
@@ -1631,6 +1725,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             ...(hubConnections.fetch ? { fetch: hubConnections.fetch } : {}),
           }),
           ...(hubConnections.enabled ? { enabledOnComputer: hubConnections.enabled } : {}),
+          ...(hubConnections.openHub ? { openHub: hubConnections.openHub } : {}),
           agentConnectionsOff: (agentId) =>
             store.list().find((candidate) => candidate.id === agentId)?.connectionsOff ?? [],
         })
@@ -1667,6 +1762,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         },
       }),
       capturedSteps: (session) => this.#threads.capturedWorkSteps(session).pipe(toToolOperationFailed),
+      ownCalls: {
+        repeated: (agentId, turnId, tool, digest) => this.#turn.repeatedOwnCall(agentId, turnId, tool, digest),
+        started: (turnId, callId, tool, digest) => this.#turn.ownCalls.started(turnId, callId, tool, digest),
+        ended: (turnId, callId, ok) => this.#turn.ownCalls.ended(turnId, callId, ok),
+      },
       store,
       mailbox,
       mailboxSync: this.#mailboxSync,
@@ -1917,6 +2017,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   agentIdForRequest(requestId: string | number): string | undefined {
     return this.#attention.agentIdForRequest(requestId);
+  }
+
+  /** A question or an approval that waits for the person now, with its agent and thread (`AttentionRegistry`). */
+  pendingRequest(kind: "approval" | "prompt", requestId: string | number) {
+    return this.#attention.pendingRequest(kind, requestId);
   }
 
   getLocalAttention(agentId: string) {
@@ -2396,6 +2501,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   /** The cap on the agents that run changed: each agent tries its queue again, as a free place does. */
   agentLimitChanged(): void {
     for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
+    // The limit of channel tabs per agent is part of the same preference: a higher one starts tabs now.
+    Effect.runFork(
+      this.channels
+        .wake()
+        .pipe(
+          Effect.catch((failure) => Effect.sync(() => this.#emitError("channel_coordination_failed", failure.cause))),
+        ),
+    );
   }
 
   /**
@@ -3470,8 +3583,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     if (!limited && !failed && !startFailed) return null;
     const taskWork = () =>
       this.#mailbox.queuedTaskIds(agentId).some((taskId) => this.#mailbox.nextQueued(agentId, taskId));
+    const tabWork = () => this.#mailbox.queuedTabs(agentId).some((tab) => this.#mailbox.nextQueued(agentId, null, tab));
     // A channel task that the limit refused went back to its channel, so the queue can be empty.
-    if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !this.channels.ownsWaitingWork(agentId)) return null;
+    if (!this.#mailbox.nextQueued(agentId) && !taskWork() && !tabWork() && !this.channels.ownsWaitingWork(agentId))
+      return null;
     const next: StartFallbackChoice | undefined = startFailed
       ? this.#startFallbackChoice(agentId)
       : this.#usageLimitBackup(agentId);
@@ -5639,6 +5754,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#hubConnections
       ? this.#hubConnections.choosePayerFor(input.connectionId, input.orgId)
       : this.hubConnectionsView();
+  }
+
+  /**
+   * Opens the connections page of the Hub in the person's browser, where the person allows this app
+   * to spend an organization's connections. The URL is fixed in the main process.
+   */
+  openHubConsent(): Effect.Effect<void> {
+    return this.#hubConnections ? this.#hubConnections.openConsent() : Effect.void;
   }
 
   /** The person asks the admins of an organization for access to a connection, or for more money. */

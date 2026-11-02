@@ -214,6 +214,11 @@ export class AuthService {
         return yield* emailDeliveryFailure(deliveryError, "Builders Bot could not send the sign-in code.");
       }
       yield* dependencies.repository.completeEmailChallengeDelivery(challengeHash, "sent", dependencies.now());
+      if (dependencies.exposeDevelopmentCode) {
+        // Only a local development request gets here (`exposesDevelopmentCode`), so the code goes to
+        // the terminal of `bun run dev`, for a client that does not show the answer.
+        console.info(`Development sign-in code for ${email}: ${code}`);
+      }
 
       return {
         challengeId,

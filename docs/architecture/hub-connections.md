@@ -152,13 +152,32 @@ allowed it: the result is `needsPerson: "people_data"` with no card.
 ## Cost approval
 
 A call above the organization's `confirmAboveMicros` gets `confirm_cost` from the Hub with a
-`confirmationId`. The id stays in the main process. In a person's own turn, the app shows a card with
-the endpoint, the amount and the payer (`status.agent.connectionConfirmCost`). Only the owner can
-answer it (`ownerOnly`), and a Full access grant does not answer it (`alwaysAsk`). After **Allow**,
-the app sends the id once, within 5 minutes and before the Hub's `expiresAt`, with
-`maxCostMicros` equal to the approved estimate. A second `confirm_cost` for the same call is not
-asked again. In a routine run or a turn that another agent started, the answer is a refusal with no
-card.
+`confirmationId`. The id stays in the main process. The person approves the cost on the Hub, not in
+the app: the Hub no longer trusts an approval that the app declares (contract §6.4).
+
+1. In a person's own turn, the app shows a card with the endpoint, the amount and the payer, and
+   says that the approval is on the Cultura Builder Hub (`status.agent.connectionConfirmCostOnHub`).
+   Only the owner can answer it (`ownerOnly`), and a Full access grant does not answer it
+   (`alwaysAsk`). **Deny** sends nothing.
+2. After **Allow**, main opens `https://hub.culturabuilder.com/builder-ai/conexoes/aprovar/<id>` in
+   the default browser (`shell.openExternal`, through the `openHub` option of `AgentService`). Only a
+   page that `isHubPageUrl` accepts opens: the Hub origin over https, that path or the connections
+   page, with no query.
+3. Main reads `GET …/connections/tool-catalog/confirmations/<id>` with the payer's proxy token every
+   2 seconds, until a state other than `pending`, the deadline (the Hub's `expiresAt` and at most 5
+   minutes) or the end of the turn (the abort signal of the tool request). A read that fails for the
+   network, a 5xx or a refused proxy token (a new token is asked for) is read again; a `429
+   rate_limited` waits its `retryAfter` first. A sign-out, a refused token request, an error answer
+   such as `404 not_found`, and the plain-text 404 of a gateway with the connections off end the wait.
+4. `approved`: the app sends the call once, with the id and `maxCostMicros` equal to the approved
+   estimate. `denied` is a refusal with `declined`, `expired` and the deadline are a refusal with
+   `expired`, and `used` or a failed wait is a refusal. None of them sends the call.
+5. A call that the Hub answers `409 not_allowed` with `confirmation_not_approved` or
+   `confirmation_denied` is a refusal: the Hub has no approval of the person. A second
+   `confirm_cost` for the same call is not asked again.
+
+In a routine run or a turn that another agent started, the answer is a refusal with no card and no
+page.
 
 ## Results
 
@@ -209,6 +228,11 @@ catalog.
 
 ## Secrets
 
+- The Cultura Builder sign-in (the device flow) uses the fixed public client of Builders Bot,
+  `CULTURA_BUILDER_CLIENT_ID` in `cultura-builder-auth.ts`, and never registers a client. The Hub
+  lists that client for the proxy, so its sign-ins get the refresh family that a proxy token needs.
+  A session of an earlier version (a client that each sign-in registered) has no such family: the
+  person signs in again.
 - The session tokens stay in the credential store and the main process. The proxy tokens stay in
   memory. Nothing of a connection is written to disk.
 - One grant of the refresh token runs at a time (`withCulturaRefreshGrant`): the session renewal,
@@ -230,10 +254,11 @@ views (`hub-connection-views.ts`) from the catalog and `/session` answers that i
 
 | Endpoint | What it gives |
 | --- | --- |
-| `getView`, `refresh` | The connections of the catalog: texts, the access row of each organization (cap, spend, state, categories, cheapest price, open requests), who pays the next call (`pay`, `choose_org`, `none`) and whether `/session` has the connection on. `refresh` reads the Hub again. A failure is a status (`signed_out`, `off`, `unavailable`), never an error. |
+| `getView`, `refresh` | The connections of the catalog: texts, the access row of each organization (cap, spend, state, categories, cheapest price, open requests), who pays the next call (`pay`, `choose_org`, `none`), whether `/session` has the connection on, and the platforms of the vendor catalog (`platforms`). `refresh` reads the Hub again. A failure is a status (`signed_out`, `off`, `unavailable`), never an error. A `/session` with no connection entry is `off`, and the catalog is not read; a catalog connection that `/session` does not name is left out. |
 | `getUsage` | The person's own use for each organization whose row this app may spend, with the spend by platform. Off until `/session` says `connectionsUsage`. Each organization is read at most once in 30 seconds; a paid call drops its copy. |
 | `choosePayer` | The organization that the person chooses on the page. Only a row that can pay is kept. The agent has no path to it. |
 | `requestAccess` | "Ask the admin" (`access`) and "Ask the admin for more" (`more`), through the Hub route of the contract (§10.1). Never for the personal plan or an organization that is not in the catalog. |
+| `openConsent` | Opens the connections page of the Hub (`https://hub.culturabuilder.com/builder-ai/conexoes`) in the default browser, where the person allows this app to spend an organization's connections. The URL is fixed in main; the renderer sends none. |
 
 ### Marketplace
 
@@ -244,13 +269,25 @@ own group, Connections, before the categories, and the side panel lists the ones
 (`hubConnections` of `MarketplaceModal`): a joined server's agents do not use this computer's Hub
 session.
 
+Each platform of a connection (`platforms` of the catalog, such as Google Ads or the app stores) is
+also a tile of the Apps tab (`kind: "connection-platform"`, id `<connection>:<platform>`), in the
+category of its group: SEO, research, reviews and community in Research; enrichment, market and
+commerce in Data & Analytics; developer in Coding; generation in Design; advertising, social and
+other in Other (`PLATFORM_CATEGORY`). A tile shows the platform name, "Via Cultura Builder · {n}
+tools" and the status of its connection, with no install button; it opens the connection's page. The
+tiles show only while the connection is on (`enabled`) and not `idle` for the person, so they are
+always in use for `curateApps`; an account without the capability, or a paused connection, has none.
+The search finds them by name. They have the connection's generic mark: the app fetches no logo.
+
 The page (`MarketplaceConnectionPage.tsx`) follows the integration page rules: what it gives, the
 categories that the organization allows, the person's cap with the bar and its 80 % mark (a
 `progressbar` with a value text), who pays with "Pay with {org}" when more than one organization
 can pay, a switch per agent of this computer, and "Where the data goes" ("Provided by {vendor}", the
 flow to the Hub, the vendor and the provider, and the retention that the Hub declares). The alerts
-say when Cultura Builder paused it, when the person must choose who pays, over 80 % and at the cap,
-with "Ask the admin for more". A row that the person may not use names why, with "Ask the admin".
+say when Cultura Builder paused it, when the person must choose who pays, when this app has no
+consent of an organization yet ("Open the Hub", which opens the Hub's connections page; then Refresh
+in the header),
+over 80 % and at the cap, with "Ask the admin for more". A row that the person may not use names why, with "Ask the admin".
 After a request, the page shows "Request sent on {date}" from the Hub's `requestedAt`.
 
 The switch of an agent writes `connectionsOff` through `agent.updateAgent`: an agent with the
@@ -289,15 +326,26 @@ lines of a paid call, the 80 % line once, the limit line once per turn, the usag
 cache, the per-agent switch, the usage capability, the kill switch and a Hub that does not answer.
 It writes `.buildersbot-build/hub-connections/usage.json`.
 
-`bun scripts/hub-connections-surfaces-e2e.ts --storybook=<url>` drives the stories of the list, the
-page in each state, Usage › Connections and the chat lines in a headless browser, in en and pt, dark
-and light, at 1280 and 390 pixels, and writes screenshots and
+`bun scripts/hub-connections-surfaces-e2e.ts --storybook=<url>` drives the stories of the list (with
+the tiles of the platforms in their categories, and none while the connection is not on or paused;
+with every provider on, 40 tiles, a search of them, and a limit in US dollars),
+the page in each state (with "Open the Hub" of the consent state), Usage › Connections and the chat
+lines in a headless browser, in en and pt, dark and light, at 1280 and 390 pixels, and writes
+screenshots and
 `.buildersbot-build/hub-connections/surfaces/report.json`. Its `knownIssues` keeps one issue that
 this change did not make: at 390 pixels in Portuguese, the model report of Usage (its breakdown
 table) makes the Usage body scroll about 45 pixels sideways, also with no connection part. The check
 of Usage covers the page and the connection part. Run it with the headless shell of Playwright:
 `PLAYWRIGHT_BROWSERS_PATH=<folder> node node_modules/playwright-core/cli.js install --only-shell
 chromium-headless-shell` installs one into a folder of your choice.
+
+`bun scripts/hub-connections-treg-live-e2e.ts` checks the sign-in with the fixed client (no
+`/register`), the `platforms` of the catalog through the contract and preload decoders (malformed
+rows dropped, 120 platforms with every provider on give the first 40, an older Hub, an account
+without the capability), the cost approval on the Hub (the
+exact page URL, the status reads, one call after `approved`, nothing for `denied`, `expired`, `used`,
+a Deny on the card, a routine run, and a call that the Hub answers `not_allowed`), and the consent
+page. It writes `.buildersbot-build/hub-connections/treg-live.json`.
 
 `bun scripts/hub-connections-safety-e2e.ts` checks the Guard rules G2, G3, G5, G6, G7, G9 and G11,
 the person's own treg entry off in Codex and OpenCode, the Settings notice, the absence of the

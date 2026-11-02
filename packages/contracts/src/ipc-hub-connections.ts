@@ -5,6 +5,7 @@
 // at the preload, as every payload from main is checked.
 
 import {
+  decodeHubConnectionPlatform,
   HUB_BINDING_SCOPES,
   HUB_CAP_STATES,
   HUB_CONNECTIONS_LIMITS,
@@ -14,6 +15,7 @@ import {
   type HubBindingScope,
   type HubCapState,
   type HubConnectionAccess,
+  type HubConnectionPlatform,
   isHubAccessRequestKind,
   isHubConnectionId,
   isHubOrgId,
@@ -21,7 +23,7 @@ import {
 } from "./hub-connections";
 import type { ConversationMessage } from "./ipc-conversation-messages";
 
-export type { HubAccessRequestKind } from "./hub-connections";
+export type { HubAccessRequestKind, HubConnectionPlatform, HubPlatformGroup } from "./hub-connections";
 
 import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
@@ -69,6 +71,8 @@ export interface HubConnectionView {
    * switch): the page says so, and no agent has the connection.
    */
   enabled: boolean;
+  /** The platforms of the vendor catalog that the connection gives, for the tiles of the Apps tab. */
+  platforms: HubConnectionPlatform[];
 }
 
 export interface HubConnectionsView {
@@ -200,6 +204,12 @@ function isAccessView(value: unknown): value is HubConnectionAccessView {
   );
 }
 
+/** A platform that the contract decoder keeps as it is: a known group, no value that it would change. */
+function isPlatformView(value: unknown): value is HubConnectionPlatform {
+  const platform = decodeHubConnectionPlatform(value);
+  return platform !== null && isDynamicRecord(value) && value.group === platform.group;
+}
+
 function isConnectionView(value: unknown): value is HubConnectionView {
   if (!isDynamicRecord(value) || !isHubConnectionId(value.id)) return false;
   const policy = value.dataPolicy;
@@ -223,7 +233,11 @@ function isConnectionView(value: unknown): value is HubConnectionView {
     isOneOf(HUB_CONNECTION_PAYER_STATES, value.payer) &&
     nullable(value.payerOrgId, isHubOrgId) &&
     (value.payer === "pay") === (value.payerOrgId !== null) &&
-    isBoolean(value.enabled)
+    isBoolean(value.enabled) &&
+    Array.isArray(value.platforms) &&
+    value.platforms.length <= HUB_CONNECTIONS_LIMITS.platforms &&
+    value.platforms.every(isPlatformView) &&
+    new Set(value.platforms.map((platform) => platform.id)).size === value.platforms.length
   );
 }
 

@@ -180,6 +180,7 @@ import {
   decodeNotificationPreference,
   decodeNullablePath,
   decodeOnePasswordConnectorStatus,
+  decodeOptimizationState,
   decodePendingAgentTemplate,
   decodePendingListing,
   decodePersonalVendorMcp,
@@ -262,6 +263,7 @@ import {
   decodeDynamicIslandPreference,
   decodeDynamicIslandPresentation,
 } from "./dynamic-island-decoding";
+import { decodeFeedActionResult, decodeFeedDeltaOrNull, decodeFeedSnapshot } from "./feed-decoding";
 import { decodeGuardState } from "./guard-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
 import {
@@ -692,6 +694,8 @@ const openbotApi: BuildersBotDesktopApi = {
     getResumeOffer: decodeResumeOffer,
     resumeInterruptedWork: decodeResumeInterruptedWorkResult,
     dismissResumeOffer: decodeVoid,
+    getOptimizations: decodeOptimizationState,
+    setOptimizations: decodeOptimizationState,
     getBusyMessageModePreference: decodeBusyMessageModePreference,
     setBusyMessageModePreference: decodeBusyMessageModePreference,
     getAgentDefaults: decodeAgentDefaults,
@@ -762,6 +766,12 @@ const openbotApi: BuildersBotDesktopApi = {
     action: decodeBrowserDockAction,
     setFrame: decodeVoid,
     shown: decodeBrowserDockShown,
+  }),
+  feed: bridgeGroup(IPC_ENDPOINTS.feed, {
+    getSnapshot: decodeFeedSnapshot,
+    setWatching: decodeVoid,
+    delta: dropInvalid(decodeFeedDeltaOrNull),
+    act: decodeFeedActionResult,
   }),
   dynamicIsland: bridgeGroup(IPC_ENDPOINTS.dynamicIsland, {
     getPreference: decodeDynamicIslandPreference,
@@ -1014,6 +1024,7 @@ const openbotApi: BuildersBotDesktopApi = {
     getUsage: decodeHubConnectionUsageView,
     choosePayer: decodeHubConnectionsView,
     requestAccess: decodeHubConnectionAccessRequestResult,
+    openConsent: decodeVoid,
   }),
   license: bridgeGroup(IPC_ENDPOINTS.license, {
     getState: decodeLicenseState,

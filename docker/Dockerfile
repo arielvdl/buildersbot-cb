@@ -34,9 +34,10 @@ RUN apt-get update \
 RUN userdel --remove ubuntu \
   && useradd --uid 1000 --user-group --home-dir /data --create-home --shell /bin/bash openbot \
   && install -d -o openbot -g openbot -m 0700 /run/openbot
-# Mount points of the update folders that docker/instances/compose.yaml gives an instance. Its root
-# file system is read-only. With no folders mounted, OpenBot offers no update.
-RUN install -d -m 0755 /var/lib/openbot-update/requests /var/lib/openbot-update/status
+# Mount points of the update folders and the model policy folder that docker/instances/compose.yaml
+# gives an instance. Its root file system is read-only. With no folders mounted, OpenBot offers no
+# update and uses no model policy.
+RUN install -d -m 0755 /var/lib/openbot-update/requests /var/lib/openbot-update/status /etc/openbot/policy
 # Root owns the release, so the user and its agents cannot change it. chrome-sandbox has no SUID bit:
 # the sandbox uses user namespaces, which the seccomp profile in docker/ permits.
 COPY --from=release /tmp/squashfs-root /opt/OpenBot/app

@@ -59,6 +59,10 @@ export const messages = {
     "Um agente quer executar {endpoint} do catálogo de ferramentas. Custa até {amount}, pago por {org}. Permitir envia esta chamada uma vez. Negar cancela.",
   "status.agent.connectionConfirmCostPersonal":
     "Um agente quer executar {endpoint} do catálogo de ferramentas com o seu plano pessoal. Custa até {amount}. Permitir envia esta chamada uma vez. Negar cancela.",
+  "status.agent.connectionConfirmCostOnHub":
+    "Um agente quer executar {endpoint} do catálogo de ferramentas. Custa até {amount}, pago por {org}. Você aprova este custo no Hub da Cultura Builder: Permitir abre o Hub no navegador, e a chamada roda uma vez depois que você aprovar lá. Negar cancela.",
+  "status.agent.connectionConfirmCostOnHubPersonal":
+    "Um agente quer executar {endpoint} do catálogo de ferramentas com o seu plano pessoal. Custa até {amount}. Você aprova este custo no Hub da Cultura Builder: Permitir abre o Hub no navegador, e a chamada roda uma vez depois que você aprovar lá. Negar cancela.",
   "status.agent.connectionChoosePayer":
     "Quem paga por {connection}? Permitir faz {org} pagar esta chamada e as próximas. Negar não usa esta organização.",
   "status.agent.connectionChoosePayerPersonal":

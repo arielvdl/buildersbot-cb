@@ -72,6 +72,28 @@ for it:
 The list draws connections in their own group, Connections, before the categories, and the side
 panel names those in use under "Your connections".
 
+The platforms of a connection (`platforms` of the Hub catalog) are tiles of the list, one per
+platform (`kind: "connection-platform"`, id `<connection>:<platform>`, which no catalog slug can be).
+The owner asked on 2026-10-31 that they take the place of the extra plugins that the default list
+hides (Design, Data & Analytics, Research, Automation, Stripe), so each tile is in the category of its
+group (`PLATFORM_CATEGORY` in `marketplace-connections.ts`):
+
+| Platform group | Category |
+| --- | --- |
+| `seo`, `research`, `reviews`, `community` | Research |
+| `enrichment`, `market`, `commerce` | Data & Analytics |
+| `developer` | Coding |
+| `generation` | Design |
+| `advertising`, `social`, `other` | Other |
+
+- A tile exists only while its connection is on (`enabled`) and not `idle` for the person. So it is
+  always in use, and `curateApps` shows it; no profile hides it. An account without the capability,
+  and a paused connection, have no tiles; the connection row stays as before.
+- A tile has the platform name, "Via Cultura Builder · {n} tools", the status of the connection, the
+  generic connection mark (no remote logo) and no install button. It opens the connection's page.
+- The search finds a tile by its name. "Your apps" does not list tiles: "Your connections" names
+  their connection.
+
 ## "Show all apps"
 
 A small switch beside the search, on the Apps tab only. It shows while the list hides an app, or

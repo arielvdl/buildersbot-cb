@@ -2,11 +2,12 @@ import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
 import { Effect, Fiber } from "effect";
 import { toAgentRemovalFailed } from "../backend/agent/agent-removal";
 import { toHostedSiteOperationFailed } from "../backend/agent/hosted-site-coordinator";
+import { loadServerModelPolicy, MODEL_POLICY_FILE_ENV } from "../backend/agent/server-model-policy";
 import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
-import { readCulturaBuilderSession } from "../backend/cultura-builder-auth";
+import { CulturaBuilderCatalog, readCulturaBuilderSession } from "../backend/cultura-builder-auth";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -127,9 +128,11 @@ import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { browserMemory } from "../backend/host-memory";
+import { isHubPageUrl } from "../backend/hub-connections/hub-connection-tools";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
 import type { McpToolRuntimes } from "../backend/mcp-provider-shapes";
+import { mcpSecretValues } from "../backend/mcp-redaction";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
@@ -216,6 +219,8 @@ import {
   ExternalLinkOpener,
   type ExternalLinkPreferenceStore,
 } from "./external-link-opener";
+import { FeedActions } from "./feed/feed-actions";
+import { FeedService } from "./feed/feed-service";
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
@@ -277,6 +282,7 @@ import { MessagingCredentialStore } from "./messaging-credential-store";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
+import { OPTIMIZATIONS_FILE, OptimizationStore } from "./optimization-store";
 import { OsDictationService } from "./os-dictation-service";
 import { PlaywrightBroker } from "./playwright-broker";
 import { installGuard } from "./playwright-broker-guard";
@@ -482,6 +488,8 @@ const TEARDOWN_ORDER = {
   resourceMonitor: 9,
   // Before the service, so no look of the recovery starts work while the service stops.
   workControl: 9.5,
+  // Only timers and memory: the feed keeps nothing on disk.
+  feed: 9.6,
   updater: 10,
   idleRestart: 11,
   hostUpdateCoordinator: 12,
@@ -660,6 +668,8 @@ export interface ApplicationServices {
   notificationPreference: NotificationPreferenceStore;
   sounds: SoundPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
+  /** The advanced optimizations (beta) of this host. Each one is off until the person turns it on. */
+  optimizations: OptimizationStore;
   channelLane: ChannelLanePreferenceStore;
   autoRecovery: AutoRecoveryPreferenceStore;
   /** The task reviewer of the load panel. Experimental and off until the person turns it on. */
@@ -670,6 +680,10 @@ export interface ApplicationServices {
   agentLimit: AgentLimitPreferenceStore;
   /** What runs and what stopped, and the automatic recovery of the stopped work. */
   workControl: WorkControl;
+  /** The feed page: one card for each run on every server, in memory only. */
+  feed: FeedService;
+  /** The actions on the cards of the feed page. */
+  feedActions: FeedActions;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
@@ -1407,6 +1421,7 @@ export async function createApplicationServices({
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
+  const optimizations = new OptimizationStore(join(app.getPath("userData"), OPTIMIZATIONS_FILE));
   const channelLane = new ChannelLanePreferenceStore(join(app.getPath("userData"), CHANNEL_LANE_PREFERENCE_FILE));
   const autoRecovery = new AutoRecoveryPreferenceStore(join(app.getPath("userData"), AUTO_RECOVERY_PREFERENCE_FILE));
   const taskWatch = new TaskWatchPreferenceStore(join(app.getPath("userData"), TASK_WATCH_PREFERENCE_FILE));
@@ -1528,6 +1543,7 @@ export async function createApplicationServices({
       runCauseEffect(startRetry.load()),
       runCauseEffect(startBreakers.load()),
       runCauseEffect(sounds.load()).then(() => setNativeSoundSource(sounds)),
+      runCauseEffect(optimizations.load()),
     ])
   )[8];
   if (!agentAccessLoaded)
@@ -1578,6 +1594,11 @@ export async function createApplicationServices({
    * point, which this file may not reach into; both readers read the same immutable value.
    */
   const providerUse = new ProviderUseSettingsStore(join(app.getPath("userData"), "openbot-provider-use-v1.json"));
+  /*
+   * The model policy of a company server: the providers and models its picker offers. Read once,
+   * before the agent service starts its providers. No path or no file: no policy, as before.
+   */
+  const modelPolicy = await runCauseEffect(loadServerModelPolicy(process.env[MODEL_POLICY_FILE_ENV]));
   const providerAccounts = new ProviderAccountStore(
     join(app.getPath("userData"), "openbot-provider-accounts-v1.json"),
     join(app.getPath("userData"), "provider-accounts"),
@@ -2022,6 +2043,7 @@ export async function createApplicationServices({
     askPairing: (request, signal) => askChromePairing(language.translate, request, signal),
     log: (level, line) => (level === "warn" ? logger.warn(line) : logger.info(line)),
   });
+  let recoveryLedger: Pick<WorkControl, "takeSafeResume"> | null = null;
   const service: AgentService = new AgentService({
     store,
     mailbox,
@@ -2049,8 +2071,10 @@ export async function createApplicationServices({
     hostMemory,
     memoryPressure: macMemory,
     agentLimit: () => agentLimit.limit(),
+    channelTabLimit: () => agentLimit.tabsPerAgent(),
     requestTimeoutMs: 30_000,
     offProviders: providerUse.off(),
+    modelPolicy,
     providerAccounts,
     saveProviderUse: (provider, on) =>
       providerUse.set(provider, on).pipe(
@@ -2058,6 +2082,15 @@ export async function createApplicationServices({
         Effect.mapError((error) => new AgentLifecycleFailed({ operation: "saveProviderUse", cause: error.cause })),
       ),
     preferredProvider: setupState.preferredProvider ?? "cultura-builder",
+    // The person approves a connection cost, and allows this app to spend an organization's
+    // connections, on pages of the Hub. Only those pages open, in the default browser, where the
+    // person is signed in to the Hub.
+    hubConnections: {
+      openHub: async (url) => {
+        if (!isHubPageUrl(url)) throw new Error("Only a page of the Cultura Builder Hub opens here.");
+        await shell.openExternal(url);
+      },
+    },
     bundledExecutables: providerRuntimes.bundledExecutables(),
     prepareAgentWorkspace: (agent) =>
       Effect.gen(function* () {
@@ -2097,6 +2130,9 @@ export async function createApplicationServices({
       promptCacheTtl: () => promptCacheTtl.get().ttl,
       // Read at each Cultura Builder spawn. A change starts its process again (below).
       culturaBuilderFullContext: () => appBehavior.culturaBuilderFullContext,
+      // Only with a model policy: the Cultura Builder models then come from the gateway catalog of the
+      // signed-in account, so the picker offers only what the Hub allows that account.
+      ...(modelPolicy ? { culturaBuilderCatalog: new CulturaBuilderCatalog() } : {}),
       // `configs()`, not `list()`: this is the one path the API keys travel, and it ends at the
       // spawned provider process. The IPC handlers are given `list()`.
       customProviders: () => customProviders.configs(),
@@ -2160,8 +2196,13 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    optimizations,
     channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
+    // `workControl` is built later, after the agent service; a failure before it exists takes no ledger.
+    safeResume: {
+      recoveryBudget: { take: (channelId, taskId) => recoveryLedger?.takeSafeResume(channelId, taskId) ?? true },
+    },
     startRetry: {
       settings: () => startRetry.get(),
       // The breakers stay after a restart. A write that fails loses only that copy.
@@ -3099,12 +3140,52 @@ export async function createApplicationServices({
             recoveryLogger.warn("The last actions of the task reviewer were not saved.", toLogValue(error)),
           ),
       },
+      // Off by default: an advanced optimization (beta).
+      sleepGrace: () => optimizations.optimizationEnabled("fiscal-resume-grace"),
+      onResume: (listener) => {
+        powerMonitor.on("resume", listener);
+        return () => powerMonitor.off("resume", listener);
+      },
     },
   });
+  recoveryLedger = workControl;
   workControl.start();
   teardown.push(TEARDOWN_ORDER.workControl, "the recovery timer", () => {
     workControl.stop();
     return Promise.resolve();
+  });
+  // Every agent event of every server reaches it from `forwardAgentEvent`. It reads this computer's
+  // load only while a window shows the feed page, and it writes nothing to disk.
+  const feedLogger = createBuildersBotLogger("feed");
+  const feed = new FeedService({
+    secretValues: () => mcpSecretValues(service.listMcpServers()),
+    resolveName: (serverId, agentId) =>
+      serverId === LOCAL_SERVER_ID ? (service.listAgents().find((agent) => agent.id === agentId)?.name ?? null) : null,
+    readLoad: () => {
+      const work = workControl.overview();
+      return { running: work.running, stopped: work.stopped };
+    },
+    readLocalRuntime: () => service.getRuntimeSnapshot(),
+    readLocalLayout: () => sidebarLayout.getSnapshot(),
+    onError: (operation, cause) => feedLogger.warn(`The feed could not ${operation}.`, toLogValue(cause)),
+  });
+  teardown.push(TEARDOWN_ORDER.feed, "the feed", () => {
+    feed.dispose();
+    return Promise.resolve();
+  });
+  // The actions on the cards call the same operations as the conversation and the load panel.
+  const feedActions = new FeedActions({
+    feed,
+    pendingRequest: (kind, requestId) => service.pendingRequest(kind, requestId),
+    respondToApproval: (input) => runCauseEffect(service.respondToApproval(input)),
+    respondToPrompt: (input) => runCauseEffect(service.respondToPrompt(input)),
+    stopWork: (input) => workControl.stopWork(input),
+    bulkStopped: (input) => workControl.bulkStopped(input),
+    // The name of the error only: an error of an answer can quote the answer.
+    onFailure: (action, cause) =>
+      feedLogger.warn(`A feed action failed: ${action}.`, {
+        error: cause instanceof Error ? cause.name : typeof cause,
+      }),
   });
   // Sends nothing: see `HostAnalytics`. The callers and the saved preference stay as they were.
   const analytics = new HostAnalytics();
@@ -3730,12 +3811,15 @@ export async function createApplicationServices({
     notificationPreference,
     sounds,
     busyMessageMode,
+    optimizations,
     channelLane,
     autoRecovery,
     taskWatch,
     startRetry,
     agentLimit,
     workControl,
+    feed,
+    feedActions,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,

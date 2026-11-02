@@ -8,12 +8,13 @@ import { analyticsIO } from "./analytics-effects";
 
 /**
  * One timed operation. The name is a fixed string - an IPC channel, a turn origin, a crash origin, a
- * remote connection phase, the reason the app quits - and the outcome is a status word. A span holds no payload, message, path,
+ * remote connection phase, the reason the app quits, a step of a turn start (`start-timings.ts`) - and
+ * the outcome is a status word. A span holds no payload, message, path,
  * URL or identifier, so the file can go into a diagnostics export under the same promise as the rest of
  * it.
  */
 export interface TraceSpan {
-  kind: "ipc" | "turn" | "crash" | "connect" | "exit";
+  kind: "ipc" | "turn" | "crash" | "connect" | "exit" | "start";
   name: string;
   durationMs: number;
   outcome: string;
@@ -193,7 +194,15 @@ function parseLine(line: string): TraceSpan | null {
   }
   if (!isDynamicRecord(parsed)) return null;
   const { kind, name, durationMs, outcome } = parsed;
-  if (kind !== "ipc" && kind !== "turn" && kind !== "crash" && kind !== "connect" && kind !== "exit") return null;
+  if (
+    kind !== "ipc" &&
+    kind !== "turn" &&
+    kind !== "crash" &&
+    kind !== "connect" &&
+    kind !== "exit" &&
+    kind !== "start"
+  )
+    return null;
   if (typeof name !== "string" || typeof outcome !== "string" || typeof durationMs !== "number") return null;
   return { kind, name, durationMs, outcome };
 }

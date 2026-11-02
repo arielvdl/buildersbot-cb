@@ -5,11 +5,13 @@
  * builds its variants on it, and the diagram workspace story shows it when a channel is open.
  */
 
+import type { ChannelTask } from "@openbot/contracts/ipc";
 import { Button } from "@openbot/ui";
 import type { AgentMessage } from "@openbot/ui/data";
 import type { ChannelWorker } from "@openbot/ui/features/channels/ChannelActivityIndicator";
 import { ChannelAvatar } from "@openbot/ui/features/channels/ChannelAvatar";
 import { ChannelStoppedTasks } from "@openbot/ui/features/channels/ChannelStoppedTasks";
+import { ChannelTaskWaitNotice } from "@openbot/ui/features/channels/ChannelTaskWaitNotice";
 import type { AwaitingReplyItem } from "@openbot/ui/features/conversation/AwaitingReplies";
 import { createSignal, For, Show } from "solid-js";
 import { fn } from "storybook/test";
@@ -96,6 +98,8 @@ export interface ChannelStoryProps {
   workers?: ChannelWorker[];
   awaiting?: AwaitingReplyItem[];
   stopped?: { id: string; ownerAgentId: string; error: string }[];
+  /** Queued requests of the tab with the reason each one waits (`ChannelTask.wait`). */
+  waits?: Pick<ChannelTask, "id" | "ownerAgentId" | "wait">[];
   archived?: boolean;
   activeTurnId?: string | null;
   unreadCount?: number;
@@ -165,6 +169,7 @@ export function StoryChannelConversation(props: ChannelStoryProps) {
     SettingsPane: () => null,
     AboveComposer: () => (
       <>
+        <ChannelTaskWaitNotice tasks={props.waits ?? []} name={agentName} />
         <Show when={props.tabs && sent().length > 0}>
           <ul aria-label="Sent channel messages">
             <For each={sent()}>{(entry) => <li>{`${entry.tab}: ${entry.text}`}</li>}</For>

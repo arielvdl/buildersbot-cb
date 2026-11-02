@@ -100,6 +100,11 @@ export interface RendererForwarderDependencies {
   desktopNotificationsEnabled: () => boolean;
   /** The Settings switch that lets a notification show the agent's words. */
   notificationPreviewEnabled: () => boolean;
+  /**
+   * Every agent event of every server, before any window check: the feed keeps its cards also while
+   * no window is open (`feed/feed-service.ts`).
+   */
+  onAgentEvent?: ((serverId: string, event: AgentEvent) => void) | undefined;
 }
 
 /** The newest messages that a finished turn's answer is looked for in. */
@@ -124,6 +129,7 @@ export function createRendererForwarders({
   desktopNotificationsEnabled,
   notificationPreviewEnabled,
   ownAgentNotificationLevels,
+  onAgentEvent,
 }: RendererForwarderDependencies) {
   // The user looks at the app when the main window or one of its chat windows has focus.
   /** The main window and each chat window (#2964). A chat window does not outlive the main window. */
@@ -139,6 +145,7 @@ export function createRendererForwarders({
 
   function forwardAgentEvent(serverId: string, event: AgentEvent, bufferedLive = false): void {
     if (serverId === LOCAL_SERVER_ID) getHostAnalytics()?.handleAgentEvent(event);
+    onAgentEvent?.(serverId, event);
     const window = getMainWindow();
     if (!window || window.isDestroyed()) return;
     const scoped = bufferedLive ? { serverId, event, bufferedLive } : { serverId, event };

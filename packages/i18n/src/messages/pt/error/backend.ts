@@ -84,6 +84,8 @@ export const messages = {
     "Esta solicitação excede o limite de contexto de encaminhamento. Selecione um membro ou envie uma solicitação mais curta.",
   "error.backend.channelTaskMemberRequired": "Escolha um membro para esta tarefa.",
   "error.backend.channelTaskStopped": "Parada. Continue ou reatribua esta tarefa.",
+  "error.backend.channelTaskMayBeDone":
+    "Parada por uma falha curta do provedor. Isto pode já ter sido feito: {actions}. Confira e depois continue ou pare a tarefa.",
   "error.backend.channelRoutingUnreadable": "O líder não conseguiu encaminhar esta mensagem. Reatribua-a a um membro.",
   "error.backend.channelRoutingFailed": "O encaminhamento falhou. Escolha um membro ou tente novamente.",
   "error.backend.channelLeadTimedOut": "O líder do canal não respondeu a tempo. Escolha um membro ou tente novamente.",

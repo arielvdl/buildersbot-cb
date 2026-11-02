@@ -277,6 +277,11 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
         descriptionKey: "settings.analytics.description",
         keywordsKey: "settings.search.keywords.analytics",
       },
+      {
+        anchor: "settings.optimizations.title",
+        descriptionKey: "settings.optimizations.description",
+        keywordsKey: "settings.search.keywords.optimizations",
+      },
     ],
   },
   {
