@@ -237,11 +237,13 @@ import { type RoutineMutationOptions, RoutineScheduler, toRoutineOperationFailed
 import { localTimezone } from "./agent/routine-tools";
 import { buildRuntimeSnapshot } from "./agent/runtime-snapshot";
 import type { ScreenCaptureHost } from "./agent/screen-capture";
+import type { ServerModelPolicy } from "./agent/server-model-policy";
 import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
 import { type StartBreakerStorage, StartBreakers } from "./agent/start-retry";
+import type { StartTiming } from "./agent/start-timings";
 import {
   agentProviderAccount,
   isRequestTimeout,
@@ -330,6 +332,11 @@ interface AgentServiceEvents {
   toolUsage: [usage: ToolUsageSignal];
   /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
   workflowRun: [end: WorkflowRunEnd];
+  /**
+   * The time of one step of a turn start, for the local trace (`start-timings.ts`). Names, numbers and
+   * status words only. Never forwarded to a client.
+   */
+  startTiming: [timing: StartTiming];
 }
 
 export interface AgentServiceOptions {
@@ -368,6 +375,8 @@ export interface AgentServiceOptions {
    */
   credentials?: ProviderClientContext;
   offProviders?: readonly AgentProvider[];
+  /** The model policy of the server (`server-model-policy.ts`). Absent: every provider and model is offered. */
+  modelPolicy?: ServerModelPolicy | null;
   /** The provider accounts after the first. Omitted, each provider holds its own sign-in only. */
   providerAccounts?: ProviderAccountStore;
   saveProviderUse?: (provider: AgentProvider, on: boolean) => Effect.Effect<void, AgentLifecycleFailed>;
@@ -823,6 +832,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#providers = new ProviderRuntime({
       offProviders: options.offProviders ?? [],
+      modelPolicy: options.modelPolicy ?? null,
       ...(options.providerAccounts ? { accounts: options.providerAccounts } : {}),
       saveProviderUse: (provider, on) =>
         (options.saveProviderUse?.(provider, on) ?? Effect.void).pipe(toProviderOperationFailed),
@@ -1235,7 +1245,12 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             });
           return yield* this.#generateForAgent(
             lead,
-            { ...model, defaultReasoningEffort: purpose === "summary" ? summaryEffort(model) : lead.reasoningEffort },
+            // Only the `routing` optimization sends the `routing` purpose: off, routing keeps the lead's effort.
+            {
+              ...model,
+              defaultReasoningEffort:
+                purpose === "summary" || purpose === "routing" ? summaryEffort(model) : lead.reasoningEffort,
+            },
             prompt,
           ).pipe(
             // A routing turn can be the first one a spent plan refuses: in its completion, or as the
@@ -1258,6 +1273,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         return session ? this.#compaction.contextInputCharacters(session.externalSessionId) : 120_000;
       },
       reportsCompactions: (agentId) => this.#reportsCompactions(agentId),
+      optimizationEnabled: (id) => this.optimizations.optimizationEnabled(id),
+      // Counts and times only: the sample has no text of the request, the prompt or the answer.
+      routingMeasured: (sample) => logger.info("A channel routing generation ended.", { ...sample }),
       forgetThread: (threadId) => this.#forgetExecutionThread(threadId).pipe(toChannelOperationError),
       loadedSnapshot: (threadId) => this.#conversation.loadedExecutionSnapshot(threadId),
       // A held agent gets no channel assignment: one that waited for the reset would hold its
@@ -1375,12 +1393,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     });
     this.#memoryHold = new MemoryHold({
       memory: hostMemory ?? memoryPressure,
+      optimizations: this.optimizations,
       hooks: {
         scheduleAll: () => {
           for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
         },
         retryWaiting: () => this.#drain.retrySlotWaiters(),
-        releaseIdleThreads: () => this.#providers.releaseIdleThreads(),
+        releaseIdleThreads: (minIdleMs) => this.#providers.releaseIdleThreads(minIdleMs),
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
         memoryReturned: () =>
           Effect.runFork(
@@ -1455,6 +1474,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       routines: this.#routines,
       threads: this.#threads,
       memory: this.#memoryHold,
+      optimizations: this.optimizations,
       ...(options.agentLimit ? { agentLimit: options.agentLimit } : {}),
       usageLimits: this.#usageLimits,
       planContinuation: this.#planContinuation,
@@ -1483,6 +1503,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         scanPrompt: (agentId, input) => this.scanPrompt(agentId, input),
+        startTiming: (timing) => this.emit("startTiming", timing),
         turnEnded: (turnId) => this.#turn.hasEnded(turnId),
         turnRestarting: (turnId) => this.#turn.forgetEnded(turnId),
         startRequestedNewChat: (agentId) => this.#startRequestedNewChat(agentId),
@@ -1604,6 +1625,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         resumeChannelTurn: (input, requeue) => this.#drain.resumeChannelTurn(input, requeue),
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
         quietRoutineDelivery: (deliveryId) => this.#routines.quietRunForDelivery(deliveryId),
+        startTiming: (timing) => this.emit("startTiming", timing),
         takeRoutinePreview: (deliveryId) => this.#routines.takePreviewBeforeRun(deliveryId),
         closeRoutineSession: (externalThreadId) => this.#threads.closeRoutineThread(externalThreadId),
         conversationTurnEnded: (agentId, sideThreadId, counts, memoryCommitted) =>

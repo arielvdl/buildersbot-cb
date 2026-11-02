@@ -98,6 +98,23 @@
   opacity: 0.6;
 }
 
+/*
+ * The open chat and the row under the pointer keep the tint color in a stronger tint
+ * (`sidebar-section-color.css`), which reads `--sidebar-row-color`. The tint lowers the contrast of the
+ * muted and the readable text: in each row, both move toward the primary text color, as in a box with a
+ * color. They start from the colors before a box with a color changed them.
+ */
+.sidebar-marked-row[data-marker-style="tint"] {
+  --sidebar-row-color: var(--sidebar-marker-color);
+  --sidebar-marker-muted: var(--sidebar-section-muted, var(--openbot-text-muted));
+  --sidebar-marker-readable: var(--sidebar-section-readable, var(--openbot-text-readable));
+}
+
+.sidebar-marked-row[data-marker-style="tint"] > * {
+  --openbot-text-muted: color-mix(in srgb, var(--sidebar-marker-muted) 70%, var(--openbot-text-primary));
+  --openbot-text-readable: color-mix(in srgb, var(--sidebar-marker-readable) 70%, var(--openbot-text-primary));
+}
+
 .sidebar-marked-row[data-marker-style="tint"] .agent-row:not(.agent-row-active) {
   background: color-mix(in srgb, var(--sidebar-marker-color) 14%, transparent);
 }

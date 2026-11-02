@@ -11,6 +11,8 @@
   --sidebar-section-tint: 18%;
   --sidebar-section-muted: var(--openbot-text-muted);
   --sidebar-section-readable: var(--openbot-text-readable);
+  /* The hue of the open chat and of the row under the pointer (below). */
+  --sidebar-row-color: var(--sidebar-section-color);
 }
 
 :root[data-openbot-color-scheme="light"] .sidebar-section[data-section-color] {
@@ -37,6 +39,55 @@
 /* The glass sidebar is clear, so no opaque ring matches what shows through the tint. */
 :root[data-openbot-window-glass] .sidebar-section[data-section-color] {
   --agent-avatar-outline: transparent;
+}
+
+/*
+ * A chat row in a color: in a box with a color, or below a marker with the tint style, which sets
+ * `--sidebar-row-color` to the marker color (`sidebar-markers.css`). The open chat and the row under the
+ * pointer keep that hue in a stronger tint than the rows at rest, so the open chat shows both that it is
+ * open and where it is. Each fill is opaque, as the theme fills of `.agent-row-active` and of the hover
+ * are, and the ring of a face takes it. The open chat keeps `aria-pressed`, and the keyboard focus keeps its
+ * ring. On each preset in both themes, the open chat differs from the rows at rest more than an open chat
+ * with no color does, and the text keeps 4.5:1 (`scripts/sidebar-section-color-e2e.ts`). A chat with no color
+ * matches none of these rules, so it keeps the neutral fills of the theme.
+ */
+.agent-list {
+  --sidebar-row-hover-tint: 18%;
+  --sidebar-row-open-tint: 22%;
+}
+
+/* On the light sidebar the same share reads weaker, and the open chat would be lighter than the rows. */
+:root[data-openbot-color-scheme="light"] .agent-list {
+  --sidebar-row-hover-tint: 22%;
+  --sidebar-row-open-tint: 32%;
+}
+
+/* A drag shows no pointer state (`app-shell.css`), so the hover tint waits for the drag to end. */
+.agent-list:not([data-sidebar-dragging])
+  :is(.sidebar-section[data-section-color], .sidebar-marked-row[data-marker-style="tint"])
+  .agent-row:not(.agent-row-active):hover {
+  --sidebar-row-fill: color-mix(
+    in srgb,
+    var(--sidebar-row-color) var(--sidebar-row-hover-tint),
+    var(--openbot-bg-control-hover)
+  );
+  --agent-avatar-outline: var(--sidebar-row-fill);
+
+  background: var(--sidebar-row-fill);
+}
+
+/* With the pointer too, as an open chat with no color keeps its fill during a drag (`app-shell.css`). */
+:is(.sidebar-section[data-section-color], .sidebar-marked-row[data-marker-style="tint"]) .agent-row.agent-row-active,
+:is(.sidebar-section[data-section-color], .sidebar-marked-row[data-marker-style="tint"])
+  .agent-row.agent-row-active:hover {
+  --sidebar-row-fill: color-mix(
+    in srgb,
+    var(--sidebar-row-color) var(--sidebar-row-open-tint),
+    var(--openbot-bg-surface)
+  );
+  --agent-avatar-outline: var(--sidebar-row-fill);
+
+  background: var(--sidebar-row-fill);
 }
 
 /* A swatch in the section color menu. "No color" is an empty ring with a slash. */

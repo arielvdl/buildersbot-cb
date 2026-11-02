@@ -2,11 +2,12 @@ import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
 import { Effect, Fiber } from "effect";
 import { toAgentRemovalFailed } from "../backend/agent/agent-removal";
 import { toHostedSiteOperationFailed } from "../backend/agent/hosted-site-coordinator";
+import { loadServerModelPolicy, MODEL_POLICY_FILE_ENV } from "../backend/agent/server-model-policy";
 import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
-import { readCulturaBuilderSession } from "../backend/cultura-builder-auth";
+import { CulturaBuilderCatalog, readCulturaBuilderSession } from "../backend/cultura-builder-auth";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -1579,6 +1580,11 @@ export async function createApplicationServices({
    * point, which this file may not reach into; both readers read the same immutable value.
    */
   const providerUse = new ProviderUseSettingsStore(join(app.getPath("userData"), "openbot-provider-use-v1.json"));
+  /*
+   * The model policy of a company server: the providers and models its picker offers. Read once,
+   * before the agent service starts its providers. No path or no file: no policy, as before.
+   */
+  const modelPolicy = await runCauseEffect(loadServerModelPolicy(process.env[MODEL_POLICY_FILE_ENV]));
   const providerAccounts = new ProviderAccountStore(
     join(app.getPath("userData"), "openbot-provider-accounts-v1.json"),
     join(app.getPath("userData"), "provider-accounts"),
@@ -2031,6 +2037,7 @@ export async function createApplicationServices({
     channelTabLimit: () => agentLimit.tabsPerAgent(),
     requestTimeoutMs: 30_000,
     offProviders: providerUse.off(),
+    modelPolicy,
     providerAccounts,
     saveProviderUse: (provider, on) =>
       providerUse.set(provider, on).pipe(
@@ -2077,6 +2084,9 @@ export async function createApplicationServices({
       promptCacheTtl: () => promptCacheTtl.get().ttl,
       // Read at each Cultura Builder spawn. A change starts its process again (below).
       culturaBuilderFullContext: () => appBehavior.culturaBuilderFullContext,
+      // Only with a model policy: the Cultura Builder models then come from the gateway catalog of the
+      // signed-in account, so the picker offers only what the Hub allows that account.
+      ...(modelPolicy ? { culturaBuilderCatalog: new CulturaBuilderCatalog() } : {}),
       // `configs()`, not `list()`: this is the one path the API keys travel, and it ends at the
       // spawned provider process. The IPC handlers are given `list()`.
       customProviders: () => customProviders.configs(),
@@ -3060,6 +3070,12 @@ export async function createApplicationServices({
           void Effect.runPromise(taskWatchHistory.set({ events: [...events] })).catch((error: unknown) =>
             recoveryLogger.warn("The last actions of the task reviewer were not saved.", toLogValue(error)),
           ),
+      },
+      // Off by default: an advanced optimization (beta).
+      sleepGrace: () => optimizations.optimizationEnabled("fiscal-resume-grace"),
+      onResume: (listener) => {
+        powerMonitor.on("resume", listener);
+        return () => powerMonitor.off("resume", listener);
       },
     },
   });

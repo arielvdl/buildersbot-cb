@@ -16,8 +16,8 @@
     "env:validate:prod": "dotenvx validate -f .env.production -fk ../../.env.keys",
     "cf:typegen": "wrangler types",
     "stripe:bootstrap": "bun ../../scripts/run-development.ts stripe",
-    "db:migrate:local": "wrangler d1 migrations apply openbot-auth --local",
-    "db:migrate:remote": "wrangler d1 migrations apply openbot-auth --remote",
+    "db:migrate:local": "wrangler d1 migrations apply buildersbot-auth --local",
+    "db:migrate:remote": "wrangler d1 migrations apply buildersbot-auth --remote",
     "typecheck": "bun ../../scripts/type-checker.ts --noEmit -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts"
   },

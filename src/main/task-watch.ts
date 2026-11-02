@@ -49,6 +49,14 @@ const PARENT_DEPTH = 64;
 export const OPEN_STEP_STALL_FACTOR = 4;
 /** A run or a request is stalled at this many times `N`. */
 const STALL_FACTOR = 2;
+/**
+ * A time between two looks longer than this means that the computer slept: the timer of `WorkControl`
+ * looks every 60 s while the app runs. Three looks, so a busy main process that delays one look is not a
+ * sleep.
+ */
+export const SLEEP_GAP_MS = 3 * 60_000;
+/** The looks after a sleep in which every task is held (`fiscal-resume-grace`). */
+export const SLEEP_GRACE_LOOKS = 2;
 
 /** `running`: Working. `queued`: Requested. `start-failed`: Failed, because the provider did not start it. */
 export type WatchKind = "running" | "queued" | "start-failed";
@@ -388,6 +396,11 @@ export interface TaskWatchDeps {
    * the newest first; `write` saves the list after each action. Omitted, they are in memory only.
    */
   history?: { read(): readonly TaskWatchEvent[]; write(events: readonly TaskWatchEvent[]): void };
+  /**
+   * Whether a sleep of the computer holds every task for `SLEEP_GRACE_LOOKS` looks (the switch
+   * `fiscal-resume-grace`). Omitted: no, as before the switch existed.
+   */
+  sleepGrace?(): boolean;
 }
 
 /** A look that waits writes its summary to the log again after this long, also with no change, so the log shows that it looks. */
@@ -431,6 +444,12 @@ export class TaskWatch {
   #wasActive: boolean | null = null;
   /** The last summary of a look that waited, and when it went to the log. */
   #waitLog: { summary: string; at: number } | null = null;
+  /** When the last look ran, to find a sleep of the computer (`SLEEP_GAP_MS`). Null before the first one. */
+  #lastLookAt: number | null = null;
+  /** The computer woke from a sleep (`noteResume`), and no look saw it yet. */
+  #resumed = false;
+  /** The looks of the grace after a sleep that are left (`fiscal-resume-grace`). */
+  #graceLooks = 0;
 
   constructor(deps: TaskWatchDeps) {
     this.#deps = deps;
@@ -518,6 +537,9 @@ export class TaskWatch {
       this.#gaveUp.clear();
       this.#outlook = [];
       this.#waitLog = null;
+      this.#lastLookAt = null;
+      this.#resumed = false;
+      this.#graceLooks = 0;
       return;
     }
     this.#ticking = true;
@@ -530,8 +552,45 @@ export class TaskWatch {
     }
   }
 
+  /**
+   * The computer woke from a sleep (`powerMonitor` `resume`). With `fiscal-resume-grace` on, the next look
+   * starts the grace. A sleep that the next look finds by the time since the last one does the same.
+   */
+  noteResume(): void {
+    this.#resumed = true;
+  }
+
+  /**
+   * Whether this look is in the grace after a sleep of the computer (`fiscal-resume-grace`). In the grace,
+   * every task is held, as by a hold of its own: the reviewer acts on none, and the time with no sign
+   * counts from the last look of the grace. A run that was quiet only because the computer slept is not
+   * stalled when it wakes, and the network and the providers have time to come back.
+   */
+  #inSleepGrace(now: number): boolean {
+    const gap = this.#lastLookAt === null ? 0 : now - this.#lastLookAt;
+    const resumed = this.#resumed;
+    this.#lastLookAt = now;
+    this.#resumed = false;
+    if (!(this.#deps.sleepGrace?.() ?? false)) {
+      this.#graceLooks = 0;
+      return false;
+    }
+    if (resumed || gap > SLEEP_GAP_MS) {
+      this.#graceLooks = SLEEP_GRACE_LOOKS;
+      this.#log.info("The task reviewer holds every task after a sleep.", {
+        cause: resumed ? "resume" : "gap",
+        gapMinutes: Math.floor(gap / MINUTE_MS),
+        looks: SLEEP_GRACE_LOOKS,
+      });
+    }
+    if (this.#graceLooks === 0) return false;
+    this.#graceLooks -= 1;
+    return true;
+  }
+
   async #look(): Promise<void> {
     const now = this.#deps.now();
+    const grace = this.#inSleepGrace(now);
     const recovery = this.#deps.recovery();
     const context: WatchContext = {
       now,
@@ -539,7 +598,7 @@ export class TaskWatch {
       intervalMs: Math.max(1, recovery.intervalMinutes) * MINUTE_MS,
     };
     const { ledger } = this.#deps;
-    const observed = this.#clock(this.#deps.observe(), now);
+    const observed = this.#clock(this.#deps.observe(), now, grace);
     // A failed start is a stopped row, as for "Resume by itself": the first look starts its interval.
     // A run or a request does not renew its record here. The record keeps the tries for the
     // retention time after the last action or stop, and a task that then works well for hours
@@ -557,7 +616,7 @@ export class TaskWatch {
     this.#answered = answered;
     let decided = false;
     try {
-      decided = await this.#decide(candidates, recovery.reassign, now);
+      if (!grace) decided = await this.#decide(candidates, recovery.reassign, now);
     } finally {
       // After the decision, so the tries of a task that it acted on count.
       this.#outlook = watchOutlook(
@@ -629,14 +688,14 @@ export class TaskWatch {
    * request that a full cap, a busy agent or a dependency held for an hour is not stalled at once when
    * the hold ends, while the drain starts it.
    */
-  #clock(observations: readonly WatchObservation[], now: number): WatchedTask[] {
+  #clock(observations: readonly WatchObservation[], now: number, holdAll = false): WatchedTask[] {
     const firstSeen = new Map<string, number>();
     const heldAt = new Map<string, number>();
     const tasks = observations.map((observation): WatchedTask => {
       const key = clockKey(observation);
       const seen = this.#firstSeen.get(key) ?? now;
       firstSeen.set(key, seen);
-      const held = observation.hold ? now : this.#heldAt.get(key);
+      const held = observation.hold || holdAll ? now : this.#heldAt.get(key);
       if (held !== undefined) heldAt.set(key, held);
       const startedAt = observation.turnStartedAt ?? seen;
       const sign = observation.kind === "running" ? Math.max(startedAt, observation.lastEventAt ?? 0) : startedAt;

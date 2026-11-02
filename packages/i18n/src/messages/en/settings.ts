@@ -429,7 +429,7 @@ export const messages = defineMessages("settings", {
     "A channel task that stops for a short provider or network failure continues by itself in the same session, at most 3 times, when nothing that it did can happen twice. When a post, a push or another outside action may already have happened, the task waits for you. Risk: the agent can skip or redo a step that the app cannot see.",
   "settings.optimizations.routing.title": "Lighter channel routing",
   "settings.optimizations.routing.description":
-    "The choice of who answers in a channel uses less reasoning. Risk: a worse choice for an unclear request.",
+    'The choice of who answers in a channel uses less reasoning. A follow-up in Portuguese or Spanish, such as "continua", continues the work of its tab, and work in another tab does not make the lead choose again. Risk: a worse choice for an unclear request.',
   "settings.optimizations.streamingCheckpoints.title": "Fewer writes during a reply",
   "settings.optimizations.streamingCheckpoints.description":
     "A reply that streams is saved every 1 to 2 seconds, not many times each second. Risk: if the app stops, up to 2 seconds of a reply can be lost.",

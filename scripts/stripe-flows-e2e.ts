@@ -379,7 +379,7 @@ const REMOTE_D1 = process.argv.includes("--remote-d1");
 const REAL_CHECKOUT = process.argv.includes("--checkout");
 
 function d1<T>(sql: string, schema: z.ZodType<T>): T[] {
-  const target = REMOTE_D1 ? ["openbot-auth-test", "--remote", "--env", "test"] : ["openbot-auth", "--local"];
+  const target = REMOTE_D1 ? ["openbot-auth-test", "--remote", "--env", "test"] : ["buildersbot-auth", "--local"];
   const env = developmentChildEnvironment(process.env, "app");
   if (REMOTE_D1) delete env.CLOUDFLARE_API_TOKEN;
   const result = spawnSync(

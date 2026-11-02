@@ -20,6 +20,7 @@ import { channelTabOfLane } from "../channel-tab-lane";
 import { causeHelpers } from "../effect-boundary";
 import type { DeliveryContext, MailboxStore } from "../mailbox-store";
 import type { MessagingThreads } from "../messaging/messaging-threads";
+import { OPTIMIZATIONS_OFF, type OptimizationPort } from "../optimizations";
 import { decodeTurnResponse } from "../protocol";
 import type { ContextCompaction } from "./context-compaction";
 import type { ConversationRuntime } from "./conversation-runtime";
@@ -53,6 +54,7 @@ import {
   startRetryView,
   untilMs,
 } from "./start-retry";
+import { type StartTiming, startTimingReporter } from "./start-timings";
 import {
   isCodexCompactionRefusal,
   isMissingProviderSessionError,
@@ -142,6 +144,8 @@ export interface DrainHooks {
     delaysSeconds: readonly number[];
     takeRecovery?: (channelId: string, taskId: string) => boolean;
   } | null;
+  /** The time of each step of a start (`start-timings.ts`): names, numbers and status words only. */
+  startTiming?(timing: StartTiming): void;
 }
 
 /** The tasks of the agents, as the drain reads them. */
@@ -212,6 +216,8 @@ export interface DrainSchedulerOptions {
   routines: RoutineScheduler;
   threads: ThreadLifecycle;
   memory: MemoryHold;
+  /** The advanced optimizations (beta). Omitted: every switch off. */
+  optimizations?: OptimizationPort;
   /** The most agents that run turns at the same time, as the person set it, or null for no cap. */
   agentLimit?: () => number | null;
   usageLimits: UsageLimitGate;
@@ -260,8 +266,19 @@ export class DrainScheduler {
   readonly #tasks: TaskLanes;
   readonly #security: Pick<PromptInjectionGuard, "review"> | undefined;
   readonly #slots: TurnSlots;
+  readonly #optimizations: OptimizationPort;
+  readonly #unsubscribeOptimizations: () => void;
+  readonly #timing: ReturnType<typeof startTimingReporter>;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
   readonly #slotWaiters = new Set<string>();
+  /**
+   * Lanes with a message of the person that low memory held while `queue-priority-user` is on. The one
+   * pass of a person's turn at `low` (`#lowMemoryPass`) can free, so a drain that may free it tries
+   * them again, as it tries the slot waiters.
+   */
+  readonly #lowMemoryWaiters = new Set<string>();
+  /** The lane whose turn of the person started at `low` memory (`#lowMemoryPass`), or null. */
+  #lowMemoryPassLane: string | null = null;
   #wakingSlotWaiters = false;
   readonly #hooks: DrainHooks;
   readonly #channels: ChannelService | undefined;
@@ -334,6 +351,16 @@ export class DrainScheduler {
     this.#breakers = options.startBreakers;
     this.#random = options.random ?? Math.random;
     this.#now = options.now ?? Date.now;
+    this.#optimizations = options.optimizations ?? OPTIMIZATIONS_OFF;
+    this.#timing = startTimingReporter(
+      options.hooks.startTiming ? (timing) => this.#hooks.startTiming?.(timing) : undefined,
+    );
+    // The switch can let a waiting lane start now: one that the full cap holds, or a message of the
+    // person that low memory holds, which no other list keeps.
+    this.#unsubscribeOptimizations = this.#optimizations.onOptimizationChange((id, enabled) => {
+      if (id !== "queue-priority-user" || !enabled) return;
+      for (const agent of this.#store.list()) this.scheduleDrain(agent.id);
+    });
     const agentLimit = options.agentLimit ?? (() => null);
     this.#slots = new TurnSlots({
       limit: () => this.#memory.turnLimit(),
@@ -361,6 +388,7 @@ export class DrainScheduler {
         const lane = laneOf(key);
         return this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab)?.delivery ?? null;
       },
+      personPlace: () => this.#optimizations.optimizationEnabled("queue-priority-user"),
     });
   }
 
@@ -598,11 +626,12 @@ export class DrainScheduler {
    * memory sample calls this too, for a turn that ended on a path that schedules no drain.
    */
   retrySlotWaiters(): void {
-    if (this.#wakingSlotWaiters || this.#slotWaiters.size === 0) return;
+    if (this.#wakingSlotWaiters || this.#slotWaiters.size + this.#lowMemoryWaiters.size === 0) return;
     this.#wakingSlotWaiters = true;
     try {
-      const waiters = [...this.#slotWaiters];
+      const waiters = [...this.#slotWaiters, ...this.#lowMemoryWaiters];
       this.#slotWaiters.clear();
+      this.#lowMemoryWaiters.clear();
       for (const key of waiters) this.#scheduleLane(laneOf(key));
     } finally {
       this.#wakingSlotWaiters = false;
@@ -730,8 +759,9 @@ export class DrainScheduler {
 
   forgetAgent(agentId: string): void {
     const ofAgent = (key: string) => laneOf(key).agentId === agentId;
-    for (const keys of [this.#drainingLanes, this.#scheduledDrains, this.#slotWaiters])
+    for (const keys of [this.#drainingLanes, this.#scheduledDrains, this.#slotWaiters, this.#lowMemoryWaiters])
       for (const key of [...keys]) if (ofAgent(key)) keys.delete(key);
+    if (this.#lowMemoryPassLane !== null && ofAgent(this.#lowMemoryPassLane)) this.#lowMemoryPassLane = null;
     for (const key of [...this.#reportedHolds.keys()]) if (ofAgent(key)) this.#reportedHolds.delete(key);
     for (const key of [...this.#turnModels.keys()]) if (ofAgent(key)) this.#turnModels.delete(key);
     this.#requeuedAtLimit.delete(agentId);
@@ -758,6 +788,9 @@ export class DrainScheduler {
     this.#drainingLanes.clear();
     this.#scheduledDrains.clear();
     this.#slotWaiters.clear();
+    this.#lowMemoryWaiters.clear();
+    this.#lowMemoryPassLane = null;
+    this.#unsubscribeOptimizations();
     this.#reportedHolds.clear();
     this.#requeuedAtLimit.clear();
     this.#startsAlone.clear();
@@ -768,7 +801,7 @@ export class DrainScheduler {
    * about the memory, and a lane held by the slots waits for the next free slot.
    */
   #heldByMachine(lane: Lane): boolean {
-    if (!this.#memory.mayDrain(lane.agentId)) {
+    if (!this.#memory.mayDrain(lane.agentId) && !this.#lowMemoryPass(lane)) {
       if (this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab)) this.#memory.held(lane.agentId);
       return true;
     }
@@ -776,6 +809,65 @@ export class DrainScheduler {
     if (this.#slots.mayStart(key)) return false;
     this.#slotWaiters.add(key);
     return true;
+  }
+
+  /**
+   * Whether this lane is the one turn of the person that may start while the memory of the computer
+   * is `low` (`queue-priority-user`): its next message is the person's, the provider thread it runs
+   * on is open, so no process starts for it, and no other such turn runs. At `critical`, on a server,
+   * or with the switch off, nothing passes. A lane held here waits in `#lowMemoryWaiters`.
+   */
+  #lowMemoryPass(lane: Lane): boolean {
+    if (!this.#optimizations.optimizationEnabled("queue-priority-user") || !this.#memory.personMayPassLow())
+      return false;
+    const key = laneKey(lane);
+    const context = this.#mailbox.nextQueued(lane.agentId, lane.taskId, lane.tab);
+    if (context?.delivery.sender.kind !== "user") return false;
+    const current = this.#lowMemoryPassLane;
+    if (current !== null && current !== key && this.#laneRunning(laneOf(current))) {
+      this.#lowMemoryWaiters.add(key);
+      return false;
+    }
+    if (!this.#providerThreadOpen(lane, context.delivery.id)) return false;
+    this.#lowMemoryPassLane = key;
+    return true;
+  }
+
+  /**
+   * Whether the provider session that the next turn of this lane runs on is open now: loaded on a
+   * running client, and not closed for being idle (`AgentClient.threadOpen`).
+   */
+  #providerThreadOpen(lane: Lane, deliveryId: string): boolean {
+    const agent = this.#store.list().find((candidate) => candidate.id === lane.agentId);
+    if (!agent) return false;
+    const publicThreadId =
+      lane.tab !== null
+        ? this.#tabThread(lane)
+        : lane.taskId !== null
+          ? this.#tasks.threadId(lane.taskId)
+          : this.#chatThreadFor(agent, deliveryId);
+    if (!publicThreadId) return false;
+    const session = this.#store.database.activeProviderSession(publicThreadId, agent.provider);
+    if (!session) return false;
+    const client = this.#conversation.loadedClientFor(session.externalSessionId);
+    return client !== undefined && (client.threadOpen?.(session.externalSessionId) ?? true);
+  }
+
+  /**
+   * The public thread of a delivery of the agent's own lane: the channel thread of its assignment, the
+   * thread of its external conversation, or the agent's chat.
+   */
+  #chatThreadFor(agent: AgentSummary | undefined, deliveryId: string): string | null | undefined {
+    const assignment = this.#channels?.store.assignmentForDelivery(deliveryId);
+    return assignment
+      ? this.#channels?.store.context(
+          assignment.channelId,
+          this.#channels.store.tasks(assignment.channelId).find((task) => task.id === assignment.taskId)?.topicId ??
+            this.#channels.store.firstTopic(assignment.channelId)?.id ??
+            "",
+          assignment.agentId,
+        ).threadId
+      : (this.#messaging?.threadForDelivery(deliveryId) ?? agent?.threadId);
   }
 
   /** The checks of `drainAgent` other than the clauses: the service runs and the provider can start. */
@@ -842,16 +934,7 @@ export class DrainScheduler {
       // messaging work it serves, and a channel tab compacts the agent's thread of that tab.
       if (taskId === null) {
         const agent = this.#store.list().find((candidate) => candidate.id === agentId);
-        const assignment = this.#channels?.store.assignmentForDelivery(context.delivery.id);
-        const publicThreadId = assignment
-          ? this.#channels?.store.context(
-              assignment.channelId,
-              this.#channels.store.tasks(assignment.channelId).find((task) => task.id === assignment.taskId)?.topicId ??
-                this.#channels.store.firstTopic(assignment.channelId)?.id ??
-                "",
-              assignment.agentId,
-            ).threadId
-          : (this.#messaging?.threadForDelivery(context.delivery.id) ?? agent?.threadId);
+        const publicThreadId = this.#chatThreadFor(agent, context.delivery.id);
         if (agent && publicThreadId === agent.threadId) this.#hooks.dropRequestedNewChat(agentId);
         // A routine run in its own session leaves the chat session as it is.
         const session =
@@ -971,6 +1054,8 @@ export class DrainScheduler {
     let startChoice: AgentModelChoice | null = null;
     // This start is the one try of the agent's own model after the wait of its breaker.
     let probing = false;
+    // The start of the timings of this start (`start-timings.ts`).
+    const claimedAt = performance.now();
     yield* Effect.gen({ self: this }, function* () {
       for (const item of batch) yield* this.#mailbox.markStarting(item.delivery.id).pipe(toDeliveryStartFailed);
       this.#mailboxSync.emitQueue(delivery.recipientAgentId);
@@ -1024,10 +1109,13 @@ export class DrainScheduler {
       yield* drainStep(requireServedModel);
       yield* this.#threads.applyPendingRuntimeRefresh(agent, new Set(batch.map((item) => item.delivery.id)));
       releaseRuntimeRefresh = this.#threads.holdRuntimeRefresh(agent.id, taskId !== null);
+      const clientAt = performance.now();
       const client = yield* this.#providers.ensureAgentClient(agent).pipe(toDeliveryStartFailed);
+      this.#timing("client", clientAt, "ok");
       const messaging = this.#messaging;
       const channels = this.#channels;
       const taskThreadId = taskId === null ? null : this.#tasks.threadId(taskId);
+      const prepareAt = performance.now();
       const execution: { threadId: string; text?: string } | null | undefined =
         taskId !== null
           ? taskThreadId
@@ -1040,6 +1128,11 @@ export class DrainScheduler {
             : channels
               ? yield* channels.prepare(context).pipe(toDeliveryStartFailed)
               : null;
+      this.#timing(
+        "prepare",
+        prepareAt,
+        channelDelivery ? "channel" : messagingDelivery ? "messaging" : taskId !== null ? "task" : "chat",
+      );
       if ((channelDelivery || messagingDelivery || taskId !== null) && !execution) {
         // Every delivery of the batch, so no later message stays `starting` in a removed lane.
         for (const item of batch) {
@@ -1071,9 +1164,11 @@ export class DrainScheduler {
         }
         routineThreadId = yield* this.#threads.startRoutineThread(agent, client).pipe(toDeliveryStartFailed);
       }
+      const threadAt = performance.now();
       let threadId =
         routineThreadId ??
         (yield* this.#threads.ensureThread(agent, client, execution?.threadId).pipe(toDeliveryStartFailed));
+      this.#timing("thread", threadAt, routineThreadId ? "routine" : "ok");
       const snapshot = this.#conversation.ensureSnapshot(agent.id, threadId);
       // A turn started on this thread while the provider and the thread were prepared. The user
       // cannot see that race, so the delivery goes back to the head of the queue rather than
@@ -1171,6 +1266,7 @@ export class DrainScheduler {
       if (security) {
         const fromUser = batch.filter(({ delivery: item }) => item.sender.kind === "user");
         if (fromUser.length) {
+          const reviewAt = performance.now();
           const annotation = yield* security.review({
             agent,
             text: fromUser.map(({ delivery: item }) => item.text).join("\n\n---\n\n"),
@@ -1180,6 +1276,7 @@ export class DrainScheduler {
                 .map((attachment) => ({ path: attachment.path, mimeType: attachment.mimeType })),
             ),
           });
+          this.#timing("review", reviewAt, annotation ? "annotated" : "none");
           if (annotation) completeInput = withGuardAnnotation(completeInput, annotation);
         }
       }
@@ -1230,13 +1327,23 @@ export class DrainScheduler {
         });
       // The guard reads the message before the agent does. It runs after the messages show in the chat,
       // and a scan that fails leaves the turn without a block.
+      const scanAt = performance.now();
       const guard = yield* this.#hooks.scanPrompt(agent.id, scanInput);
+      this.#timing("scan", scanAt, guard ? (guard.note ? "suspicious" : "clean") : "none");
       guardBlock = guard?.block ?? null;
       if (guard?.note) this.#postSecurityNote(snapshot, guard.note);
       // Claude, ACP and Pi take the delivery id as the turn id. A delivery that a refused turn put back
       // in the queue keeps its id, and the end of that turn must not end this new run (#2468).
       this.#hooks.turnRestarting(delivery.id);
+      // A session that the client closed for being idle opens again in `turn/start`.
+      const open = client.threadOpen?.(threadId);
+      const turnStartAt = performance.now();
       const firstStart = yield* Effect.result(startTurn(threadId));
+      this.#timing(
+        "turn-start",
+        turnStartAt,
+        Result.isFailure(firstStart) ? "failed" : open === undefined ? "unknown" : open ? "open" : "woke",
+      );
       let response: Effect.Success<ReturnType<typeof startTurn>>;
       if (Result.isSuccess(firstStart)) response = firstStart.success;
       else {
@@ -1269,6 +1376,7 @@ export class DrainScheduler {
       // event would end it, and it would hold every message of this agent.
       if (!this.#hooks.turnEnded(response.turn.id)) snapshot.activeTurnId = response.turn.id;
       confirmedTurnId = response.turn.id;
+      this.#timing("accepted", claimedAt, "ok");
       this.#turnModels.set(laneKey({ agentId: agent.id, taskId, tab }), {
         turnId: response.turn.id,
         model: agent.model,

@@ -201,6 +201,38 @@ replies to that task, because a new child task has the request of its parent. A 
 them. A lead change does not move a task that already has an owner. The member packet names the lead
 (`leadAgentId`).
 
+### The routing optimization
+
+The switch `routing` of [the advanced optimizations](optimizations.md) changes the rules above
+only while it is on. Off, routing is as above. On (`src/backend/channel-routing.ts`):
+
+- The routing generation sends the purpose `routing` to `ChannelTextModel`. `AgentService` then runs
+  it on the lead's model at the lowest reasoning effort that the model takes (`summaryEffort`), as
+  for the channel summary.
+- The follow-up words are also Portuguese and Spanish (`opensFollowUp`, `asksToResume`): for
+  example "continua", "pode seguir", "na verdade", "sim", "sigue", "sí", "en realidad". They stay
+  anchored at the start of the message, and a word ends at any letter or digit, not only an ASCII
+  one. "no", "não" and "nao" answer only before a punctuation mark or as the whole message, because
+  "No relatório, ..." is a new request. The Spanish "si" without the accent is "if", so it is not a
+  follow-up word.
+- The follow-up and the "continue" rules read only the tasks of the message's tab
+  (`ChannelStore.tasks(channelId, topicId)`). A follow-up does not continue a task of another tab,
+  and open work in another tab does not hide the one open task of this tab.
+- The routing prompt lists only the open tasks of the request's tab, and an existing task that the
+  answer names must be in that tab.
+- A routing answer is stale when the channel settings or the routed task changed during the
+  generation (as before), or when the tasks or active assignments of the request's tab changed. A
+  change to another tab does not make it stale. A change to the tab discards at most
+  `ROUTING_TAB_DISCARDS` (2) answers of one task; the next answer stands, and the decision is
+  checked against the current channel before it is applied, as every answer is.
+- Each generation gives one log line ("A channel routing generation ended."): the outcome, the
+  attempt, the generation time, the prompt length, and the count of members and tab tasks. It has no
+  text of the request, the prompt or the answer. `ChannelService.routingCounts()` gives the totals of
+  the process.
+
+`scripts/channel-routing-e2e.ts` runs the real services with a fake Codex app-server and checks each
+rule with the switch off (as before) and on.
+
 Channel tools retrieve history, assign a child task, transfer ownership, and report results. The
 runtime supplies channel and caller identity. A child keeps its parent owner; a transfer changes it.
 Only assignments and awaited results start turns. Completed child results are combined before the
@@ -263,7 +295,8 @@ The provider acceptance cursor records context delivery. Context packets remain 
 provider replacement or compaction does not remove shared decisions. Unrelated server conversations
 are available through paginated retrieval and are not inserted automatically. Agent memories keep
 their existing meaning. A packet leaves out a member's thinking, and the commentary of a turn that
-posted a `channel_result`: the result is the answer of that turn.
+posted a `channel_result`: the result is the answer of that turn. The switch `channel-context-spill`
+makes the packet leaner (see [Lean channel context](#lean-channel-context-channel-context-spill)).
 
 The channel copies the assistant rows of a member's execution thread. The first rows of a turn go
 to the running assignment before it knows the turn id; a row of another turn does not. A new row
@@ -332,6 +365,41 @@ memory and routine editors share their controls with agent settings and use chan
 Channel settings have no provider or model controls because each member retains its own runtime.
 No account API, Signal, IPC contract, or database migration changes are required for mobile channels.
 
+### Lean channel context (`channel-context-spill`)
+
+The optimization switch `channel-context-spill` ([optimizations.md](optimizations.md)) is off by
+default. Off, the packet, the delta, `prepare` and `channel_history` with no arguments are as before
+the switch. On (`ChannelHistory.prepare` with `spill`, helpers in `channel-context-spill.ts`):
+
+- The packet gives in full, up to 4,000 characters, the messages that the assignment needs: the
+  request, the source messages and the replies they answer, a message that a source quotes or that
+  the instruction names by id, a message that mentions the agent (tag, `@everyone`, or its typed
+  name), the result of a dependency or of a child task, and the last 2 messages. Any other message
+  gives 1,200 characters. A task result or another row that is not an answer, larger than 4,000
+  characters and not kept, gives a preview of 200 characters.
+- A cut row has `chars`, the length of the whole text, and `nextOffset`. The packet tells the member
+  to read the rest with `channel_history {"messageId", "offset"}` before it answers. A cut ends at a
+  paragraph, a line or a word, and not inside a fenced code block: it moves before the block, or
+  closes the block when that would keep less than a quarter of the limit.
+- The request row whose text the current assignment gives has `textInCurrentAssignment` in place of
+  the text, and the task JSON leaves out `instruction` and `expectedResult`: the instruction is in the
+  packet once.
+- The size that starts a summary is the size of this lean form, so a tab with long results makes
+  the lead summarize less often. The budget of the packet does not change (`CONTEXT_CHARACTERS`, half
+  of it for the recent rows).
+- `prepare` reads only the rows after the summary (`ChannelStore.messagesAfter`), the request and the
+  sources before it by id, and the rows of the task (`taskMessages`). The commentary of a turn whose
+  result is before the summary can then show once.
+- The delta (Claude and Codex) leaves out the rules, the channel details and the saved memories when
+  their hash is the same as in the packet that the session read. The process keeps these hashes
+  beside the accepted cursors (`#deliveredParts`), so after a restart the first delta repeats them.
+  Providers without a delta (OpenCode, Pi, Grok) get the lean complete packet.
+
+`channel_history` takes `messageId` with `offset` (12,000 characters a read, with `chars` and
+`nextOffset`) and `limit` (1 to 20 compact rows: id, sequence, author, chars, preview of 200
+characters) at all times. With the switch on, the call with no arguments gives the compact page too.
+The compact page has no channel and no tasks. `scripts/channel-context-spill-e2e.ts` measures both.
+
 ## One channel at a time
 
 When this mode is on, only one channel starts work, so the agents of many channels do not use memory
@@ -375,6 +443,13 @@ it.
   already can start another lane, because it is still one agent; the memory limit counts each turn.
   The waiting lanes go by the head of their queue, a message from a person first, as for the memory
   limit. A change of the limit tries each queue again (`AgentService.agentLimitChanged`).
+- With the advanced optimization `queue-priority-user` on (off by default, see
+  [optimizations.md](optimizations.md)), a lane whose head is a message of the person has one place
+  more than `max` (`TurnSlots` option `personPlace`): the person who writes while routines fill the
+  limit does not wait for one of them to end. There is one extra place only, the oldest message of
+  the person takes it first, and every other lane still sees `max`. The memory turn limit gets no
+  extra place. The ring can then read one agent more than `max`. A change of the switch tries each
+  queue again.
 - With the limit on, the ring arc is the agents of `max` instead of ten, the tooltip says "3 of 10",
   and the panel lists the agents that wait for a place (`AgentService.slotWaitingAgents`) with the
   reason "Limit of N agents reached". The switch and the number are in the panel, beside "One channel

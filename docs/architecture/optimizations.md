@@ -14,11 +14,11 @@ list is the order of the Settings page.
 | --- | --- |
 | `queue-priority-user` | A delivery from the person can use one more place than the cap on agents, and at `low` memory one turn of the person can start on an agent whose provider session is open. See [providers.md](providers.md#memory-of-the-computer). |
 | `idle-release-low` | When the memory of the computer goes to `low`, the provider threads with no turn for more than 2 minutes close. See [providers.md](providers.md#memory-of-the-computer). |
-| `fiscal-resume-grace` | After the computer sleeps, the task reviewer holds every task for two looks. See [task-reviewer.md](task-reviewer.md). |
+| `fiscal-resume-grace` | After the computer sleeps, the task reviewer holds every task for two looks. See [task-reviewer.md](task-reviewer.md#sleep-of-the-computer). |
 | `turn-start-unify` | The two security reviews before a turn become one. See [guard.md](guard.md). |
-| `channel-context-spill` | Long old channel messages go to an agent cut, with a pointer to read the rest. |
+| `channel-context-spill` | Long old channel messages go to an agent cut, with a pointer to read the rest. See [channels-and-messaging.md](channels-and-messaging.md#lean-channel-context-channel-context-spill). |
 | `safe-resume` | A channel task that a brief provider failure stops in the middle of a turn continues by itself in the same session, at most 3 times, only when its effect journal says that nothing can happen twice. See [agents.md](agents.md#safe-turn-resume). |
-| `routing` | The routing of a channel request uses less reasoning. |
+| `routing` | The routing of a channel request uses the lowest reasoning effort of the lead's model, a follow-up in Portuguese or Spanish continues the work of its tab, and only a change to the request's tab makes the lead route again (2 times at most). See [channels-and-messaging.md](channels-and-messaging.md#the-routing-optimization). |
 | `streaming-checkpoints` | A reply that streams is written to the database at checkpoints, not at each frame. |
 
 A new switch is one line in `OPTIMIZATION_IDS`, its name and description in the `settings` catalog

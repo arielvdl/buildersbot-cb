@@ -25,15 +25,18 @@ import {
   type CreateChannelMemoryInput,
   channelRoutingConversationEventItemType,
   type DeleteChannelMemoryInput,
+  type OptimizationId,
   type QueueHold,
   type UpdateChannelMemoryInput,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { isFixedSourceText, matchingSourceKeys, sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Fiber, Result, Schema, Scope } from "effect";
+import { CHANNEL_CONTEXT_SPILL, HISTORY_PAGE_LIMIT, historyLine, readPage } from "./channel-context-spill";
 import { type ChannelOperationError, channelFailure, channelResult, channelSync } from "./channel-effects";
 import {
   assignmentText,
+  type ChannelContextParts,
   ChannelHistory,
   type ChannelTextModel,
   type DeliveredChannelContext,
@@ -53,6 +56,16 @@ import {
   PERSON_REQUEST_REQUIRED,
 } from "./channel-management";
 import { ChannelMemoryStore } from "./channel-memory-store";
+import {
+  asksToResume,
+  CHANNEL_ROUTING,
+  type ChannelRoutingCounts,
+  type ChannelRoutingSample,
+  checkRoutingState,
+  opensFollowUp,
+  type RoutingState,
+  routingTaskState,
+} from "./channel-routing";
 import type { ChannelChange } from "./channel-store";
 import { type ChannelAssignment, type ChannelContext, type ChannelStartFailure, ChannelStore } from "./channel-store";
 import { cleanTopicName, topicNamePrompt } from "./channel-topic-name";
@@ -111,6 +124,10 @@ export interface ChannelHooks {
    * packet leave out the messages that the session read: a compaction resets what it read.
    */
   reportsCompactions?(agentId: string): boolean;
+  /** Whether an optimization of Settings > Advanced optimizations is on. Omitted, each one is off. */
+  optimizationEnabled?(id: OptimizationId): boolean;
+  /** One routing generation with the `routing` optimization on, as counts and times only (no text). */
+  routingMeasured?(sample: ChannelRoutingSample): void;
   /** The thread's snapshot when main has it in memory, which a streaming turn always has. */
   loadedSnapshot?(threadId: string): ConversationSnapshot | undefined;
   /** Removes live provider state for an execution thread before its durable rows are deleted. */
@@ -269,6 +286,16 @@ export class ChannelService {
   readonly #acceptedContexts = new Set<string>();
   /** By delivery: the count of in-place message changes when its packet was built. */
   readonly #preparedChanges = new Map<string, number>();
+  /**
+   * With `channel-context-spill`. By delivery: the hashes of the fixed parts of its packet. By
+   * channel, agent and session, as `#acceptedContexts`: the hashes of the parts that the session read,
+   * so its next delta leaves out each part that has not changed.
+   */
+  readonly #preparedParts = new Map<string, ChannelContextParts>();
+  readonly #deliveredParts = new Map<string, ChannelContextParts>();
+  /** With the `routing` optimization: by task, the routing answers that a change to its tab discarded. */
+  readonly #routingDiscards = new Map<string, number>();
+  readonly #routingCounts: ChannelRoutingCounts = { generations: 0, discarded: 0, keptAfterLimit: 0 };
 
   constructor(
     database: BuildersBotDatabase,
@@ -642,14 +669,17 @@ export class ChannelService {
           : undefined;
         if (command.replyToMessageId && !referenced)
           return yield* channelFailure(new Error(sourceText("error.backend.channelReferenceUnavailable")));
-        const allTasks = yield* channelSync(() => this.store.tasks(current.id));
+        // With the `routing` optimization on, only the tasks of the message's tab count, so a follow-up
+        // in one tab never continues the work of another tab, and work in another tab does not hide the
+        // one open task of this tab. Child tasks are in the tab of their parent.
+        const optimized = this.#routingOptimized();
+        const allTasks = yield* channelSync(() =>
+          optimized ? this.store.tasks(current.id, topicId) : this.store.tasks(current.id),
+        );
         const open = allTasks.filter((task) => !terminal(task));
         const eligible = this.eligibleMembers(current);
         const recipients = this.#recipients(eligible, text, command.recipientAgentId);
-        const continues =
-          /^(?:also|instead|actually|please change|change that|correction|continue|resume|go on|keep going|yes|no|use that|make it)\b/iu.test(
-            text.trim(),
-          );
+        const continues = opensFollowUp(text, optimized);
         // Each recipient answers separately, so a request to several members starts new work; it
         // does not continue the one task that a reply names. When the open work is the tasks that
         // several members own for one request, a follow-up continues each one that the user stopped,
@@ -682,7 +712,7 @@ export class ChannelService {
               ? allTasks.filter((task) => task.id === referenced.taskId)
               : !continues
                 ? []
-                : !referenced && newestStopped && /^(?:continue|resume|go on|keep going)\b/iu.test(text.trim())
+                : !referenced && newestStopped && asksToResume(text, optimized)
                   ? recipients[0]
                     ? [recipientStopped ?? newestStopped]
                     : stoppedRequest
@@ -1484,6 +1514,86 @@ export class ChannelService {
     });
   }
 
+  /** Whether the `routing` optimization of Settings > Advanced optimizations is on. */
+  #routingOptimized(): boolean {
+    return this.hooks.optimizationEnabled?.(CHANNEL_ROUTING) ?? false;
+  }
+
+  /**
+   * What a routing answer depends on, with the `routing` optimization on: the channel settings and the
+   * routed task (`core`), and the tasks and active assignments of its tab (`tab`). The work of the
+   * other tabs is not in the routing prompt, so a change there does not make the answer stale.
+   */
+  #tabRoutingState(channelId: string, task: ChannelTask): RoutingState {
+    const channel = this.store.get(channelId);
+    const tasks = this.store.tasks(channelId, this.#topicOfTask(task));
+    const ids = new Set(tasks.map((item) => item.id));
+    const routed = tasks.find((item) => item.id === task.id);
+    return {
+      core: JSON.stringify({
+        archived: channel.archived,
+        title: channel.title,
+        instructions: channel.instructions,
+        members: channel.members,
+        leadAgentId: channel.leadAgentId,
+        task: routed ? routingTaskState(routed) : null,
+      }),
+      tab: JSON.stringify({
+        tasks: tasks.map(routingTaskState),
+        assignments: this.store
+          .assignments(channelId)
+          .filter((item) => activeAssignment(item) && ids.has(item.taskId))
+          .map(({ id, agentId, taskRevision, pendingRevision, state }) => ({
+            id,
+            agentId,
+            taskRevision,
+            pendingRevision,
+            state,
+          })),
+      }),
+    };
+  }
+
+  /**
+   * Whether a routing answer is stale, so the lead routes the task again. Off, any change to the
+   * channel makes it stale, as before the switch. On, see `checkRoutingState`: an answer that the
+   * discard limit keeps is `kept-after-limit`.
+   */
+  #routingFreshness(
+    channelId: string,
+    before: string | RoutingState,
+    task: ChannelTask,
+  ): "fresh" | "stale" | "kept-after-limit" {
+    if (typeof before === "string") return this.routingState(channelId) === before ? "fresh" : "stale";
+    const discards = this.#routingDiscards.get(task.id) ?? 0;
+    const after = this.#tabRoutingState(channelId, task);
+    const check = checkRoutingState(before, after, discards);
+    if (check === "discard") {
+      this.#routingCounts.discarded += 1;
+      // A change to the task itself starts its count again; a change to its tab adds one.
+      if (before.core !== after.core) this.#routingDiscards.delete(task.id);
+      else this.#routingDiscards.set(task.id, discards + 1);
+      return "stale";
+    }
+    this.#routingDiscards.delete(task.id);
+    if (check === "same") return "fresh";
+    this.#routingCounts.keptAfterLimit += 1;
+    return "kept-after-limit";
+  }
+
+  #measureRouting(sample: ChannelRoutingSample): void {
+    try {
+      this.hooks.routingMeasured?.(sample);
+    } catch (error) {
+      this.hooks.error(error);
+    }
+  }
+
+  /** The routing totals of this process, with the `routing` optimization on: counts only. */
+  routingCounts(): ChannelRoutingCounts {
+    return { ...this.#routingCounts };
+  }
+
   /**
    * The members a task could actually be given to: a member row alone is not enough, because an
    * agent can be deleted, unavailable or hidden while its membership stays. This is the same
@@ -1613,7 +1723,18 @@ export class ChannelService {
         }
       }
       if (!task.ownerAgentId) {
-        const revision = this.routingState(channelId);
+        // Read once for this routing: a switch that changes while the lead routes applies to the next one.
+        const optimized = this.#routingOptimized();
+        const revision = optimized ? this.#tabRoutingState(channelId, task) : this.routingState(channelId);
+        // With the switch on, the generation of this pass, until its one sample goes to the log.
+        let generation: (Omit<ChannelRoutingSample, "outcome" | "generationMs"> & { startedAt: number }) | null = null;
+        const measure = (outcome: ChannelRoutingSample["outcome"]): void => {
+          if (!generation) return;
+          const { startedAt, ...sample } = generation;
+          generation = null;
+          this.#measureRouting({ ...sample, outcome, generationMs: Date.now() - startedAt });
+        };
+        let answerTaken = false;
         const lead = this.hooks.agents().find((agent) => agent.id === channel.leadAgentId);
         // A hidden lead routes nothing. The task waits queued until the user restores the lead; the
         // queue event of the restore wakes the channel again.
@@ -1659,7 +1780,15 @@ export class ChannelService {
               taskId: item.taskId,
               text: item.message.text.slice(-ROUTING_TEXT_CHARACTERS),
             }));
-          const tasks = channelResult(yield* Effect.result(channelSync(() => this.store.tasks(channelId))))
+          // With the switch on, the lead sees the open work of the request's tab only: a tab is its own
+          // conversation, and an answer that continued a task of another tab moved the request there.
+          const tasks = channelResult(
+            yield* Effect.result(
+              channelSync(() =>
+                optimized ? this.store.tasks(channelId, this.#topicOfTask(task)) : this.store.tasks(channelId),
+              ),
+            ),
+          )
             .filter((item) => !terminal(item))
             .map((item) => ({
               id: item.id,
@@ -1704,14 +1833,33 @@ export class ChannelService {
           }
           if (prompt.length > ROUTING_PROMPT_CHARACTERS)
             throw new ChannelRoutingError(sourceText("error.backend.channelRoutingTooLong"));
+          if (optimized) {
+            this.#routingCounts.generations += 1;
+            generation = {
+              attempt: (this.#routingDiscards.get(task.id) ?? 0) + 1,
+              promptCharacters: prompt.length,
+              members: agents.length,
+              tabTasks: tasks.length,
+              startedAt: Date.now(),
+            };
+          }
+          // With the switch on, the generation asks for the lowest effort of the lead's model.
           const response = channelResult(
-            yield* Effect.result(this.hooks.generate(lead, prompt).pipe(Effect.mapError(channelFailure))),
+            yield* Effect.result(
+              this.hooks
+                .generate(lead, prompt, optimized ? "routing" : undefined)
+                .pipe(Effect.mapError(channelFailure)),
+            ),
           );
           if (this.#deletedChannels.has(channelId)) return;
-          if (this.routingState(channelId) !== revision) {
+          const freshness = this.#routingFreshness(channelId, revision, task);
+          if (freshness === "stale") {
+            measure("discarded");
             this.#wakeAgain.add(channelId);
             continue;
           }
+          measure(freshness === "kept-after-limit" ? "kept-after-limit" : "routed");
+          answerTaken = true;
           channel = channelResult(yield* Effect.result(channelSync(() => this.store.get(channelId))));
           let decision: typeof RoutingDecision.Type;
           let keys: string[] | null = null;
@@ -1735,9 +1883,13 @@ export class ChannelService {
             throw new ChannelRoutingError(sourceText("error.backend.channelRoutingUnreadable"));
           }
           if ("taskId" in decision) {
-            const existing = channelResult(yield* Effect.result(channelSync(() => this.store.tasks(channelId)))).find(
-              (item) => item.id === decision.taskId && item.id !== task?.id && !terminal(item),
-            );
+            const existing = channelResult(
+              yield* Effect.result(
+                channelSync(() =>
+                  optimized ? this.store.tasks(channelId, this.#topicOfTask(task)) : this.store.tasks(channelId),
+                ),
+              ),
+            ).find((item) => item.id === decision.taskId && item.id !== task?.id && !terminal(item));
             if (!existing?.ownerAgentId)
               throw new ChannelRoutingError(sourceText("error.backend.channelRequestMemberRequired"));
             const ownerAgentId = existing.ownerAgentId;
@@ -1849,16 +2001,21 @@ export class ChannelService {
           if (siblings.length) this.#wakeAgain.add(channelId);
           channel = channelResult(yield* Effect.result(channelSync(() => this.store.get(channelId))));
         } catch (error) {
-          if (this.routingState(channelId) !== revision) {
+          // On, an answer that the check above took is not checked again: its decision failed on its
+          // own, and a second check would route again past the discard limit.
+          if ((!optimized || !answerTaken) && this.#routingFreshness(channelId, revision, task) === "stale") {
+            measure("discarded");
             this.#wakeAgain.add(channelId);
             continue;
           }
           // A spent plan refused the routing turn and now holds the lead. The task is not paused for
           // a human: it stays queued, and the reset wakes the channel again.
           if (lead && this.hooks.usageLimited?.(lead.id)) {
+            measure("held");
             yield* channelSync(() => this.#heldByLimit(channelId, task, lead.id));
             continue;
           }
+          measure("paused");
           channel = yield* channelSync(() => this.store.get(channelId));
           // A cause without channel text goes to the redacted error path; without it no one could
           // see why routing failed.
@@ -2233,6 +2390,7 @@ export class ChannelService {
     return Effect.gen({ self: this }, function* () {
       this.#deltas.delete(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const assignment = yield* channelSync(() => this.store.assignmentForDelivery(deliveryId));
       if (!assignment || !activeAssignment(assignment)) return;
       const task = (yield* channelSync(() => this.store.tasks(assignment.channelId))).find(
@@ -2592,7 +2750,8 @@ export class ChannelService {
     if (!agent) return yield* channelFailure(new Error(sourceText("error.backend.channelAssigneeUnavailable")));
     const context = yield* channelSync(() => this.store.context(channel.id, this.#topicOfTask(task), agent.id));
     this.#preparedChanges.set(delivery.delivery.id, this.store.completedMessageChanges(channel.id));
-    const delivered = this.#deliveredContext(channel.id, context, agent);
+    const spill = this.#spill();
+    const delivered = this.#deliveredContext(channel.id, context, agent, spill);
     const history = yield* this.#history.prepare(
       task,
       agent,
@@ -2600,10 +2759,13 @@ export class ChannelService {
       delivered,
       this.#peers(tasks, task),
       this.hooks.contextCharacters?.(agent.id, context.threadId),
+      spill,
     );
     if (delivered && history.delta !== null)
       this.#deltas.set(delivery.delivery.id, { sessionId: delivered.sessionId, text: history.delta });
     else this.#deltas.delete(delivery.delivery.id);
+    if (history.parts) this.#preparedParts.set(delivery.delivery.id, history.parts);
+    else this.#preparedParts.delete(delivery.delivery.id);
     const current = (yield* channelSync(() => this.store.tasks(channel.id))).find((item) => item.id === task.id);
     if (
       !current ||
@@ -2630,6 +2792,7 @@ export class ChannelService {
     channelId: string,
     context: ChannelContext,
     agent: AgentSummary,
+    spill = false,
   ): (DeliveredChannelContext & { sessionId: string }) | null {
     if (
       !context.sessionId ||
@@ -2639,9 +2802,16 @@ export class ChannelService {
     )
       return null;
     const session = this.store.database.activeProviderSession(context.threadId, agent.provider);
-    return session?.externalSessionId === context.sessionId
-      ? { sessionId: context.sessionId, throughSequence: context.throughSequence }
-      : null;
+    if (session?.externalSessionId !== context.sessionId) return null;
+    const parts = spill
+      ? this.#deliveredParts.get(JSON.stringify([channelId, agent.id, context.sessionId]))
+      : undefined;
+    return { sessionId: context.sessionId, throughSequence: context.throughSequence, ...(parts ? { parts } : {}) };
+  }
+
+  /** Whether the optimization `channel-context-spill` is on. Off, the channel context is as before it. */
+  #spill(): boolean {
+    return this.hooks.optimizationEnabled?.(CHANNEL_CONTEXT_SPILL) ?? false;
   }
 
   #acceptContext(
@@ -2651,9 +2821,14 @@ export class ChannelService {
     sessionId: string,
     throughSequence: number,
     summaryVersion: number,
+    parts?: ChannelContextParts,
   ): void {
     this.store.acceptContext(channelId, topicId, agentId, sessionId, throughSequence, summaryVersion);
-    this.#acceptedContexts.add(JSON.stringify([channelId, agentId, sessionId]));
+    const key = JSON.stringify([channelId, agentId, sessionId]);
+    this.#acceptedContexts.add(key);
+    // A packet without them repeats every part, so the session has read the parts it gave.
+    if (parts) this.#deliveredParts.set(key, parts);
+    else this.#deliveredParts.delete(key);
   }
 
   /** The packet of a delivery with only the unread messages, and the session that read the others. */
@@ -2695,6 +2870,8 @@ export class ChannelService {
       // The cursor goes to zero, and the next packet is complete.
       const prepared = this.#preparedChanges.get(deliveryId);
       this.#preparedChanges.delete(deliveryId);
+      const parts = this.#preparedParts.get(deliveryId);
+      this.#preparedParts.delete(deliveryId);
       const cursor =
         prepared === undefined || prepared === this.store.completedMessageChanges(assignment.channelId)
           ? { throughSequence: assignment.throughSequence, summaryVersion: assignment.summaryVersion }
@@ -2712,6 +2889,7 @@ export class ChannelService {
             sessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            parts,
           ),
         );
       }
@@ -3140,17 +3318,57 @@ export class ChannelService {
         if (!attachment) return yield* channelFailure(new Error("The attachment is unavailable."));
         return attachment;
       }
-      const page = yield* channelSync(() =>
-        this.store.page(
-          channelId,
-          this.#topicOfTask(task),
-          typeof args.beforeSequence === "number" &&
-            Number.isSafeInteger(args.beforeSequence) &&
-            args.beforeSequence >= 0
-            ? args.beforeSequence
-            : undefined,
-        ),
-      );
+      const topicId = this.#topicOfTask(task);
+      // One message of this tab, by id, from `offset`: a packet with spill gives a message in part.
+      if (isString(args.messageId)) {
+        const messageId = args.messageId;
+        const message = yield* channelSync(() => this.store.message(channelId, messageId));
+        if (
+          !message ||
+          isMemberThinking(message) ||
+          (message.topicId ?? (yield* channelSync(() => this.#topicId(channelId, undefined)))) !== topicId
+        )
+          return yield* channelFailure(new Error("Message not found in this channel tab."));
+        const text = message.message.text;
+        const offset = args.offset ?? 0;
+        if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0 || offset > text.length)
+          return yield* channelFailure(new Error(`Give an offset from 0 to ${text.length}.`));
+        return {
+          id: message.id,
+          sequence: message.sequence,
+          author: message.author,
+          taskId: message.taskId,
+          replyToMessageId: message.message.replyToMessageId,
+          attachments: message.message.attachments,
+          chars: text.length,
+          ...readPage(text, offset),
+        };
+      }
+      const beforeSequence =
+        typeof args.beforeSequence === "number" && Number.isSafeInteger(args.beforeSequence) && args.beforeSequence >= 0
+          ? args.beforeSequence
+          : undefined;
+      // The compact page: with spill, or when the caller gives a limit. Each row has the size and the
+      // start of its message, and no page carries the channel or its tasks.
+      if (this.#spill() || args.limit !== undefined) {
+        const limit =
+          typeof args.limit === "number" && Number.isFinite(args.limit)
+            ? Math.min(HISTORY_PAGE_LIMIT, Math.max(1, Math.trunc(args.limit)))
+            : HISTORY_PAGE_LIMIT;
+        const rows = yield* channelSync(() => this.store.messages(channelId, topicId, beforeSequence, limit + 1));
+        const older = rows.length > limit;
+        if (older) rows.shift();
+        return {
+          topicId,
+          messages: rows.filter((message) => !isMemberThinking(message)).map(historyLine),
+          // The cursors still count every row, so the next page starts where this one ended.
+          olderCursor: older ? (rows[0]?.sequence ?? null) : null,
+          throughSequence:
+            (yield* channelSync(() => this.store.messages(channelId, topicId, undefined, 1)))[0]?.sequence ?? 0,
+          read: 'Read one whole message with {"messageId":"<id>"}, and the rest of a long one with "offset" from nextOffset.',
+        };
+      }
+      const page = yield* channelSync(() => this.store.page(channelId, topicId, beforeSequence));
       // The cursors still count every row, so the next page starts where this one ended.
       return { ...page, messages: page.messages.filter((message) => !isMemberThinking(message)) };
     }
@@ -3347,6 +3565,7 @@ export class ChannelService {
     const threadId = context.threadId;
     const prepared = this.store.completedMessageChanges(channelId);
     const tasks = yield* channelSync(() => this.store.tasks(channelId));
+    const spill = this.#spill();
     let history: Effect.Success<ReturnType<ChannelHistory["prepare"]>>;
     try {
       history = channelResult(
@@ -3355,9 +3574,10 @@ export class ChannelService {
             task,
             agent,
             this.hooks.agents().find((item) => item.id === this.store.get(channelId).leadAgentId),
-            this.#deliveredContext(channelId, context, agent),
+            this.#deliveredContext(channelId, context, agent, spill),
             this.#peers(tasks, task),
             this.hooks.contextCharacters?.(agent.id, threadId),
+            spill,
           ),
         ),
       );
@@ -3440,6 +3660,7 @@ export class ChannelService {
             session.externalSessionId,
             cursor.throughSequence,
             cursor.summaryVersion,
+            history.parts ?? undefined,
           ),
         );
     }

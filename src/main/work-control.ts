@@ -89,6 +89,13 @@ export interface WorkControlTaskWatchOptions {
   judge: TaskWatchJudge | null;
   /** The file of its last actions (`TaskWatchDeps.history`). Omitted, they are in memory only. */
   history?: TaskWatchDeps["history"];
+  /** Whether a sleep of the computer holds every task for two looks (`fiscal-resume-grace`). Omitted: no. */
+  sleepGrace?: () => boolean;
+  /**
+   * Tells the reviewer when the computer wakes from a sleep (Electron `powerMonitor` `resume`). Gives
+   * the unsubscribe. Omitted: only the time between two looks shows a sleep.
+   */
+  onResume?: (listener: () => void) => () => void;
 }
 
 export interface WorkControlOptions {
@@ -160,6 +167,7 @@ export class WorkControl {
   /** The removals that the person can still undo, by their id. */
   readonly #undo = new Map<string, PendingUndo>();
   #timer: NodeJS.Timeout | null = null;
+  #unsubscribeResume: (() => void) | null = null;
 
   constructor(options: WorkControlOptions) {
     this.#options = options;
@@ -224,6 +232,7 @@ export class WorkControl {
           onFailure: (kind, channelId, taskId, cause) =>
             options.onFailure(`task reviewer ${kind} ${channelId}/${taskId}`, cause),
           ...(watch.history ? { history: watch.history } : {}),
+          ...(watch.sleepGrace ? { sleepGrace: watch.sleepGrace } : {}),
         })
       : null;
     // A stop that the app did not send is a person's: the task reviewer never touches that task. The
@@ -253,11 +262,15 @@ export class WorkControl {
     if (this.#timer) return;
     this.#timer = setInterval(() => void this.#look(), TICK_MS);
     this.#timer.unref();
+    const watch = this.#watch;
+    if (watch) this.#unsubscribeResume = this.#options.taskWatch?.onResume?.(() => watch.noteResume()) ?? null;
   }
 
   stop(): void {
     if (this.#timer) clearInterval(this.#timer);
     this.#timer = null;
+    this.#unsubscribeResume?.();
+    this.#unsubscribeResume = null;
     for (const pending of this.#undo.values()) clearTimeout(pending.timer);
     this.#undo.clear();
   }

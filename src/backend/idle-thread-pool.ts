@@ -228,19 +228,28 @@ export class IdleThreadPool<Thread extends IdleThread, Released> {
 
   /**
    * Closes each idle thread that can open again, before its timeout, to free its processes when the
-   * machine is low on memory. Its next turn opens it again from its session.
+   * machine is low on memory. Its next turn opens it again from its session. With `minIdleMs`, only
+   * the threads that have been idle for at least that long.
    */
-  releaseIdle(): Effect.Effect<void, ProviderClientOperationError> {
-    return this.#releaseIdleOver(0);
+  releaseIdle(minIdleMs = 0): Effect.Effect<void, ProviderClientOperationError> {
+    return this.#releaseIdleOver(0, minIdleMs);
   }
 
   /** An armed release timer marks a thread that is idle and can be opened again. */
   readonly #releaseIdleOver = Effect.fn("IdleThreadPool.releaseIdleOver")(function* (
     this: IdleThreadPool<Thread, Released>,
     limit: number,
+    minIdleMs = 0,
   ) {
+    const now = Date.now();
     const idle = [...this.#threads.values()]
-      .filter((thread) => thread.idleRelease !== null && thread.idleSince > 0 && this.#isIdle(thread))
+      .filter(
+        (thread) =>
+          thread.idleRelease !== null &&
+          thread.idleSince > 0 &&
+          now - thread.idleSince >= minIdleMs &&
+          this.#isIdle(thread),
+      )
       .sort((left, right) => left.idleSince - right.idleSince);
     for (const thread of idle.slice(0, Math.max(0, idle.length - limit))) {
       yield* this.#release(thread);
