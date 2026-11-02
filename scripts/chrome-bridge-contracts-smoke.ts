@@ -738,31 +738,10 @@ check(
   !JSON.stringify(thrown).includes("#token") && !JSON.stringify(thrown).includes("preview"),
   thrown,
 );
-const listeners = projectCdpResult(
-  "DOMDebugger.getEventListeners",
-  {
-    listeners: [
-      {
-        type: "click",
-        useCapture: false,
-        handler: { description: "function () { secret() }" },
-        scriptId: "7",
-        lineNumber: 3,
-      },
-    ],
-  },
-  noFloor,
-);
+// The send gate reads no listener: the tab's event listeners are not a command.
 check(
-  "an event listener leaves with its kind only, never its function or script",
-  JSON.stringify(listeners) === JSON.stringify({ listeners: [{ type: "click", useCapture: false }] }),
-  listeners,
-);
-check(
-  "event listeners of the subtree, or through shadow roots, are denied",
-  code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT, depth: -1 })) === "param_denied" &&
-    code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT, pierce: true })) === "param_denied" &&
-    code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT })) === "ok",
+  "DOMDebugger.getEventListeners is denied",
+  code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT })) === "method_denied",
 );
 check(
   "a method outside the list gives an empty result",

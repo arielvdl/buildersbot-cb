@@ -54,7 +54,6 @@ export const ENGINE_FUNCTION_DIGESTS: readonly string[] = [
   "ed4db2697f74b748b818131d2f38e3b7102c8de67dc49d0cfa22341511a187b9",
   "eed2f6a6339c5aff0e92da9ec1ab3b815c580ee2c8220bc2e32636cb236736dd",
   "f01611ab7a6cf4aa040715fd18cf14ce541d749df02f62d0f601db5c2e050294",
-  "f55abb089b4df9872a92f469c453025aa537f196ceb584a0048d18d69f5bd83c",
   "f912846b54f54f4c87cc0c0220efb9dbb9299dfb97f1c0bc543cfc5dd7e9bded",
 ];
 
