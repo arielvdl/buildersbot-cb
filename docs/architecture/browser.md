@@ -563,11 +563,12 @@ no TCP port and no token. The channel is Native Messaging to a small signed host
 then a private Unix socket to the app, encrypted with keys that the two sides pin when they pair.
 Phase 1 adds the contracts and the seams, and no behavior of the Builders Bot browser or of the
 broker changes, except the refusal below. Phase 2 adds the native host and the channel (below), and
-the extension itself ([chrome-extension.md](chrome-extension.md)).
+the extension itself ([chrome-extension.md](chrome-extension.md)). Phase 3 gives the agents the tabs
+([Agents in the person's Chrome](#agents-in-the-persons-chrome)).
 
 | Part | Where | What it does |
 | --- | --- | --- |
-| Web access mode | `WEB_ACCESS_MODES`, `webAccessFromSwitch` (`ipc-app-behavior.ts`); `AppBehaviorService` | `webAccess` is `app`, `chrome` or `playwright-legacy`. The released `browserInApp` switch stays, and the app writes it as `webAccess === "app"`, so an older app reads the choice after a downgrade. A file or a payload with no `webAccess`, or with a mode that this app does not know, reads from the switch. Until the bridge ships, `chrome` browses as `playwright-legacy`. Settings does not offer `chrome` yet. |
+| Web access mode | `WEB_ACCESS_MODES`, `webAccessFromSwitch` (`ipc-app-behavior.ts`); `AppBehaviorService` | `webAccess` is `app`, `chrome` or `playwright-legacy`. The released `browserInApp` switch stays, and the app writes it as `webAccess === "app"`, so an older app reads the choice after a downgrade. A file or a payload with no `webAccess`, or with a mode that this app does not know, reads from the switch. `chrome` gives the agents `openbot_chrome` and no Playwright. Settings > General offers it as a switch that is off by default, so the legacy path stays the default. |
 | Engine seam | `CdpTarget`, `ElectronCdpTarget` (`browser-cdp-target.ts`) | `BrowserCdpEngine` drives a `CdpTarget`, not a `WebContents`. `attach` is an Effect, so an attach over a channel can be asynchronous; `isAttached` reads no I/O. `release` is what the engine calls when nothing needs the debugger: an Electron tab (`retention: "operation"`) detaches at once, as before; a Chrome tab (`"lease"`) will keep the real debugger until the agent's lease ends, so Chrome's debugging bar does not flash on each call. Electron's own dialog box is `dialogBox`; a Chrome target has none. |
 | Tab ownership | `canUseBrowserTab` (`browser-tab-ownership.ts`) | One rule for the Builders Bot browser and for Chrome tabs: a tab belongs to its thread, and to its agent when an agent opened it. A tab that the caller cannot use reads as unknown. |
 | Wire protocol | `packages/contracts/src/chrome-bridge/protocol.ts`, `decode.ts` | Closed decoders with no Node, Electron or Effect, so the extension runs them too. Every object is closed: an unknown field, operation, event or error code breaks the protocol and closes the connection. Each operation and event has a feature, and a side sends only what the other announced. Identifiers are 128-bit opaque values; an agent never sees a Chrome tab id. There is no reflective `chrome.*` call, no consent grant and no operation that lowers the floor. |
@@ -634,6 +635,87 @@ a tab group named after each project, leases that keep the same tab across turns
 DESIGN §6.5, the site floor with a `declarativeNetRequest` rule, Stop all, the welcome page of the
 pairing and the popup. [chrome-extension.md](chrome-extension.md) describes it, and
 `bun run chrome-extension:e2e` tests it in Chrome for Testing.
+
+## Agents in the person's Chrome
+
+With Settings > General > "Let agents use my Chrome (beta)" on (`webAccess: "chrome"`, off by
+default), agents get the namespace `openbot_chrome`: the tools of `openbot_browser` on tabs of the
+person's own Chrome. `openbot_browser` stays for the Vault, the secret handoff, takeover from the
+phone and tabs that outlive a restart. The switch and the Builders Bot browser switch are one choice
+of three; turning one on turns the other off, and the Playwright row leaves the providers in both
+(`applyBrowserAccess`). A change refreshes every agent (`AgentService.notifyWebAccessChanged`).
+Turning Chrome mode off closes the bridge socket; the tabs stay in Chrome, and the pairing stays.
+
+| Part | Where | What it does |
+| --- | --- | --- |
+| Tools | `CHROME_DYNAMIC_TOOLS`, `parseChromeToolCall` (`chrome-tools.ts`) | The same schemas as `openbot_browser`, with Chrome descriptions: `open`, `list_tabs`, `status`, `snapshot`, `navigate`, `click`, `type`, `fill_fields`, `press`, `hover`, `scroll`, `select_option`, `set_checked`, `drag`, `wait_for`, `screenshot`, `handle_dialog`, `close_tab`. The namespace is gated (`GATED_TOOL_NAMESPACES`): a search, a describe and `tool_call` see it only while the router grants it. |
+| Host | `ChromeTabsHost` (`chrome-tabs-host.ts`) | Projects, leases, tab ownership, limits and the gates. It answers each tool with the same tab queue, engine actions and result text as `BrowserHost` (`browser-tab-operations.ts`, `browser-tool-results.ts`), so an agent reads one format in either browser. |
+| Engine target | `ChromeCdpTarget` (`chrome-cdp-target.ts`) | `CdpTarget` over the bridge, with `retention: "lease"`. The page state comes from the extension's `tab.updated` events; commands that the engine sends in one turn of the event loop leave in one `cdp.batch`. |
+| Router | `BuildersBotToolRouter#chromeTool`, `#chromeOrigin` | The gates before any message to Chrome, the Guard before and after, and the send card. |
+| App runtime | `createChromeAgents` (`chrome-agents-runtime.ts`), `askChromePairing` | Starts `ChromeBridgeService` only in Chrome mode, with `safeStorage` as the key store, the `chrome-peer` addon and a native pairing dialog. Turning the switch on is the "Connect Chrome" click. |
+| Project | `AgentService.chromeProject` | The channel of the thread, else the sidebar section that the person made (and its color), else the agent's one added folder, else the agent. The app decides it at each call. |
+
+How a call runs:
+
+1. The router grants `openbot_chrome` only in Chrome mode and when the turn's origin is the owner or
+   an agent of the owner (`CHROME_TURN_ORIGINS`, `chromeTurnOrigin` in `chrome-turn-origin.ts`). The
+   origin comes from the stored messages of the turn, as for the Hub connections, except that a
+   channel thread is open while no team member can write in the channels
+   (`HostService.channelsHaveRemotePeople`). A message that a team member wrote or edited, a channel
+   while the server has a team member, a chat app thread, a routine or an origin that the app cannot
+   prove closes it. The host checks the origin again.
+2. The Guard checks what the call sends out (`GUARD_TOOL_EGRESS` has an entry for each
+   `openbot_chrome` tool) and, after the call, reads the page content before the agent does
+   (`GUARD_INBOUND_PATHS["chrome-extension"]`).
+3. `evaluate` and `run_script` are not in the namespace, and a call of them gets `scripts_disabled`:
+   an agent's script in a signed-in page can send the page's data out past the Guard (DESIGN §7,
+   item 19).
+4. A click, an Enter or a `type` with submit on a mail, chat or social site
+   (`chrome-message-send.ts`) waits for a card with the text and the recipients, read from the
+   agent's last snapshot of the tab (`AttentionRegistry.awaitToolApproval` with `alwaysAsk` and
+   `ownerOnly`): Full access and "Always" never skip it. A click that the host cannot name (a CSS
+   selector or a point) on such a site asks too. Where nobody answers a card, the call gets
+   `message_send_requires_approval`.
+5. The project key and the lease id are HMACs of a secret of this install, sealed by `safeStorage`
+   (`userData/chrome-bridge/project-secret.sealed`), so the extension never sees an app id, and the
+   same agent in the same thread gets the same lease, and so the same tabs, in each turn and after a
+   restart. `session.configure` names the projects; `lease.open` is sent again only on a new
+   connection or a little before the extension would end the lease for idleness.
+6. `open` uses a blank tab of the agent before it makes a new one. A new tab is made by the
+   extension at `about:blank`, in the background, in the project's group, then navigated.
+
+Limits: 4 tabs for an agent, 12 for a project and 12 in all (`DEFAULT_TAB_LIMITS`), counted by the
+extension from its own records. The host refuses a fifth tab of an agent with no message. Under
+memory pressure, `low` opens no new tab and `critical` no tab at all; listing and closing always work.
+
+Rules that are easy to break:
+
+- `chrome.debugger` drops a `null` value from command parameters. An engine function that takes a
+  `null` argument through `Runtime.callFunctionOn` gets `undefined` in Chrome: read both as null
+  (`FILL_FIELD_STATE_FUNCTION` uses `== null`).
+- Chrome reports a new context only to a session with `Runtime` on, and the engine does not turn it
+  on. The extension records the context that a checked `Page.createIsolatedWorld` returns, so the
+  engine's isolated world passes the context check of the allowlist.
+- A tab's load events can reach the app before the answer to `tab.create` gives its handle: the host
+  keeps them and gives them to the tab when it registers. `open` waits for the first page that is not
+  `about:blank`; `navigate` waits for a load that began after its own mark (`statusMark`).
+- Chrome reports no title change for a page that the back-forward cache gives back: after back and
+  forward, the host reads the title once from `Page.getNavigationHistory`.
+- The extension sends `ready` right after its person chose the words, before the app pins its key.
+  `HostConnection` keeps that report and gives it on after `pair.done`.
+- `Network.*` leaves the extension only inside a navigation batch; the Chrome host navigates with
+  `Page.navigate` alone and never disables the person's cache.
+
+`bun scripts/chrome-agents-e2e.ts` runs stand-in agents against the real host, engine, bridge service,
+signed native host and extension, in Chrome for Testing with a temporary profile: pairing, the group
+named after the project, two projects in two groups, the same tab in the next turn, the result format
+of each tool, the limits, the site floor (open, navigate, redirect), the gates and the send card. It
+writes `.buildersbot-build/chrome-agents-e2e/report.json`, with the bridge requests by operation.
+
+Not in this release: `upload_files` (upload by content), `submit_secret` and `fill_card` in Chrome
+(`secret.fill`), `request_takeover`, `set_environment`, recording, a name that the person sets for a
+project's group, the per-project switch for scripts, Settings > Connected browsers, the pause of
+Computer Use while the pairing dialog is open, and the app package of the host and the addon.
 
 ## Secure browser authentication
 

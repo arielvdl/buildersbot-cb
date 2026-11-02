@@ -138,6 +138,9 @@ export const messages = defineMessages("settings", {
   "settings.browserInApp.title": "Use the Builders Bot browser for the web",
   "settings.browserInApp.description":
     "Off, agents use the Playwright extension in your own browser and no second Chrome starts. On, they use the Builders Bot browser.",
+  "settings.chromeAgents.title": "Let agents use my Chrome (beta)",
+  "settings.chromeAgents.description":
+    "On, agents work in tabs of your own Chrome, already signed in, through the Builders Bot extension: each project gets a tab group with its name. Banks, password vaults and government sites stay blocked, and each message they send waits for your approval. Off, agents use the Playwright extension or the Builders Bot browser, as set above.",
   "settings.culturaBuilderFullContext.title": "Use the full 1M context of Cultura Builder",
   "settings.culturaBuilderFullContext.description":
     "Off, every Cultura Builder model compacts a long conversation near 262K tokens, so each step is faster and costs less. On, Builder Auto, Builder Code and Builder Fast keep up to 1M tokens before they compact.",
@@ -1125,6 +1128,7 @@ export const messages = defineMessages("settings", {
   "settings.search.keywords.backgroundProcesses": "processes, dev servers, ports, running, terminals",
   "settings.search.keywords.billing": "plan, payment, subscription, license, invoices, seats",
   "settings.search.keywords.browserInApp": "browser, web pages, built-in browser, links",
+  "settings.search.keywords.chromeAgents": "Chrome, extension, tabs, tab groups, my browser, signed in",
   "settings.search.keywords.browserProfiles": "browser profiles, Chrome, cookies, logins, sign-in",
   "settings.search.keywords.networkEgress": "network egress, proxy, residential proxy, IP address, country, bypass",
   "settings.search.keywords.busyMessage": "steer, busy, queue, interrupt, message while working",

@@ -37,4 +37,10 @@ export const messages = defineMessages("dialog", {
   "dialog.cleanup.detail": "It holds about {size}. You can still get it back from the Trash until you empty it.",
   "dialog.cleanup.confirm": "Move to the Trash",
   "dialog.cleanup.cancel": "Cancel",
+  // The pairing of the person's Chrome: one choice here, one in the extension's welcome page.
+  "dialog.chromePairing.message": "Connect your Chrome to Builders Bot?",
+  "dialog.chromePairing.messageUnexpected": "A Chrome on this computer wants to connect",
+  "dialog.chromePairing.detail":
+    "In Chrome, tap: {appWords}\n\nThen tap here the words that Chrome shows. Reported by the extension: {browser}.",
+  "dialog.chromePairing.notNow": "Not now",
 });

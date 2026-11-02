@@ -137,6 +137,9 @@ export const messages = {
   "settings.browserInApp.title": "Usar o navegador do Builders Bot na web",
   "settings.browserInApp.description":
     "Desligado, os agentes usam a extensão do Playwright no seu navegador, sem abrir outro Chrome. Ligado, usam o navegador do próprio Builders Bot.",
+  "settings.chromeAgents.title": "Deixar os agentes usarem o meu Chrome (beta)",
+  "settings.chromeAgents.description":
+    "Ligado, os agentes trabalham em abas do seu próprio Chrome, já com as suas contas, pela extensão do Builders Bot: cada projeto ganha um grupo de abas com o nome dele. Bancos, cofres de senha e sites do governo continuam bloqueados, e cada mensagem que eles enviam espera a sua aprovação. Desligado, os agentes usam a extensão do Playwright ou o navegador do Builders Bot, conforme a opção acima.",
   "settings.culturaBuilderFullContext.title": "Usar o contexto completo de 1M do Cultura Builder",
   "settings.culturaBuilderFullContext.description":
     "Desligado, todos os modelos do Cultura Builder compactam uma conversa longa perto de 262K tokens, e cada passo fica mais rápido e mais barato. Ligado, o Builder Auto, o Builder Code e o Builder Fast guardam até 1M de tokens antes de compactar.",
@@ -1069,6 +1072,7 @@ export const messages = {
     "processos, servidores de desenvolvimento, portas, em execução, terminais",
   "settings.search.keywords.billing": "plano, pagamento, assinatura, licença, faturas, cobrança",
   "settings.search.keywords.browserInApp": "navegador, páginas da web, navegador interno, links",
+  "settings.search.keywords.chromeAgents": "Chrome, extensão, abas, grupos de abas, meu navegador, contas",
   "settings.search.keywords.browserProfiles": "perfis do navegador, Chrome, cookies, logins, entrar",
   "settings.search.keywords.networkEgress": "saída de rede, proxy, proxy residencial, endereço IP, país, exceções",
   "settings.search.keywords.busyMessage": "orientar, ocupado, fila, interromper, mensagem durante o trabalho",

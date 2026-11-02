@@ -24,6 +24,8 @@ export const messages = {
   "status.agent.screenCaptureWindow": "Capturar a janela {name} e enviar a imagem ao modelo do agente.",
   "status.agent.screenCaptureRegion":
     "Capturar a área da tela em {x}, {y}, {width} × {height} pontos e enviar a imagem ao modelo do agente.",
+  "status.agent.chromeMessageSend": "Enviar em {site} no seu Chrome ({action}). Para: {recipients}. Texto: {text}",
+  "status.agent.chromeMessageSendUnknown": "(não aparece na página)",
   "status.agent.screenCaptureProgress": "Pedindo para capturar a tela…",
   "status.agent.screenCaptureReviewing": "Analisando a captura de tela…",
   "status.agent.browserOpening": "Abrindo uma página da web…",

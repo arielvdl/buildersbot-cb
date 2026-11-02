@@ -186,6 +186,8 @@ export interface ThreadLifecycleOptions {
   serverHost?: boolean;
   /** Web access goes through the Builders Bot browser. Read at each start and resume of a session. */
   browserInApp?: () => boolean;
+  /** Web access is the person's Chrome through the Builders Bot extension (`openbot_chrome`). */
+  chromeAgents?: () => boolean;
   /** The other agents in an agent's sidebar section, read at each start and resume of a session. */
   sectionTeammates?: (agentId: string) => SectionTeammates | null;
   /** Whether a public thread is a channel member's thread. */
@@ -223,6 +225,7 @@ export class ThreadLifecycle {
   readonly #vaultItems: () => VaultContents;
   readonly #serverHost: boolean;
   readonly #browserInApp: () => boolean;
+  readonly #chromeAgents: () => boolean;
   readonly #sectionTeammates: (agentId: string) => SectionTeammates | null;
   readonly #channelThread: (threadId: string) => boolean;
   readonly #branchThread: (threadId: string) => boolean;
@@ -256,6 +259,7 @@ export class ThreadLifecycle {
     this.#vaultItems = options.vaultItems ?? (() => ({ available: false, cards: false, contacts: false }));
     this.#serverHost = options.serverHost ?? false;
     this.#browserInApp = options.browserInApp ?? (() => false);
+    this.#chromeAgents = options.chromeAgents ?? (() => false);
     this.#sectionTeammates = options.sectionTeammates ?? (() => null);
     this.#channelThread = options.channelThread ?? (() => false);
     this.#branchThread = options.branchThread ?? (() => false);
@@ -1133,6 +1137,7 @@ export class ThreadLifecycle {
       vaultItems: this.#vaultItems(),
       serverHost: this.#serverHost,
       browserInApp: this.#browserInApp(),
+      chromeAgents: this.#chromeAgents(),
       memoryLimit: this.#memories.limit(),
       storedMemoryCount: this.#memories.listFor(agent.id).length,
       memoriesInTurns: client.provider === "claude",

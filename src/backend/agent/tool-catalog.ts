@@ -1,6 +1,7 @@
 import { sourceText } from "@openbot/i18n/source";
 import { z } from "zod";
 import { BROWSER_DYNAMIC_TOOLS, OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
+import { CHROME_DYNAMIC_TOOLS, OPENBOT_CHROME_NAMESPACE } from "../chrome-tools";
 import {
   HUB_CONNECTION_DYNAMIC_TOOLS,
   HUB_CONNECTIONS_NAMESPACE,
@@ -14,6 +15,7 @@ import { toolGuidance } from "./tool-guidance";
 export const BUILTIN_TOOL_CATALOG = [
   OPENBOT_DYNAMIC_TOOLS,
   ...BROWSER_DYNAMIC_TOOLS,
+  ...CHROME_DYNAMIC_TOOLS,
   HUB_CONNECTION_DYNAMIC_TOOLS,
 ].flatMap((namespace) =>
   namespace.tools.map((tool) => ({
@@ -41,11 +43,15 @@ const DIRECT_NAMES = new Set([
 
 /**
  * Namespaces that only some agents have, at some times: the Hub connections exist only while the Hub
- * offers them, the person allows them and the turn comes from the person. The router grants them per
- * call. A namespace that is not granted is not in the catalog text, in a search, in a describe or in
+ * offers them, the person allows them and the turn comes from the person; the person's Chrome only
+ * while web access is "chrome" and the turn comes from the owner. The router grants them per call. A
+ * namespace that is not granted is not in the catalog text, in a search, in a describe or in
  * `tool_call`, so an agent cannot find or run it.
  */
-export const GATED_TOOL_NAMESPACES: ReadonlySet<string> = new Set([HUB_CONNECTIONS_NAMESPACE]);
+export const GATED_TOOL_NAMESPACES: ReadonlySet<string> = new Set([
+  HUB_CONNECTIONS_NAMESPACE,
+  OPENBOT_CHROME_NAMESPACE,
+]);
 
 /** The catalog entries that an agent may see, with the gated namespaces that it was granted. */
 function visibleCatalog(granted: ReadonlySet<string>) {
@@ -134,6 +140,8 @@ export function claudeBridgedToolName(name: string, input: unknown): string {
  */
 const BROWSER_SEARCH_NOTE =
   "No browser tool is in these results. A website or web app with no dedicated tool, such as mail or a calendar, is reached through openbot_browser. Call openbot_browser.list_tabs first: your signed-in tabs stay open across sessions.";
+const CHROME_SEARCH_NOTE =
+  "No browser tool is in these results. A website or web app with no dedicated tool, such as mail or a calendar, is reached through openbot_chrome, the person's own signed-in Chrome. Call openbot_chrome.list_tabs first: your tabs stay yours across turns.";
 
 function words(text: string): string[] {
   return text
@@ -235,9 +243,11 @@ export function discoverTools(params: DynamicToolCallParams, granted: ReadonlySe
     );
     const guidance = toolGuidanceFor([...ready]);
     const result = guidance.length > 0 ? { tools, guidance } : { tools };
-    return found.some(({ entry }) => entry.namespace === OPENBOT_BROWSER_NAMESPACE)
+    return found.some(
+      ({ entry }) => entry.namespace === OPENBOT_BROWSER_NAMESPACE || entry.namespace === OPENBOT_CHROME_NAMESPACE,
+    )
       ? result
-      : { ...result, note: BROWSER_SEARCH_NOTE };
+      : { ...result, note: granted.has(OPENBOT_CHROME_NAMESPACE) ? CHROME_SEARCH_NOTE : BROWSER_SEARCH_NOTE };
   }
   const parsed = describeSchema.safeParse(params.arguments);
   if (!parsed.success) throw new Error(sourceText("error.agent.toolRequestInvalid"));

@@ -60,7 +60,8 @@ const BridgeStateSchema = Schema.Struct({
 export type PairedBrowser = typeof PairedBrowserSchema.Type;
 export type BridgeStateData = typeof BridgeStateSchema.Type;
 
-async function writePrivate(path: string, bytes: Uint8Array) {
+/** Writes a file that only this user reads (0600), in full or not at all. */
+export async function writePrivate(path: string, bytes: Uint8Array) {
   const temporary = `${path}.${randomBytes(6).toString("hex")}.tmp`;
   const handle = await open(temporary, "wx", 0o600);
   try {

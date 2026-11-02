@@ -363,6 +363,13 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             description={i18n.t("settings.browserInApp.description")}
           />
           <SwitchField
+            data-settings-row="settings.chromeAgents.title"
+            checked={props.value.chromeAgents}
+            onChange={(checked) => props.onUpdateSetting("chromeAgents", checked)}
+            label={i18n.t("settings.chromeAgents.title")}
+            description={i18n.t("settings.chromeAgents.description")}
+          />
+          <SwitchField
             data-settings-row="settings.culturaBuilderFullContext.title"
             checked={props.value.culturaBuilderFullContext}
             onChange={(checked) => props.onUpdateSetting("culturaBuilderFullContext", checked)}
