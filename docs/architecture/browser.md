@@ -562,7 +562,8 @@ tabs of the person's own Chrome, in one tab group for each project, through `chr
 no TCP port and no token. The channel is Native Messaging to a small signed host in the app bundle,
 then a private Unix socket to the app, encrypted with keys that the two sides pin when they pair.
 Phase 1 adds the contracts and the seams, and no behavior of the Builders Bot browser or of the
-broker changes, except the refusal below. Phase 2 adds the native host and the channel (below).
+broker changes, except the refusal below. Phase 2 adds the native host and the channel (below), and
+the extension itself ([chrome-extension.md](chrome-extension.md)).
 
 | Part | Where | What it does |
 | --- | --- | --- |
@@ -625,6 +626,14 @@ writes `.buildersbot-build/chrome-extension/protocol-smoke.json`.
 Not verified yet: a host signed with the team's Developer ID (`--sign-identity`) and the app's
 packaging of the host and the addon (`electron-builder.yml`); `safeStorage` as the key store (the
 smoke uses a stand-in in its own process); the pairing card in the app.
+
+### The extension
+
+`apps/chrome-extension` is the Manifest V3 extension: one Native Messaging connection for all agents,
+a tab group named after each project, leases that keep the same tab across turns, the closed gate of
+DESIGN §6.5, the site floor with a `declarativeNetRequest` rule, Stop all, the welcome page of the
+pairing and the popup. [chrome-extension.md](chrome-extension.md) describes it, and
+`bun run chrome-extension:e2e` tests it in Chrome for Testing.
 
 ## Secure browser authentication
 

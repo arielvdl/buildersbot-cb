@@ -180,6 +180,7 @@
     "lint": "biome check --max-diagnostics=none .",
     "i18n:check": "bun scripts/i18n-check.ts",
     "chrome-extension:build": "bun scripts/build-chrome-extension.ts",
+    "chrome-extension:e2e": "bun scripts/chrome-extension-e2e.ts",
     "types:ratchet": "bun scripts/type-ratchet.ts",
     "format": "biome check --write --max-diagnostics=none .",
     "knip:check": "knip",
