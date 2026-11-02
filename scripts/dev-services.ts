@@ -644,12 +644,16 @@ function isPrivateIpv4(address: string): boolean {
 async function waitForDevelopmentApi(portValue: string | undefined, child: ChildProcess): Promise<void> {
   const port = readPort(portValue);
   if (!port) throw new Error("The development API port is missing.");
-  const deadline = Date.now() + 30_000;
+  // A new worktree pre-bundles the Worker's dependencies first, and the first request then loads the
+  // Worker's modules: on a busy computer these took about 30 and 25 seconds. A request that stops
+  // during that load leaves the Worker without an answer for later requests too, so one request
+  // waits until the deadline. A refused connection, before Vite listens, fails at once.
+  const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error("The development Auth API stopped before it became ready.");
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health/live`, {
-        signal: AbortSignal.timeout(1_000),
+        signal: AbortSignal.timeout(Math.max(1_000, deadline - Date.now())),
       });
       if (response.ok) return;
     } catch {
