@@ -84,7 +84,7 @@ const STATES: readonly FeedItemState[] = [
   "done",
   "working",
   "failed",
-  "done",
+  "needs-you",
   "stopped",
   "waiting",
   "done",

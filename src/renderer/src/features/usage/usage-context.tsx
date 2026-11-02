@@ -4,9 +4,9 @@ import { useServers } from "../servers/servers-context";
 
 /**
  * The host pane over the middle of the workspace: the usage report, the routine schedule, the
- * tasks or the workflows. One state holds them, so each path that uncovers the conversation closes any of them.
+ * tasks, the workflows or the feed. One state holds them, so each path that uncovers the conversation closes any of them.
  */
-type HostPaneView = "usage" | "schedule" | "tasks" | "workflows";
+type HostPaneView = "usage" | "schedule" | "tasks" | "workflows" | "feed";
 
 const context = createSimpleContext({
   name: "UsageProvider",
@@ -48,6 +48,11 @@ const context = createSimpleContext({
       open("workflows", serverId, source);
     }
 
+    /** The feed shows every server, so its server is only the one the window shows now. */
+    function openFeed(serverId: string, source: HTMLElement | null) {
+      open("feed", serverId, source);
+    }
+
     /**
      * An open report follows the host the user switches to.
      *
@@ -85,6 +90,7 @@ const context = createSimpleContext({
       openSchedule,
       openTasks,
       openWorkflows,
+      openFeed,
       closeUsage() {
         clear();
         queueMicrotask(() => {

@@ -64,6 +64,9 @@ export const SettingsModal = lazy(() =>
 export const MarketplaceModal = lazy(() =>
   import("./features/settings/MarketplaceModal").then((module) => ({ default: module.MarketplaceModal })),
 );
+export const WorkspaceFeed = lazy(() =>
+  import("./features/feed/WorkspaceFeed").then((module) => ({ default: module.WorkspaceFeed })),
+);
 export const WorkflowsPage = lazy(() =>
   import("./features/workflows/WorkflowsPage").then((module) => ({ default: module.WorkflowsPage })),
 );

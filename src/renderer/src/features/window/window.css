@@ -467,7 +467,7 @@
 
   /* The settings, schedule, usage and Marketplace pages cover the sidebar, so the week has room for
    * seven days. The server menu stays in the top row, so the user can select the server that the page
-   * shows. The "settings" kind is both settings pages; the "titled" kind is schedule, usage and Marketplace. */
+   * shows. The "settings" kind is both settings pages; the "titled" kind is feed, schedule, usage and Marketplace. */
   /* Out of the grid flow: a grid cell would push the sidebar to a second row. The grid area of an
    * absolute item is its containing block, so the item spans the whole grid. */
   .app-frame-edge:not([data-window-page-kind="agents"]) > .window-page {
@@ -516,7 +516,7 @@
   .app-window
     > .app-frame-edge[data-window-page-kind="titled"]
     > .window-page
-    :is(.agent-usage-header, .routine-planner-title, .skills-marketplace-topbar) {
+    :is(.agent-usage-header, .routine-planner-title, .skills-marketplace-topbar, .feed-page-header) {
     margin-left: var(--left-panel-width);
   }
 
@@ -532,7 +532,9 @@
       .routine-planner-error,
       .marketplace-heading,
       .marketplace-nav,
-      .skills-marketplace-body
+      .skills-marketplace-body,
+      .feed-page-header,
+      .feed-page-body
     ) {
     pointer-events: auto;
   }

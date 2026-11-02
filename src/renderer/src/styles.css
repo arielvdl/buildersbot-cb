@@ -58,6 +58,7 @@
 @import "@openbot/ui/features/window/page-rail.css";
 @import "./features/window/window.css";
 @import "@openbot/ui/features/orbits/orbits.css";
+@import "@openbot/ui/features/feed/feed.css";
 @import "@openbot/ui/features/settings/opencode-key-dialog.css";
 @import "./features/settings/settings-mobile-connect.css";
 @import "./features/settings/settings-load.css";
