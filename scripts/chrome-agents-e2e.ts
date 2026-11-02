@@ -400,6 +400,22 @@ async function main(): Promise<void> {
              <button id="icon" onclick="fetch('/sent', { method: 'POST', body: JSON.stringify({ to: document.getElementById('to').value, text: document.getElementById('body').value }) })"><svg width="12" height="12"><rect width="12" height="12"></rect></svg></button>
              <p id="state"></p>`,
           );
+        case "/compose2":
+          // Other ways to send: a button named by a symbol, a button in French, Alt+S (as Outlook sends),
+          // and a "Save draft" button that the page itself turns into "Send draft" after a while.
+          return html(
+            "Compose",
+            `<label>To <input aria-label="To" id="to"></label>
+             <label>Message <textarea aria-label="Message" id="body"></textarea></label>
+             <button id="arrow" aria-label="➤" onclick="post()">➤</button>
+             <button id="fr" onclick="post()">Envoyer</button>
+             <span id="swap"><button>Save draft</button></span>
+             <script>
+               function post() { fetch('/sent', { method: 'POST', body: JSON.stringify({ to: document.getElementById('to').value, text: document.getElementById('body').value }) }); }
+               document.addEventListener('keydown', (event) => { if (event.altKey && event.code === 'KeyS') post(); });
+               setTimeout(() => { document.getElementById('swap').innerHTML = '<button onclick="post()">Send draft</button>'; }, 3000);
+             </script>`,
+          );
         case "/to-bank":
           return new Response(null, {
             status: 302,
@@ -1228,8 +1244,68 @@ async function main(): Promise<void> {
           "the card does not show the recipient that the page holds now",
           current,
         );
+        // More ways around the card (security review of 02/11, items 7 and 8), on a page of their own.
         approveSends = "absent";
-        return { cards: cards.length, card, current, around, iconButtonListed: iconLine !== undefined, sent };
+        const sentBefore = sent.length;
+        const more: Record<string, string> = {};
+        // A target that is not exact: the snapshot shows "Save draft"; then the page by itself shows
+        // "Send draft", with no action of the agent between.
+        await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose2") });
+        const swapRead = await fresh();
+        const swapLine = swapRead.lines.find((line) => line.includes("Save draft"));
+        await sleep(4_000);
+        more.swappedByPage = (
+          await call(agents.carla, "click", { tabId, target: { kind: "text", text: "draft" } })
+        ).text;
+        await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#to" }, text: "ana@example.com" });
+        await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "Olá" });
+        const refOf = (read: { lines: string[]; revision: number }, text: string) => ({
+          kind: "ref",
+          ref: read.lines.find((line) => line.includes(text))?.split(" ")[0] ?? "",
+          revision: read.revision,
+        });
+        let read = await fresh();
+        // A key with a space after it, or an empty last part: the engine trims them to Enter.
+        more.enterWithSpace = (
+          await call(agents.carla, "press", { tabId, key: "Enter ", target: refOf(read, "Envoyer") })
+        ).text;
+        read = await fresh();
+        more.enterWithPlus = (
+          await call(agents.carla, "press", { tabId, key: "Enter+", target: refOf(read, "Envoyer") })
+        ).text;
+        // Alt+S sends in some mail sites.
+        await fresh();
+        more.altS = (await call(agents.carla, "press", { tabId, key: "Alt+s" })).text;
+        // A send button named by a symbol, and one named in another language.
+        read = await fresh();
+        more.symbolName = (await call(agents.carla, "click", { tabId, target: refOf(read, "➤") })).text;
+        read = await fresh();
+        more.frenchName = (await call(agents.carla, "click", { tabId, target: refOf(read, "Envoyer") })).text;
+        // Control characters that are not \r or \n.
+        await fresh();
+        more.lineSeparator = (
+          await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "dados\u2028" })
+        ).text;
+        await fresh();
+        more.verticalTab = (
+          await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "dados\u000b" })
+        ).text;
+        await sleep(500);
+        const sentAround = sent.slice(sentBefore);
+        for (const [name, text] of Object.entries(more))
+          expect(text.includes("approval"), `a send went around the card: ${name}`, { text, sentAround });
+        expect(sentAround.length === 0, "a message went out without the person's approval", sentAround);
+        approveSends = "absent";
+        return {
+          cards: cards.length,
+          card,
+          current,
+          around,
+          more,
+          swapListed: swapLine !== undefined,
+          iconButtonListed: iconLine !== undefined,
+          sent,
+        };
       },
     );
 

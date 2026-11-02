@@ -37,6 +37,7 @@ import {
   modifierMask,
   namedKey,
   SHIFT_MODIFIER,
+  typedCharacters,
 } from "./browser-cdp-input";
 import {
   boundSerializedSnapshot,
@@ -59,10 +60,10 @@ import {
   automationContextId,
   axValue,
   type CdpResult,
-  clamp,
   callInContext,
-  exceptionDescription,
+  clamp,
   DOCUMENT_READY_FUNCTION,
+  exceptionDescription,
   frameAutomationContextId,
   frameIds,
   isFiniteNumber,
@@ -1089,7 +1090,7 @@ export class BrowserCdpEngine {
     deadline?: number,
     onDispatch?: ActionDispatch,
   ): Effect.fn.Return<void, BrowserOperationError> {
-    const characters = [...text.replace(/\r\n?/g, "\n")];
+    const characters = typedCharacters(text);
     yield* this.#leaseEffect((send) =>
       Effect.gen({ self: this }, function* () {
         yield* browserSync(() => assertBeforeDeadline(deadline));
