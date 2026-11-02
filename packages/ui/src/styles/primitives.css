@@ -2304,6 +2304,20 @@ html.ui-textarea-resizing {
   list-style: decimal;
 }
 
+.sidebar-delete-with-agents {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin-bottom: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  cursor: pointer;
+}
+
+.sidebar-delete-with-agents-note {
+  margin: var(--openbot-space-2) 0 0;
+  color: var(--openbot-danger-text);
+}
+
 .ui-confirm-dialog-body :where(li)::marker {
   color: var(--openbot-text-dim);
 }

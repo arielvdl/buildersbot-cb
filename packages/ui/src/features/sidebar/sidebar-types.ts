@@ -126,7 +126,11 @@ export interface SidebarProps {
   onMarkAllRead?: (() => void) | undefined;
   hasUnread?: boolean | undefined;
   onEditChannel?: ((channelId: string) => void) | undefined;
-  onDeleteChannel?: ((channelId: string) => Promise<void>) | undefined;
+  /**
+   * Deletes the channel. `agentIds` are the members that no other channel has, which the user chose to
+   * delete with it; empty when the box was left unticked.
+   */
+  onDeleteChannel?: ((channelId: string, agentIds: readonly string[]) => Promise<void>) | undefined;
   /** Brings a deleted channel back to the list. Without it, a row in Deleted channels has no menu. */
   onRestoreChannel?: ((channelId: string) => void) | undefined;
   serverName: string;

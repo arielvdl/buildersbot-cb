@@ -262,6 +262,12 @@ export const messages = {
     "Isso remove do aplicativo o agente e sua conversa no Builders Bot. A fila, as memórias, as rotinas e o espaço de trabalho são excluídos. O histórico armazenado separadamente pelo provedor de CLI conectado não é excluído.",
   "sidebar.delete.channelDescription":
     "Isso para o canal. O histórico continua em Canais excluídos, somente para visualização. Você pode restaurá-lo de lá. Os agentes membros são mantidos.",
+  "sidebar.delete.withAgents": {
+    one: "Excluir também o agente que só existe neste canal",
+    other: "Excluir também os {count} agentes que só existem neste canal",
+  },
+  "sidebar.delete.withAgentsNote":
+    "Esses agentes são excluídos de vez. Restaurar o canal depois não traz os agentes de volta.",
   "sidebar.delete.sectionDescription":
     "Os agentes desta seção serão movidos para Sem seção. Nenhum agente será excluído.",
   "sidebar.delete.failed": "Não foi possível excluir este item. Tente novamente.",

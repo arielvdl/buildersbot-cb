@@ -389,6 +389,15 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     }),
   );
 
+  /**
+   * Deletes the channel first and its exclusive agents after: if the channel cannot be deleted, no agent
+   * is touched. Each agent goes through the usual agent delete, so each keeps its Undo toast.
+   */
+  const deleteChannel = async (channelId: string, agentIds: readonly string[]) => {
+    await channels.remove(channelId);
+    for (const agentId of agentIds) await deleteAgent(agentId);
+  };
+
   return (
     <Sidebar
       channels={visibleChannels()}
@@ -398,7 +407,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       chatTabs={chatTabs()}
       onOpenChatTab={openChatTab}
       onEditChannel={(id) => void channels.editChannel(id)}
-      onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
+      onDeleteChannel={channels.deletionSupported() ? deleteChannel : undefined}
       onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}
       showingArchivedChannels={channelsListed() && channels.state.archived}
       onToggleArchivedChannels={channelsListed() ? channels.toggleArchived : undefined}

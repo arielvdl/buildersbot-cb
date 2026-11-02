@@ -6,7 +6,9 @@
 
 import type { ChannelSummary, SidebarSection } from "@openbot/contracts/ipc";
 import { createMemo, createStore } from "solid-js";
+import type { AgentProfile } from "../../../data";
 import { currentText } from "../../../text";
+import { channelExclusiveAgentIds } from "../channel-exclusive-agents";
 import type { SidebarProps } from "../sidebar-types";
 
 /**
@@ -21,6 +23,8 @@ interface SidebarPendingDelete {
   id: string;
   /** Which confirmation is on screen. Each dialog renders from one arm. */
   kind: "agent" | "channel" | "section";
+  /** A channel delete only: the user ticked "also delete the agents that exist only in this channel". */
+  withAgents: boolean;
 }
 
 /** What the section editor is editing: a section about to exist, or the one being renamed. */
@@ -65,6 +69,19 @@ export function createSidebarPendingStore(deps: {
     const deletion = pending.deletion;
     return deletion?.kind === "channel" ? props.channels?.find((channel) => channel.id === deletion.id) : undefined;
   });
+  /** The members of the channel being deleted that no other channel has: what the checkbox would delete. */
+  const channelExclusiveAgents = createMemo<AgentProfile[]>(() => {
+    const target = channelDeleteTarget();
+    if (!target) return [];
+    const ids = new Set(
+      channelExclusiveAgentIds(
+        target.id,
+        props.channels ?? [],
+        props.agents.map((agent) => agent.id),
+      ),
+    );
+    return props.agents.filter((agent) => ids.has(agent.id));
+  });
   const sectionDeleteTarget = createMemo(() => {
     const deletion = pending.deletion;
     return deletion?.kind === "section"
@@ -74,7 +91,13 @@ export function createSidebarPendingStore(deps: {
 
   function openDelete(kind: SidebarPendingDelete["kind"], id: string): void {
     setPending((state) => {
-      state.deletion = { deleting: false, error: null, id, kind };
+      state.deletion = { deleting: false, error: null, id, kind, withAgents: false };
+    });
+  }
+
+  function setDeleteWithAgents(value: boolean): void {
+    setPending((state) => {
+      if (state.deletion?.kind === "channel") state.deletion.withAgents = value;
     });
   }
 
@@ -107,7 +130,13 @@ export function createSidebarPendingStore(deps: {
   async function confirmDelete() {
     const deletion = pending.deletion;
     if (!deletion || deletion.deleting || (deletion.kind !== "agent" && deletion.kind !== "channel")) return;
-    const onDelete = deletion.kind === "agent" ? props.onDeleteAgent : props.onDeleteChannel;
+    // Read before `beginDelete` writes the record: a read right after a write returns the old value.
+    const agentIds =
+      deletion.kind === "channel" && deletion.withAgents ? channelExclusiveAgents().map((a) => a.id) : [];
+    const onDelete =
+      deletion.kind === "agent"
+        ? props.onDeleteAgent
+        : props.onDeleteChannel && ((id: string) => props.onDeleteChannel?.(id, agentIds));
     if (!onDelete) return;
     beginDelete();
     try {
@@ -250,9 +279,11 @@ export function createSidebarPendingStore(deps: {
     deleteError,
     deleteTarget,
     channelDeleteTarget,
+    channelExclusiveAgents,
     deleting,
     openDelete,
     pending,
+    setDeleteWithAgents,
     releaseSectionNameInput,
     saveSectionEditor,
     sectionDeleteTarget,

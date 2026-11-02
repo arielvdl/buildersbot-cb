@@ -262,6 +262,12 @@ export const messages = defineMessages("sidebar", {
     "This removes the agent and its Builders Bot conversation from the app. Its queue, memories, routines, and workspace are deleted. History stored separately by the connected CLI provider is not deleted.",
   "sidebar.delete.channelDescription":
     "This stops the channel. Its history stays in Deleted channels for preview only. You can restore it from there. Member agents are kept.",
+  "sidebar.delete.withAgents": {
+    one: "Also delete the agent that exists only in this channel",
+    other: "Also delete the {count} agents that exist only in this channel",
+  },
+  "sidebar.delete.withAgentsNote":
+    "These agents are deleted for good. Restoring the channel later will not bring them back.",
   "sidebar.delete.sectionDescription": "Agents in this section will move to Unassigned. No agents will be deleted.",
   "sidebar.delete.failed": "Could not delete this item. Try again.",
   "sidebar.announce.updateFailed": "Could not update the sidebar. Try again.",

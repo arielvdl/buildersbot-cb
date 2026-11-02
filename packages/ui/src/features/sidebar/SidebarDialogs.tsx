@@ -1,7 +1,7 @@
 /** The sidebar's agent, channel and section confirmations share one pending delete state. */
 
-import { ConfirmDialog } from "@openbot/ui";
-import { Show } from "solid-js";
+import { Checkbox, ConfirmDialog } from "@openbot/ui";
+import { For, Show } from "solid-js";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
@@ -15,9 +15,12 @@ export function SidebarDialogs() {
     deleteError,
     deleteTarget,
     channelDeleteTarget,
+    channelExclusiveAgents,
     deleting,
+    pending,
     props,
     sectionDeleteTarget,
+    setDeleteWithAgents,
   } = useSidebarScope();
   const { t } = useText();
   const shared = {
@@ -58,7 +61,25 @@ export function SidebarDialogs() {
             title={t("sidebar.delete.title", { name: channel().name })}
             description={t("sidebar.delete.channelDescription")}
             onConfirm={confirmDelete}
-          />
+          >
+            <Show when={channelExclusiveAgents().length > 0}>
+              <label class="sidebar-delete-with-agents" for="sidebar-delete-with-agents">
+                <Checkbox
+                  id="sidebar-delete-with-agents"
+                  checked={pending.deletion?.withAgents === true}
+                  disabled={deleting()}
+                  onChange={(event) => setDeleteWithAgents(event.currentTarget.checked)}
+                />
+                <span>{t("sidebar.delete.withAgents", { count: channelExclusiveAgents().length })}</span>
+              </label>
+              <ul class="sidebar-delete-with-agents-list">
+                <For each={channelExclusiveAgents()}>{(agent) => <li>{agent.name}</li>}</For>
+              </ul>
+              <Show when={pending.deletion?.withAgents === true}>
+                <p class="sidebar-delete-with-agents-note">{t("sidebar.delete.withAgentsNote")}</p>
+              </Show>
+            </Show>
+          </ConfirmDialog>
         )}
       </Show>
 

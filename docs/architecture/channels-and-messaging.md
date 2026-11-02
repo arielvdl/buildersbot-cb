@@ -151,7 +151,7 @@ interface (see below).
 execution threads, and human read positions in SQLite. Migration 18 adds these projections without
 changing existing agent data. Channel commands use the orchestration log and command receipts.
 Messages have stable IDs and per-channel sequences. A channel projection can be rebuilt from its events.
-Archiving stops channel work and retains its records. Restore makes the chat available for new messages again. Neither action removes agents or linked conversations. The sidebar calls archiving "Delete". On desktop and web, the row menu in Deleted channels restores a channel; it shows to the people who can delete one.
+Archiving stops channel work and retains its records. Restore makes the chat available for new messages again. Neither action removes agents or linked conversations. The sidebar calls archiving "Delete". Its confirmation can also delete the members that no other channel that is not archived has (`channel-exclusive-agents.ts`), an option that is off by default. The channel is archived first; only then does each of these agents go through the normal agent delete (on desktop, with its own Undo). If the archive fails, no agent changes. Restore does not bring these agents back. On desktop and web, the row menu in Deleted channels restores a channel; it shows to the people who can delete one.
 
 Each channel-agent pair has a separate execution thread in `projection_threads`. The normal agent
 thread is never replaced. Provider sessions, turns, questions, approvals, attachments, compaction,

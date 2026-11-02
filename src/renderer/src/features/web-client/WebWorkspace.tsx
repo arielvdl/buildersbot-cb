@@ -2191,7 +2191,15 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   chatTabs={chatTabs()}
                   onOpenChatTab={openChatTab}
                   onEditChannel={(id) => openChannel(id, true)}
-                  onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
+                  onDeleteChannel={
+                    channels.deletionSupported()
+                      ? async (channelId, agentIds) => {
+                          // The channel first: if it cannot be deleted, no agent is touched.
+                          await channels.remove(channelId);
+                          for (const agentId of agentIds) await workspace.deleteAgent(agentId);
+                        }
+                      : undefined
+                  }
                   onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}
                   showingArchivedChannels={channelsListed() && channels.state.archived}
                   onToggleArchivedChannels={channelsListed() ? channels.toggleArchived : undefined}
