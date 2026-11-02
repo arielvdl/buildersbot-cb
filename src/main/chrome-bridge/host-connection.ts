@@ -154,7 +154,17 @@ export class HostConnection {
   #waiting: Waiting[] = [];
   #admitted: "window" | "unexpected" | null = null;
   // Pairing
-  #pairing: { abort: AbortController; appChoseRight: boolean; chromeOk: boolean; finishing: boolean } | null = null;
+  #pairing: {
+    abort: AbortController;
+    appChoseRight: boolean;
+    chromeOk: boolean;
+    finishing: boolean;
+    /**
+     * The extension reports its state (`ready`) right after its person chose the words, before the app
+     * pins its key. The app keeps that one report and hands it on once the pairing is final.
+     */
+    heldReady: EventBodies["ready"] | null;
+  } | null = null;
   readonly openedAt = Date.now();
   readonly peerPid: number;
 
@@ -377,7 +387,7 @@ export class HostConnection {
     } else {
       const features = this.#established?.features ?? [];
       const decoded = decodeToApp(message, features, () => undefined, {
-        event: eventHandlers((event, body) => this.#onEvent(event, body)),
+        event: { ...eventHandlers((event, body) => this.#onEvent(event, body)), ready: (body) => this.#onReady(body) },
         result: resultHandlers(),
         error: () => undefined,
       });
@@ -386,12 +396,23 @@ export class HostConnection {
     if (channel.needsNewKeys()) this.close("keys are due for renewal");
   }
 
+  /** After its consent, the extension sends its state once, before the pin: it waits for the pin. */
+  #onReady(body: EventBodies["ready"]) {
+    const pairing = this.#pairing;
+    if (this.#phase === "pairing" && pairing?.chromeOk && pairing.heldReady === null) {
+      pairing.heldReady = body;
+      return;
+    }
+    this.#onEvent("ready", body);
+  }
+
   #onEvent<E extends ChromeBridgeEvent>(event: E, body: EventBodies[E]) {
     if (this.#phase === "pairing") {
+      const pairing = this.#pairing;
       // Before the pin, the extension sends nothing but its own consent: no state, no page data.
-      if (event !== "pair.chrome-ok" || !this.#pairing)
+      if (event !== "pair.chrome-ok" || !pairing || pairing.chromeOk)
         throw new ChannelError("protocol", "an event came before pairing");
-      this.#pairing.chromeOk = true;
+      pairing.chromeOk = true;
       void this.#finishPairing();
       return;
     }
@@ -408,7 +429,7 @@ export class HostConnection {
     if (!established || !hello) return;
     const { options, correctIndex } = pairingOptions(established.codes.chrome);
     const abort = new AbortController();
-    this.#pairing = { abort, appChoseRight: false, chromeOk: false, finishing: false };
+    this.#pairing = { abort, appChoseRight: false, chromeOk: false, finishing: false, heldReady: null };
     const deadline = setTimeout(() => this.close("pairing deadline"), BRIDGE_LIMITS.pairingWindowMs);
     abort.signal.addEventListener("abort", () => clearTimeout(deadline));
     this.#host.prompt
@@ -450,6 +471,7 @@ export class HostConnection {
       pairing.abort.abort();
       this.#pairing = null;
       this.#host.ready(this);
+      if (pairing.heldReady) this.#host.event(this, "ready", pairing.heldReady);
     } catch {
       if (pinned) await this.#host.unpinned(this, hello).catch(() => undefined);
       this.close("pairing could not finish");

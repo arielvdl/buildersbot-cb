@@ -28,6 +28,7 @@ import {
   frameTargets,
   internalCommand,
   openFrameSessions,
+  rememberContext,
 } from "./debugger";
 import { floorDecision } from "./floor";
 import { audit, emit } from "./outbox";
@@ -294,6 +295,8 @@ async function sameOrigin(gate: Gate): Promise<void> {
 async function settle(gate: Gate, method: string, sent: Dispatched): Promise<CdpParams> {
   const result = projectResult(method, await sent.done, gate.tab.projectKey);
   if (READS.has(method)) await sameOrigin(gate);
+  if (method === "Page.createIsolatedWorld" && isNumber(result.executionContextId))
+    rememberContext(gate.tab.tabId, result.executionContextId);
   return result;
 }
 

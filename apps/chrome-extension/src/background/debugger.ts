@@ -79,6 +79,14 @@ export function contextsOf(tabId: number): ReadonlySet<number> {
   return tabs.get(tabId)?.contexts ?? new Set();
 }
 
+/**
+ * A world that a checked `Page.createIsolatedWorld` made in the tab. Chrome reports a new context only
+ * to a session with `Runtime` on, and the engine does not turn it on; the answer names the context.
+ */
+export function rememberContext(tabId: number, contextId: number): void {
+  tabs.get(tabId)?.contexts.add(contextId);
+}
+
 /** Child sessions that a command may name: registered and not on the floor. */
 export function openFrameSessions(tabId: number): Set<string> {
   const open = new Set<string>();
