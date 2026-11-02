@@ -61,7 +61,7 @@ import { browserInputAction, browserToolTimeout } from "./browser-tool-actions";
 import { snapshotImageResult, snapshotTextResult, textResult } from "./browser-tool-results";
 import { normalizeBrowserUrl } from "./browser-url";
 import { ChromeCdpTarget, type ChromeTabChannel, type ChromeTabState } from "./chrome-cdp-target";
-import { type ChromeAction, type MessageSendCard, messageSendCard } from "./chrome-message-send";
+import { type ChromeAction, clickTargetCheck, type MessageSendCard, messageSendCard } from "./chrome-message-send";
 import { CHROME_SCRIPT_TOOLS, type ChromeToolCall, parseChromeToolCall } from "./chrome-tools";
 import { CHROME_TURN_ORIGINS } from "./chrome-turn-origin";
 import type { HubTurnOrigin } from "./hub-connections/turn-origin";
@@ -1058,7 +1058,9 @@ export class ChromeTabsHost {
           : call.tool === "type"
             ? { tool: "type", text: call.args.text, submit: call.args.submit === true, target: call.args.target }
             : null;
-    const card = gated ? messageSendCard(tab.engine.page.url(), gated, tab.lastSnapshot) : null;
+    // A snapshot that no action followed shows the page as it is: where the focus is, for example.
+    const fresh = tab.lastSnapshot !== null && tab.snapshotSeq === tab.actionSeq;
+    const card = gated ? messageSendCard(tab.engine.page.url(), gated, tab.lastSnapshot, fresh) : null;
     /** The tab's action count that the person approved; another action meanwhile voids the card. */
     let approvedSeq: number | null = null;
     if (card) {
@@ -1081,7 +1083,13 @@ export class ChromeTabsHost {
         return yield* browserFailure(new Error("The page changed during the approval. Take a fresh snapshot."));
       approvedSeq = seq;
     }
-    const action = yield* browserSync(() => browserInputAction(call, {}));
+    // A click that asks no card on a communication site: the engine checks the element that the target
+    // resolved to once more, just before the click.
+    const checkClickTarget =
+      call.tool === "click" && !card ? clickTargetCheck(tab.engine.page.url(), tab.lastSnapshot) : null;
+    const action = yield* browserSync(() =>
+      browserInputAction(call, checkClickTarget === null ? {} : { checkClickTarget }),
+    );
     const run = <A>(readResult: ActionResultReader<A>) =>
       runTabAction(
         tab,

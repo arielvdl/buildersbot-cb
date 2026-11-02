@@ -812,13 +812,29 @@ export class BrowserCdpEngine {
       button?: "left" | "middle" | "right" | undefined;
       clickCount?: number | undefined;
       modifiers?: string[] | undefined;
+      /**
+       * A last check of the element that the target resolved to, just before the click: a refusal
+       * text stops the click. A target with no element (a point) is refused when this is set.
+       */
+      checkTarget?: ((found: { role: string; name: string; visibleText: string }) => string | null) | undefined;
     } = {},
     deadline?: number,
     onDispatch?: ActionDispatch,
   ): Effect.fn.Return<void, BrowserOperationError> {
     yield* this.#leaseEffect((send) =>
       Effect.gen({ self: this }, function* () {
-        const point = yield* this.#targetPointEffect(send, target, true, true, deadline);
+        const { checkTarget } = options;
+        const point = checkTarget
+          ? yield* Effect.gen({ self: this }, function* () {
+              const resolved = yield* this.#resolveTargetEffect(send, target, deadline);
+              if (!resolved.backendNodeId)
+                return yield* browserFailure(new Error("The click target could not be checked before the click."));
+              const found = yield* this.#targetFingerprint(send, resolved.backendNodeId, resolved.sessionId);
+              const refusal = checkTarget(found);
+              if (refusal !== null) return yield* browserFailure(new Error(refusal));
+              return yield* this.#elementPointEffect(send, resolved.backendNodeId, true, resolved.sessionId, true);
+            })
+          : yield* this.#targetPointEffect(send, target, true, true, deadline);
         const { sessionId, ...coordinates } = point;
         const button = options.button ?? "left";
         const totalClicks = options.clickCount ?? 1;

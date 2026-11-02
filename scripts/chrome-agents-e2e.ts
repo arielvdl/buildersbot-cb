@@ -416,6 +416,34 @@ async function main(): Promise<void> {
                setTimeout(() => { document.getElementById('swap').innerHTML = '<button onclick="post()">Send draft</button>'; }, 3000);
              </script>`,
           );
+        case "/compose3":
+          // Send buttons that a list of send words misses: other languages, a name that is not the visible
+          // text, a shadow root and a frame; and actions that do not send (Cancel, Bold).
+          return html(
+            "Compose",
+            `<label>To <input aria-label="To" id="to"></label>
+             <label>Message <textarea aria-label="Message" id="body"></textarea></label>
+             <button onclick="post()">送信</button>
+             <button onclick="post()">Отправить</button>
+             <button onclick="post()">إرسال</button>
+             <button onclick="post()">भेजें</button>
+             <button aria-label="Archive" onclick="post()">Send</button>
+             <button id="cancel">Cancel</button>
+             <button id="bold">Bold</button>
+             <div id="host"></div>
+             <iframe src="/send-frame" style="height:60px"></iframe>
+             <script>
+               function post() { fetch('/sent', { method: 'POST', body: JSON.stringify({ to: document.getElementById('to').value, text: document.getElementById('body').value }) }); }
+               const root = document.getElementById('host').attachShadow({ mode: 'open' });
+               root.innerHTML = '<button>Enviar agora</button>';
+               root.querySelector('button').onclick = post;
+             </script>`,
+          );
+        case "/send-frame":
+          return html(
+            "Frame",
+            `<button onclick="fetch('/sent', { method: 'POST', body: JSON.stringify({ to: 'frame', text: 'frame' }) })">Enviar mensagem</button>`,
+          );
         case "/to-bank":
           return new Response(null, {
             status: 302,
@@ -1291,10 +1319,57 @@ async function main(): Promise<void> {
         more.verticalTab = (
           await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "dados\u000b" })
         ).text;
+        // The review of 02/11, second batch: other languages, names, a shadow root, a frame, spaces.
+        await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose3") });
+        const lineRef = (read: { lines: string[]; revision: number }, text: string) => ({
+          kind: "ref",
+          ref: read.lines.find((line) => line.includes(text))?.split(" ")[0] ?? "",
+          revision: read.revision,
+        });
+        const passes: Record<string, string> = {};
+        // No composer yet: the name says "Archive", the visible text says "Send". The engine reads both
+        // just before the click.
+        let page3 = await fresh();
+        const archive = (await call(agents.carla, "click", { tabId, target: lineRef(page3, '"Archive"') })).text;
+        // A button has the focus; keys with no target go to it, and a space presses it.
+        page3 = await fresh();
+        await call(agents.carla, "press", { tabId, key: "Escape", target: lineRef(page3, '"Bold"') });
+        for (const [name, text] of Object.entries({ space: " ", noBreakSpace: "\u00a0", tab: "\t", enter: "\n" })) {
+          await fresh();
+          more[`focusedButton.${name}`] = (await call(agents.carla, "type", { tabId, text })).text;
+        }
+        // A message being written: every control asks, unless it is on the list that does not send.
+        await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#to" }, text: "ana@example.com" });
+        await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "Olá de novo" });
+        for (const name of ["送信", "Отправить", "إرسال", "भेजें", "Enviar agora", "Enviar mensagem"]) {
+          page3 = await fresh();
+          more[`name.${name}`] = (
+            await call(agents.carla, "click", { tabId, target: lineRef(page3, `"${name}"`) })
+          ).text;
+        }
+        page3 = await fresh();
+        passes.cancelNextToComposer = (
+          await call(agents.carla, "click", { tabId, target: lineRef(page3, '"Cancel"') })
+        ).text;
+        // The focus on the text field: a space is only a space.
+        page3 = await fresh();
+        await call(agents.carla, "click", { tabId, target: lineRef(page3, '"Message"') }).catch(() => undefined);
+        await fresh();
+        passes.spaceInTextField = (await call(agents.carla, "type", { tabId, text: " e mais" })).text;
         await sleep(500);
         const sentAround = sent.slice(sentBefore);
         for (const [name, text] of Object.entries(more))
           expect(text.includes("approval"), `a send went around the card: ${name}`, { text, sentAround });
+        expect(archive.includes("nothing was clicked"), "a send named as another action went out", {
+          archive,
+          sentAround,
+        });
+        for (const [name, text] of Object.entries(passes))
+          expect(
+            !text.includes("approval") && !text.includes("Error"),
+            `an action that does not send asked: ${name}`,
+            text,
+          );
         expect(sentAround.length === 0, "a message went out without the person's approval", sentAround);
         approveSends = "absent";
         return {
@@ -1303,6 +1378,8 @@ async function main(): Promise<void> {
           current,
           around,
           more,
+          archive,
+          passes,
           swapListed: swapLine !== undefined,
           iconButtonListed: iconLine !== undefined,
           sent,

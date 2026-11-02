@@ -32,7 +32,8 @@ export const MAX_SNAPSHOT_SCANNED_NODES = 10_000;
 const MAX_SNAPSHOT_ELEMENT_VALUE = 2_000;
 const MAX_SERIALIZED_SNAPSHOT_BYTES = 128 * 1024;
 
-const ACTIONABLE_ROLES = new Set([
+/** The roles that the engine resolves a role or text target to (`semanticAxMatches`). */
+export const ACTIONABLE_ROLES: ReadonlySet<string> = new Set([
   "button",
   "checkbox",
   "combobox",
