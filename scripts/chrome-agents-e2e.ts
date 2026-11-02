@@ -462,6 +462,27 @@ async function main(): Promise<void> {
                  document.getElementById(id).addEventListener('click', (event) => { event.stopPropagation(); send(id); });
              </script>`,
           );
+        case "/compose5":
+          // Controls whose shadow root holds the whole surface: an inner "Send" button, an inner part
+          // with a click listener and no attribute (closed root), and inert inner text ("Bold two").
+          return html(
+            "Compose",
+            `<label>To <input aria-label="To" id="to"></label>
+             <x-part id="inner-send" role="button" aria-label="Archive five" tabindex="0" style="display:inline-block"></x-part>
+             <x-part id="inner-listener" role="button" aria-label="Archive six" tabindex="0" style="display:inline-block"></x-part>
+             <x-part id="inner-plain" role="button" aria-label="Bold two" tabindex="0" style="display:inline-block"></x-part>
+             <script>
+               function send(by) { fetch('/sent', { method: 'POST', body: JSON.stringify({ to: 'child', text: by }) }); }
+               const fill = 'display:block;width:120px;height:40px;margin:0;padding:0;border:0';
+               const send1 = document.getElementById('inner-send').attachShadow({ mode: 'open' });
+               send1.innerHTML = '<button style="' + fill + '">Send</button>';
+               send1.querySelector('button').addEventListener('click', (event) => { event.stopPropagation(); send('inner-send'); });
+               const send2 = document.getElementById('inner-listener').attachShadow({ mode: 'closed' });
+               send2.innerHTML = '<span style="' + fill + '">✈</span>';
+               send2.querySelector('span').addEventListener('click', (event) => { event.stopPropagation(); send('inner-listener'); });
+               document.getElementById('inner-plain').attachShadow({ mode: 'open' }).innerHTML = '<span style="' + fill + '">Bold</span>';
+             </script>`,
+          );
         case "/send-frame":
           return html(
             "Frame",
@@ -1389,6 +1410,16 @@ async function main(): Promise<void> {
         }
         const page4 = await fresh();
         passes.boldWithChild = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Bold"') })).text;
+        // The target's own shadow parts (review of 02/11, lot 6): an inner control or listener refuses.
+        await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose5") });
+        for (const name of ["Archive five", "Archive six"]) {
+          const page5 = await fresh();
+          childSend[name] = (await call(agents.carla, "click", { tabId, target: lineRef(page5, `"${name}"`) })).text;
+        }
+        const page5 = await fresh();
+        passes.inertShadowPart = (
+          await call(agents.carla, "click", { tabId, target: lineRef(page5, '"Bold two"') })
+        ).text;
         await sleep(500);
         const sentAround = sent.slice(sentBefore);
         // Safe either way: the click is refused, or it lands on the button's own edge, so the child's

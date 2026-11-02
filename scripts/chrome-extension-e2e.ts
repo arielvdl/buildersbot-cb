@@ -251,6 +251,8 @@ async function ensureChromeForTesting(): Promise<void> {
   await writeFile(zip, bytes);
   execFileSync("ditto", ["-x", "-k", zip, CFT_DIR]);
   await rm(zip);
+  // The protocol smoke shares this folder and reads the digest of the archive that it holds.
+  await writeFile(join(CFT_DIR, "sha256.txt"), `${digest}  chrome.zip\n`);
 }
 
 // ---------------------------------------------------------------------------------------------------

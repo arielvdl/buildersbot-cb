@@ -919,7 +919,11 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     await until(() => s1.extension.view.rejected === "revoked", 5000, "reject{revoked}");
     check("a revoked profile gets reject{revoked}", s1.extension.view.rejected === "revoked");
 
-    // B8: a process that is not the host on the app's socket.
+    // B8: a process that is not the host on the app's socket. The hosts of the cases before end first:
+    // a stub of a revoked profile reconnects by itself, and its new connection is not the one counted.
+    measures.hostRssIdleKb = rssKb(s1.child.pid);
+    for (const run of hosts) run.child.kill();
+    for (let waited = 0; waited < 5_000 && (await app.run(app.api.load)).length > 0; waited += 100) await sleep(100);
     const socket = bridgeSocket("e2e");
     const connectionsBefore = (await app.run(app.api.load)).length;
     // Asynchronous: the app runs in this process and must answer while perl waits.
@@ -946,14 +950,12 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
       client.on("error", () => done(received));
       setTimeout(() => client.destroy(), 3000);
     });
+    const connectionsAfter = (await app.run(app.api.load)).length;
     check(
       "a process that is not the signed host is closed before the app reads or writes a byte",
-      ["0", "-1"].includes(perl.stdout.trim()) &&
-        nodePeer === 0 &&
-        (await app.run(app.api.load)).length === connectionsBefore,
-      { perlRead: perl.stdout.trim(), bunRead: nodePeer },
+      ["0", "-1"].includes(perl.stdout.trim()) && nodePeer === 0 && connectionsAfter === connectionsBefore,
+      { perlRead: perl.stdout.trim(), bunRead: nodePeer, connectionsBefore, connectionsAfter },
     );
-    measures.hostRssIdleKb = rssKb(s1.child.pid);
 
     // B9: the signed host itself, started by a program that is not Chrome (here, this process). The
     // store channel asks that Google Chrome start the host; this app asks for a Chrome that no process

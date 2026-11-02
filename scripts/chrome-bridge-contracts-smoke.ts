@@ -738,6 +738,32 @@ check(
   !JSON.stringify(thrown).includes("#token") && !JSON.stringify(thrown).includes("preview"),
   thrown,
 );
+const listeners = projectCdpResult(
+  "DOMDebugger.getEventListeners",
+  {
+    listeners: [
+      {
+        type: "click",
+        useCapture: false,
+        handler: { description: "function () { secret() }" },
+        scriptId: "7",
+        lineNumber: 3,
+      },
+    ],
+  },
+  noFloor,
+);
+check(
+  "an event listener leaves with its kind only, never its function or script",
+  JSON.stringify(listeners) === JSON.stringify({ listeners: [{ type: "click", useCapture: false }] }),
+  listeners,
+);
+check(
+  "event listeners of the subtree, or through shadow roots, are denied",
+  code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT, depth: -1 })) === "param_denied" &&
+    code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT, pierce: true })) === "param_denied" &&
+    code(decision("DOMDebugger.getEventListeners", { objectId: OBJECT })) === "ok",
+);
 check(
   "a method outside the list gives an empty result",
   JSON.stringify(projectCdpResult("Network.getAllCookies", { cookies: [{ value: "x" }] }, noFloor)) === "{}",

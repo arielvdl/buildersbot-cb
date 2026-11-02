@@ -22,9 +22,10 @@
  * - just before a click that asks no card, the engine reads the element that the target resolved to,
  *   its accessible name and its visible text, and this gate checks both again (`clickTargetCheck`):
  *   the click stops when either is a send, when it has no name, or, with a composer, when it is not on
- *   the list of actions that do not send. The click lands on the element at its point, which can be a
- *   control of its own inside the target: each element from that one up to the target must not name a
- *   send, and one that acts must pass the same check as the target;
+ *   the list of actions that do not send. The click then lands only where the element hit is the
+ *   target itself, never on a child of it, which can act on its own (a listener at the root of a
+ *   framework included), or on an inner part of its own shadow trees when each part up to the target
+ *   is inert: no control, no send name, no click listener (`inner`);
  * - a key is read as the engine reads it (`parseShortcut`): Enter, NumpadEnter, Return and Space (which
  *   presses a focused button) are sends, and so is a key with Ctrl, Cmd or Alt (a mail site sends with
  *   Ctrl+Enter or Alt+S) unless it only edits text; a key that the engine refuses counts as a send;
@@ -337,6 +338,16 @@ export function clickTargetCheck(url: string, snapshot: BrowserSnapshot | null):
       const names = TEXT_ROLES.has(found.role) ? [found.name] : [found.name, found.visibleText];
       const label = controlSends(found.role || null, names, composer);
       return label === null ? null : refusal(label);
+    },
+    inner: (elements) => {
+      // An inner part of the target that acts on its own, or that names a send, is not the target.
+      for (const element of elements) {
+        const sending = element.labels.find((label) => SEND_NAME.test(label));
+        if (sending !== undefined) return refusal(sending);
+        if (element.interactive)
+          return refusal(element.labels.find((label) => hasName(label)) ?? "a control inside the target");
+      }
+      return null;
     },
   };
 }
