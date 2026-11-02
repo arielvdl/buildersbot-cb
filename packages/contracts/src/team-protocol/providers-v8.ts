@@ -34,6 +34,13 @@ export const PROVIDERS_V8_ROUTES = {
   runtimesCheck: "/v1/admin/providers/v8/runtimes/check-updates",
 } as const;
 
+/**
+ * The providers whose device code only these routes sign in on a host. The older sign-in routes name
+ * a closed list, so a provider that came after them (the Cultura Builder Hub sign-in) has no route
+ * there; a client that offers it must know the host serves `providers-v8`.
+ */
+export const PROVIDERS_V8_CODE_SIGN_IN_PROVIDERS = ["cultura-builder"] as const;
+
 /** The most runtime rows that one snapshot carries. */
 export const PROVIDERS_V8_RUNTIME_LIMIT = 64;
 
