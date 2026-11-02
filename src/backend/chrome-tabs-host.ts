@@ -673,6 +673,7 @@ export class ChromeTabsHost {
     const channel: ChromeTabChannel = {
       send: (command) =>
         run("cdp.send", {
+          leaseId: lease.leaseId,
           handle,
           method: command.method,
           params: command.params,
@@ -682,6 +683,7 @@ export class ChromeTabsHost {
         ? {
             batch: (commands) =>
               run("cdp.batch", {
+                leaseId: lease.leaseId,
                 handle,
                 commands: commands.map((command) => ({
                   method: command.method,
@@ -697,7 +699,10 @@ export class ChromeTabsHost {
               ),
           }
         : {}),
-      stopLoading: () => run("cdp.send", { handle, method: "Page.stopLoading", params: {} }).then(() => undefined),
+      stopLoading: () =>
+        run("cdp.send", { leaseId: lease.leaseId, handle, method: "Page.stopLoading", params: {} }).then(
+          () => undefined,
+        ),
     };
     const target = new ChromeCdpTarget(channel);
     for (const state of this.#early.get(handle) ?? []) target.receiveTabState(state);

@@ -713,7 +713,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
       app.api.request(
         s1.installId,
         "cdp.send",
-        { handle, method: "Page.captureScreenshot", params: { stubBytes: 9_000_000 } },
+        { leaseId: randomBase64Url(16), handle, method: "Page.captureScreenshot", params: { stubBytes: 9_000_000 } },
         { timeoutMs: 30_000 },
       ),
     );
@@ -734,6 +734,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     check(
       "a 1.5 MB request reaches the extension in parts below Chrome's 1 MB limit",
       s1.extension.view.largestParamsBytes >= 1_500_000,
+        leaseId: randomBase64Url(16),
       { ms: Math.round(performance.now() - started) },
     );
     measures.hostB = { screenshot9MbMs: shotMs };
@@ -748,7 +749,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
           app.api.request(
             s1.installId,
             "cdp.send",
-            { handle: tab, method: "Runtime.evaluate", params: { order: order + 10 } },
+            { leaseId: randomBase64Url(16), handle: tab, method: "Runtime.evaluate", params: { order: order + 10 } },
             { key: tab },
           ),
         ),
@@ -782,7 +783,12 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
         app.api.request(
           s1.installId,
           "cdp.send",
-          { handle: slowHandle, method: "Runtime.evaluate", params: { order: 1, stubDelayMs: 1500 } },
+          {
+            leaseId: randomBase64Url(16),
+            handle: slowHandle,
+            method: "Runtime.evaluate",
+            params: { order: 1, stubDelayMs: 1500 },
+          },
           { key: slowHandle, timeoutMs: 300 },
         ),
       );
@@ -796,7 +802,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
         app.api.request(
           s1.installId,
           "cdp.send",
-          { handle: otherHandle, method: "Runtime.evaluate", params: { order: 1 } },
+          { leaseId: randomBase64Url(16), handle: otherHandle, method: "Runtime.evaluate", params: { order: 1 } },
           { key: otherHandle },
         ),
       )
@@ -1209,7 +1215,7 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
             app.api.request(
               installId,
               "cdp.send",
-              { handle: tab, method: "Runtime.evaluate", params: { order: order + 10 } },
+              { leaseId: randomBase64Url(16), handle: tab, method: "Runtime.evaluate", params: { order: order + 10 } },
               { key: tab },
             ),
           ),
@@ -1230,6 +1236,7 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
 
     await app.stop();
     const listening = await app.start();
+        leaseId: randomBase64Url(16),
     await until(() => app.ready.filter((id) => id === installId).length >= 2, 10_000, "the reconnection in Chrome");
     const chromeReconnectMs = Math.round(performance.now() - listening);
     measures.chromeReconnectMs = chromeReconnectMs;
@@ -1243,6 +1250,7 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
           .split("\n")
           .filter((line) => line.includes("parent"))
           .slice(-2)
+        leaseId: randomBase64Url(16),
       : [];
   } finally {
     await context?.close().catch(() => undefined);

@@ -79,10 +79,11 @@ export function operationHandlers(hooks: {
     "tab.zoom": (body) => zoomOf(body.handle),
     "tab.discard": (body) => done(discardTab(body.handle)),
     "tab.mark": (body) => done(markTabAs(body.handle, body.agentLabel, body.initials)),
-    "cdp.send": (body) => cdpSend(body.handle, body.method, body.params, body.session),
-    "cdp.batch": (body) => cdpBatch(body.handle, body.commands),
-    "script.run": (body) => runScript(body.handle, body.source, body.args, body.world, body.session),
-    "secret.fill": (body) => secretFill(body.handle, body.expectOrigin, body.nodeId, body.text).then(() => EMPTY),
+    "cdp.send": (body) => cdpSend(body.leaseId, body.handle, body.method, body.params, body.session),
+    "cdp.batch": (body) => cdpBatch(body.leaseId, body.handle, body.commands),
+    "script.run": (body) => runScript(body.leaseId, body.handle, body.source, body.args, body.world, body.session),
+    "secret.fill": (body) =>
+      secretFill(body.leaseId, body.handle, body.expectOrigin, body.nodeId, body.text).then(() => EMPTY),
     "project.pause": (body) => done(pauseProject(body.projectKey, "app")),
     "project.resume": async (body) => {
       if (!(await resumeProject(body.projectKey, "app")))

@@ -3,7 +3,7 @@
  * the checks of DESIGN §6.5, in this order, failing closed:
  *
  * 1. no stop or pause holds the project;
- * 2. the handle exists, and its lease is open;
+ * 2. the handle exists, the lease that sends the command holds it, and that lease is open;
  * 3. Chrome says, now, that the tab is in the project's registered group (or is a satellite of one);
  * 4. the main frame is not on the floor; a child session is a registered frame and not on the floor;
  * 5. the method and each parameter pass the closed allowlist of `cdp-allowlist.ts`; page code runs
@@ -108,8 +108,10 @@ async function loadIfDiscarded(tabId: number, chromeTab: chrome.tabs.Tab): Promi
   return chrome.tabs.get(tabId);
 }
 
-async function authorize(handle: string): Promise<Gate> {
+async function authorize(leaseId: string, handle: string): Promise<Gate> {
   const tab = requireTab(handle);
+  // The lease that sends a command must hold the tab: an agent's handle in another agent's request fails.
+  if (tab.leaseId !== leaseId) throw new BridgeError("tab_not_owned", "the tab belongs to another lease");
   const project = requireProject(tab.projectKey);
   requireRunning(project);
   const lease = requireActiveLease(tab.leaseId);
@@ -314,15 +316,16 @@ async function settle(
 // Operations
 
 export function cdpSend(
+  leaseId: string,
   handle: string,
   method: string,
   params: unknown,
   session: string | undefined,
 ): Promise<{ result: CdpParams }> {
   const tab = requireTab(handle);
-  if (method === "Page.handleJavaScriptDialog") return answerDialog(handle, params, session);
+  if (method === "Page.handleJavaScriptDialog") return answerDialog(leaseId, handle, params, session);
   return sequenced(tab.tabId, async () => {
-    const gate = await authorize(handle);
+    const gate = await authorize(leaseId, handle);
     const values = paramsOf(params);
     const { noOp, read } = await check(
       gate,
@@ -342,11 +345,12 @@ export function cdpSend(
  * that opened `confirm()`) wait for it, so it cannot wait for them.
  */
 async function answerDialog(
+  leaseId: string,
   handle: string,
   params: unknown,
   session: string | undefined,
 ): Promise<{ result: CdpParams }> {
-  const gate = await authorize(handle);
+  const gate = await authorize(leaseId, handle);
   const values = paramsOf(params);
   await check(gate, "Page.handleJavaScriptDialog", values, session, "other");
   const sent = await dispatch(gate.tab.tabId, "Page.handleJavaScriptDialog", values, session, true);
@@ -361,12 +365,13 @@ type BatchResult = { result?: CdpParams; err?: { code: ChromeBridgeErrorCode; me
  * also navigates, which is how the engine's `navigate` sends them.
  */
 export function cdpBatch(
+  leaseId: string,
   handle: string,
   commands: readonly { method: string; params: unknown; session?: string }[],
 ): Promise<{ results: BatchResult[] }> {
   const tab = requireTab(handle);
   return sequenced(tab.tabId, async () => {
-    const gate = await authorize(handle);
+    const gate = await authorize(leaseId, handle);
     const operation = commands.some((command) => command.method === "Page.navigate") ? "navigate" : "other";
     const pending: Promise<BatchResult>[] = [];
     for (const command of commands) {
@@ -399,6 +404,7 @@ const AGENT_WORLD = "builders-bot-agent";
  * still runs the secret check first and drops the result when the page changed origin meanwhile.
  */
 export function runScript(
+  leaseId: string,
   handle: string,
   source: string,
   args: unknown,
@@ -408,7 +414,7 @@ export function runScript(
   const tab = requireTab(handle);
   return sequenced(tab.tabId, async () => {
     if (session !== undefined) throw new BridgeError("param_denied", "scripts run in the main frame only");
-    const gate = await authorize(handle);
+    const gate = await authorize(leaseId, handle);
     if (!scriptsOn(gate.project)) throw new BridgeError("scripts_disabled", "the person has not turned on scripts");
     pageMayChange(gate.tab.tabId);
     // A script can read any field, also one that `secret.fill` typed: no exemption.
@@ -456,10 +462,16 @@ export function runScript(
 }
 
 /** One atomic step: no other command of the tab runs until it ends. */
-export function secretFill(handle: string, expectOrigin: string, nodeId: number, text: string): Promise<void> {
+export function secretFill(
+  leaseId: string,
+  handle: string,
+  expectOrigin: string,
+  nodeId: number,
+  text: string,
+): Promise<void> {
   const tab = requireTab(handle);
   return sequenced(tab.tabId, async () => {
-    const gate = await authorize(handle);
+    const gate = await authorize(leaseId, handle);
     await fillSecret(gate.tab.tabId, expectOrigin, nodeId, text);
     return { done: Promise.resolve() };
   });

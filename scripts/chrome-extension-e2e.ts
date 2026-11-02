@@ -348,6 +348,14 @@ interface SeenEvent {
   at: number;
 }
 
+/** The operations on a tab that name the lease that sends them. */
+const LEASED_OPERATIONS = new Set<ChromeBridgeOperation>(["cdp.send", "cdp.batch", "script.run", "secret.fill"]);
+type LeasedOperation = "cdp.send" | "cdp.batch" | "script.run" | "secret.fill";
+/** A body for `request`: a test may leave out the lease of a tab, and the app adds the lease that made it. */
+type RequestBody<O extends ChromeBridgeOperation> = O extends LeasedOperation
+  ? Omit<OperationBodies[O], "leaseId"> & { readonly leaseId?: string }
+  : OperationBodies[O];
+
 class TestApp {
   readonly #path: string;
   #server: Server | null = null;
@@ -370,6 +378,8 @@ class TestApp {
   bytesOut = 0;
   codes: { chrome: PairingCode; app: PairingCode } | null = null;
   features: readonly string[] = [];
+  /** The lease of each tab that `tab.create` made, as the app keeps it. */
+  readonly #leases = new Map<string, string>();
 
   constructor(path: string) {
     this.#path = path;
@@ -566,14 +576,17 @@ class TestApp {
     if (!decoded.ok) report.protocolViolations.push(`extension sent: ${decoded.error}`);
   }
 
-  request<O extends ChromeBridgeOperation>(
-    op: O,
-    body: OperationBodies[O],
-    timeoutMs = 45_000,
-  ): Promise<DynamicRecord> {
+  request<O extends ChromeBridgeOperation>(op: O, given: RequestBody<O>, timeoutMs = 45_000): Promise<DynamicRecord> {
     const session = this.#session;
     const socket = this.#socket;
     if (!session || !socket) return Promise.reject(new AppError("chrome_not_connected", "no session"));
+    // A tab command names the lease that made the tab, unless the test names another one.
+    const fields: DynamicRecord = isDynamicRecord(given) ? given : {};
+    const handle = isString(fields.handle) ? fields.handle : "";
+    const body =
+      LEASED_OPERATIONS.has(op) && fields.leaseId === undefined
+        ? { ...fields, leaseId: this.#leases.get(handle) ?? randomBase64Url(16) }
+        : given;
     const checked = decodeOperationBody(op, body);
     if (!checked.ok) return Promise.reject(new Error(`the test sent a bad body: ${checked.error}`));
     const id = this.#next;
@@ -587,6 +600,8 @@ class TestApp {
         op,
         resolve: (value) => {
           clearTimeout(timer);
+          if (op === "tab.create" && isString(value.handle) && isString(fields.leaseId))
+            this.#leases.set(value.handle, fields.leaseId);
           resolve(value);
         },
         reject: (error) => {
@@ -1624,6 +1639,26 @@ async function main(): Promise<void> {
           error instanceof AppError ? error.code : "error",
         );
         // 6. The guard world: no command makes it, and no event names its context.
+        // S7: a tab command names the lease that sends it, and only the lease that holds the tab passes.
+        found.otherLeaseSend = await denied(
+          app.request("cdp.send", { leaseId: lease.two, handle: tab, method: "Target.getTargetInfo", params: {} }),
+        );
+        found.otherLeaseBatch = await denied(
+          app.request("cdp.batch", {
+            leaseId: lease.two,
+            handle: tab,
+            commands: [{ method: "Page.getFrameTree", params: {} }],
+          }),
+        );
+        found.otherLeaseFill = await denied(
+          app.request("secret.fill", {
+            leaseId: lease.two,
+            handle: tab,
+            expectOrigin: new URL(base).origin,
+            nodeId: 1,
+            text: "x",
+          }),
+        );
         await send("Page.captureScreenshot", { format: "jpeg", quality: 10 });
         found.guardWorld = await denied(
           send("Page.createIsolatedWorld", { frameId: String(world), worldName: "builders-bot-guard" }),
@@ -1764,6 +1799,9 @@ async function main(): Promise<void> {
           targetInfoFragment: false,
           axFragment: false,
           fillPlain: "out_of_scope",
+          otherLeaseSend: "tab_not_owned",
+          otherLeaseBatch: "tab_not_owned",
+          otherLeaseFill: "tab_not_owned",
           plainValue: "",
           fillPassword: "allowed",
           screenshotAfterFill: "allowed",

@@ -292,15 +292,31 @@ const operationShapes = {
   "tab.zoom": handleBody,
   "tab.discard": handleBody,
   "tab.mark": record({ handle, agentLabel, initials }),
-  "cdp.send": record({ handle, method: cdpMethod, params: cdpParams }, { session: cdpSession }),
-  "cdp.batch": record({ handle, commands: list(cdpCommand, BRIDGE_LIMITS.maxBatchCommands) }),
+  /**
+   * The commands of a tab name the lease that sends them: the extension runs them only when that lease
+   * holds the tab (`tab_not_owned` otherwise), so an agent's handle in another agent's request fails.
+   */
+  "cdp.send": record({ leaseId, handle, method: cdpMethod, params: cdpParams }, { session: cdpSession }),
+  "cdp.batch": record({ leaseId, handle, commands: list(cdpCommand, BRIDGE_LIMITS.maxBatchCommands) }),
   /** An agent's own script. Off by default in Chrome; never with a user gesture. */
   "script.run": record(
-    { handle, source: text({ max: 256 * 1024, min: 1 }), args: json(256 * 1024), world: literal(["isolated", "main"]) },
+    {
+      leaseId,
+      handle,
+      source: text({ max: 256 * 1024, min: 1 }),
+      args: json(256 * 1024),
+      world: literal(["isolated", "main"]),
+    },
     { session: cdpSession },
   ),
   /** One atomic step in the extension; the text never comes back in an event, an error or a log. */
-  "secret.fill": record({ handle, expectOrigin: origin, nodeId: integer(1, 2 ** 31 - 1), text: text({ max: 4096 }) }),
+  "secret.fill": record({
+    leaseId,
+    handle,
+    expectOrigin: origin,
+    nodeId: integer(1, 2 ** 31 - 1),
+    text: text({ max: 4096 }),
+  }),
   "project.pause": projectBody,
   /** Undoes only a pause that the app started. A stop from Chrome ends only with a gesture in Chrome. */
   "project.resume": projectBody,
