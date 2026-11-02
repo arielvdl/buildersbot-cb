@@ -862,7 +862,8 @@ try {
     const agent = await createAgent("Tabs");
     const channelId = await createChannel("tabs", [agent]);
     const other = await createTab(channelId);
-    resumeDelays = [5, 5, 5];
+    // Long enough that the other tab's whole request ends inside it, also on a busy computer.
+    resumeDelays = [12, 12, 12];
     script("h", [{ do: "read" }, { do: "fail", message: OVERLOADED }], []);
     script("h-other", []);
     await send(channelId, agent, `case:h ${SECRET}`);
