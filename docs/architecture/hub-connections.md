@@ -281,7 +281,8 @@ categories that the organization allows, the person's cap with the bar and its 8
 can pay, a switch per agent of this computer, and "Where the data goes" ("Provided by {vendor}", the
 flow to the Hub, the vendor and the provider, and the retention that the Hub declares). The alerts
 say when Cultura Builder paused it, when the person must choose who pays, when this app has no
-consent of an organization yet ("Open the Hub", which opens the Hub's connections page, and Refresh),
+consent of an organization yet ("Open the Hub", which opens the Hub's connections page; then Refresh
+in the header),
 over 80 % and at the cap, with "Ask the admin for more". A row that the person may not use names why, with "Ask the admin".
 After a request, the page shows "Request sent on {date}" from the Hub's `requestedAt`.
 

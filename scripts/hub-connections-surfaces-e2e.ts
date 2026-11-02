@@ -354,10 +354,10 @@ try {
       { exact: true },
     )
     .waitFor({ timeout: 60_000 });
-  // The consent alert: "Open the Hub" (main opens the Hub's connections page) and Refresh.
+  // The consent alert: "Open the Hub" (main opens the Hub's connections page); Refresh is in the header.
   const consent = page.getByRole("alert").filter({ hasText: "Allow Builders Bot on the Hub" });
   await consent.getByRole("button", { name: "Open the Hub" }).click();
-  assert.equal(await consent.getByRole("button", { name: "Refresh" }).count(), 1);
+  assert.equal(await page.getByRole("button", { name: "Refresh the connection" }).count(), 1);
   await open(page, marketplace("connection-signed-out"));
   await page
     .getByText(

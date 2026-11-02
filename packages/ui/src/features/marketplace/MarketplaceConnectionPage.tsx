@@ -312,18 +312,10 @@ export function MarketplaceConnectionPage(props: {
                 <AlertDescription>{t("marketplace.connection.consent.description")}</AlertDescription>
               </AlertContent>
               <AlertActions>
+                {/* One action, as the other alerts: Refresh is in the page header, right above. */}
                 <Button type="button" size="sm" onClick={() => void props.connections.openConsent?.()}>
                   <ExternalLink aria-hidden="true" />
                   {t("marketplace.connection.consent.open")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  loading={busy()}
-                  onClick={() => props.connections.refresh()}
-                >
-                  {t("marketplace.connection.refreshShort")}
                 </Button>
               </AlertActions>
             </Alert>
