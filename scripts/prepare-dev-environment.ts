@@ -27,6 +27,7 @@ const LOCAL_D1_STATE = join("apps", "auth-api", ".wrangler", "state", "v3", "d1"
 // Inside the D1 state, so a state directory made again also loses the stamp.
 const MIGRATION_STAMP = join(LOCAL_D1_STATE, ".openbot-migrate-local-stamp");
 const MIGRATIONS_DIRECTORY = join("apps", "auth-api", "migrations");
+const ELECTRON_MODULE = join("node_modules", "electron");
 
 export interface DevelopmentPreparationInput {
   projectRoot?: string;
@@ -35,6 +36,8 @@ export interface DevelopmentPreparationInput {
   executable?: string;
   bunVersion?: string;
   run?: DevelopmentCommandRunner;
+  /** False when no Electron app starts, such as `bun run dev:api`. */
+  needsElectron?: boolean;
 }
 
 export function prepareDevelopmentEnvironment(input: DevelopmentPreparationInput = {}): DevelopmentStateOutcome {
@@ -55,6 +58,20 @@ export function prepareDevelopmentEnvironment(input: DevelopmentPreparationInput
     () => installFingerprint(projectRoot),
     () => run(executable, ["install", "--frozen-lockfile"], options),
   );
+  // The root `postinstall` installs the Electron binary. Bun skips it when an `.npmrc` sets
+  // `ignore-scripts=true`, and electron-vite then stops with "Electron uninstall". The install
+  // stamp cannot show this, so the binary itself is checked on each start.
+  if ((input.needsElectron ?? true) && !electronBinaryInstalled(projectRoot)) {
+    process.stdout.write(
+      "The Electron binary is not in node_modules/electron. Bun did not run the root postinstall " +
+        "(an .npmrc can set ignore-scripts=true). Running `bun run postinstall`: it clones Electron " +
+        "from the local cache, or downloads it and checks its checksum.\n",
+    );
+    run(executable, ["run", "postinstall"], options);
+    if (!electronBinaryInstalled(projectRoot)) {
+      throw new Error("Electron is still not installed. Run `bun run postinstall` and read its output.");
+    }
+  }
   runUnlessStamped(
     join(projectRoot, MIGRATION_STAMP),
     () => (existsSync(join(projectRoot, LOCAL_D1_STATE)) ? migrationFingerprint(projectRoot) : null),
@@ -83,6 +100,24 @@ function writeStamp(path: string, fingerprint: string): void {
 /** Stamps the inputs of the install that just finished. The root `postinstall` calls it. */
 export function writeInstallStamp(projectRoot = developmentProjectRoot): void {
   writeStamp(join(projectRoot, INSTALL_STAMP), installFingerprint(projectRoot));
+}
+
+/**
+ * Whether `node_modules/electron` holds the binary of its own version: the check that the
+ * `electron` package's `install.js` makes before it skips an install.
+ */
+function electronBinaryInstalled(projectRoot: string): boolean {
+  const moduleRoot = join(projectRoot, ELECTRON_MODULE);
+  try {
+    const manifest: { version?: unknown } = JSON.parse(readFileSync(join(moduleRoot, "package.json"), "utf8"));
+    const installed = readFileSync(join(moduleRoot, "dist", "version"), "utf8")
+      .trim()
+      .replace(/^v/u, "");
+    const executable = readFileSync(join(moduleRoot, "path.txt"), "utf8");
+    return installed === manifest.version && existsSync(join(moduleRoot, "dist", executable));
+  } catch {
+    return false;
+  }
 }
 
 function readStamp(path: string): string | null {

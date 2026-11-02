@@ -277,10 +277,10 @@ export function parseDevelopmentTarget(args: string[]): DevelopmentInvocation {
 
 async function main(): Promise<void> {
   const { target, dryRun, force, shared, slack } = parseDevelopmentTarget(process.argv.slice(2));
-  if (!dryRun && prepareDevelopmentEnvironment() === "created") {
+  const services = servicesForTarget(target);
+  if (!dryRun && prepareDevelopmentEnvironment({ needsElectron: services.includes("app") }) === "created") {
     logger.info("Prepared local development state.");
   }
-  const services = servicesForTarget(target);
   const developmentEnvironment = dryRun ? {} : await loadDevelopmentEnvironment(projectRoot);
   const sharedEnvironment = developmentEnvironmentForTarget(target);
   // The host and the test client of this stack find each other through a file named after it.
