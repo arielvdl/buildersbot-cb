@@ -223,10 +223,17 @@ function ConnectionRowStatus(props: { status: MarketplaceApp["status"] }) {
   );
 }
 
-/** An app in the list: its logo, name and one line, and its status. The row opens the app page. */
+/**
+ * An app in the list: its logo, name and one line, and its status. The row opens the app page; the
+ * tile of a connection's platform opens the page of its connection.
+ */
 export function AppRow(props: { scope: MarketplaceScope; app: MarketplaceApp }) {
   const { t } = useText();
   const open = () => t("marketplace.open", { name: props.app.name });
+  const page = () => (props.app.kind === "connection-platform" ? props.app.connectionId : props.app.id);
+  /** A Hub connection and its platforms show the connection's status, with no install button. */
+  const connectionStatus = () =>
+    props.app.kind === "connection" || props.app.kind === "connection-platform" ? props.app.status : undefined;
   return (
     <li class="marketplace-app-row">
       <Button
@@ -235,7 +242,7 @@ export function AppRow(props: { scope: MarketplaceScope; app: MarketplaceApp }) 
         class="marketplace-app-row-hit"
         data-cuelume-tap="navigate"
         aria-label={open()}
-        onClick={() => props.scope.nav.go({ kind: "app", id: props.app.id })}
+        onClick={() => props.scope.nav.go({ kind: "app", id: page() })}
       />
       <AppLogo app={props.app} />
       <span class="marketplace-app-row-copy">
@@ -244,7 +251,7 @@ export function AppRow(props: { scope: MarketplaceScope; app: MarketplaceApp }) 
       </span>
       <span class="marketplace-app-row-status">
         <Show
-          when={props.app.kind === "connection" ? props.app.status : undefined}
+          when={connectionStatus()}
           fallback={<AppAction scope={props.scope} app={props.app} size="sm" onConnected={() => focusRow(open())} />}
         >
           {(status) => <ConnectionRowStatus status={status()} />}

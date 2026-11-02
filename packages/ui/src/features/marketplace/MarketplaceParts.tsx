@@ -228,7 +228,7 @@ export function AppMark(props: { app: MarketplaceApp }) {
       <Match when={props.app.kind === "custom"}>
         <Plug aria-hidden="true" />
       </Match>
-      <Match when={props.app.kind === "connection"}>
+      <Match when={props.app.kind === "connection" || props.app.kind === "connection-platform"}>
         <Waypoints aria-hidden="true" />
       </Match>
     </Switch>

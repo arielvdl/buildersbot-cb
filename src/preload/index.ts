@@ -1014,6 +1014,7 @@ const openbotApi: BuildersBotDesktopApi = {
     getUsage: decodeHubConnectionUsageView,
     choosePayer: decodeHubConnectionsView,
     requestAccess: decodeHubConnectionAccessRequestResult,
+    openConsent: decodeVoid,
   }),
   license: bridgeGroup(IPC_ENDPOINTS.license, {
     getState: decodeLicenseState,

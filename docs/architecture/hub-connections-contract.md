@@ -49,6 +49,17 @@ An answer above its limit is a failed answer (`hub_unavailable` in the app).
 
 ## 2. Tokens
 
+### 2.0 The client of Builders Bot
+
+Builders Bot is one public OAuth client of the Hub, with a fixed id:
+`28244c0a-7d6b-4256-be9b-9933cf0e6e94` (client name "Builders Bot"). It is not a secret. The device
+sign-in sends it as `client_id` to `POST /api/mcp-oauth/device` and in the `device_code` grant of
+`POST /api/mcp-oauth/token`, and never calls `POST /api/mcp-oauth/register`. Every build (release,
+development, debug) uses the same id. The Hub lists it for the proxy routes (`BUILDER_AI_PROXY_CLIENT_IDS`),
+so a sign-in with it gets the refresh family that a proxy token request needs. The refresh grants of
+section 2.2 do not send `client_id` (unchanged). A session that an earlier version made with a
+registered client has no such family; the person signs in again.
+
 ### 2.1 The two credentials
 
 | | Session token | Proxy token |
@@ -128,7 +139,8 @@ The existing route, with the session access token. Add `capabilities`:
   **does not** turn connections on or off. A person whose organization pays a connection and who
   has no LLM access still gets the connection, its page and Usage › Connections. Only
   `connections[id].enabled` opens a connection, and only `connectionsUsage` opens Usage.
-- A missing `capabilities` means every connection is off.
+- A missing `capabilities` means every connection is off. The app then shows no connection and reads
+  no catalog; a catalog connection that `capabilities.connections` does not name is not shown.
 - Keep the whole answer under 8 KB.
 - The app waits at most 750 ms for this answer when an agent looks for tools: past that, the agent
   gets no connection tools in that search, and the answer, when it comes, is kept for the next one.
@@ -162,6 +174,7 @@ the token.
         { "id": "call", "title": "Call", "effect": "read", "pricing": { "unit": "call", "basis": "metered" } }
       ],
       "items": { "count": 312 },
+      "platforms": [{ "id": "google-ads", "name": "Google Ads", "group": "seo", "endpoints": 6 }],
       "dataPolicy": { "vendor": "treg.to", "region": "us", "retentionDays": 0 },
       "access": [
         {
@@ -196,6 +209,7 @@ the token.
 | Field | Rule |
 | --- | --- |
 | `name` | At most 60 characters. `tagline` at most 120. `description` (optional) at most 2,000: what the connection gives, on its Marketplace page. |
+| `platforms` | Optional, `tool-catalog` only. The platforms of the vendor catalog that the organization allows, at most 40: `id` (a platform slug, `^[a-z0-9][a-z0-9._-]{0,63}$`, unique), `name` (plain text, at most 60 characters), `group` (`seo`, `enrichment`, `reviews`, `market`, `research`, `developer`, `community`, `commerce`, `social`, `advertising`, `generation`, `other`) and `endpoints` (an integer ≥ 1). The app makes one tile of the Apps tab of each one. A row that breaks a rule is dropped alone, a second row with the same `id` is dropped, an unknown `group` reads as `other`, and the app keeps the first 40. |
 | `dataPolicy` | `vendor`: the name that the page shows as "Provided by {vendor}" and in "Where the data goes" (`treg.to`, at most 120 characters). `region`: a code (`us`); the app writes `us` as "USA" in the reader's language and shows any other value as it is. `retentionDays`: the retention that Cultura Builder declares, or `null`. |
 | `operations[].effect` | `read` or `external`. An operation with another value, or another `pricing.unit` (`call`, `page`, `result`, `1k_tokens`) or `pricing.basis` (`fixed`, `metered`), is hidden. Phase 1 and 2: `read` only. |
 | `access[].org` | `enabled`, `not_enabled`, `not_in_plan`, `paused`, `revoked`. |
@@ -444,6 +458,10 @@ retries by itself).
 
 ### 6.4 Cost approval (`confirm_cost`)
 
+The person approves a cost on a page of the Hub. The Hub does not trust an approval that the app
+declares (security fix of 2026-11-01): a `confirmationId` opens a call only after the person
+approved it on that page.
+
 When the estimate is above `confirmAboveMicros` and the body has no valid `confirmationId`:
 
 ```json
@@ -457,9 +475,32 @@ When the estimate is above `confirmAboveMicros` and the body has no valid `confi
 - Accept it only when all five match and the new estimate is not higher. Else answer
   `409 { "error": "input_refused", "reason": "confirmation_invalid", "field": "confirmationId" }`.
   A used or expired id gets the same answer.
-- The app shows the card to the person, and sends the id once, after the click, with
-  `maxCostMicros` equal to the approved estimate. A routine or a turn that another agent started
-  gets a refusal and no card. The agent never sees the id.
+- The approval page is `https://hub.culturabuilder.com/builder-ai/conexoes/aprovar/<confirmationId>`
+  (the id URL-encoded). The person signs in to the Hub there, sees the endpoint, the amount and the
+  organization, and approves or denies. Only the person of the confirmation may decide.
+- The app shows a card that says the approval is on the Hub. After **Allow**, it opens the approval
+  page in the person's default browser, and reads the state (section 6.4.1) every 2 seconds, until a
+  final state, `expiresAt` (at most 5 minutes) or the end of the turn. After `approved`, it sends the
+  call once, with the id and `maxCostMicros` equal to the approved estimate. After `denied`,
+  `expired`, `used` or the deadline it sends nothing. A routine or a turn that another agent started
+  gets a refusal, no card and no page. The agent never sees the id or the page URL.
+- A call with a `confirmationId` that passes the checks above, but that the person has not approved:
+  `409 { "error": "not_allowed", "reason": "confirmation_not_approved" }`; one that the person
+  denied: `409 { "error": "not_allowed", "reason": "confirmation_denied" }`. The app reads both as a
+  refusal with no new card.
+
+#### 6.4.1 `GET /api/builder-ai/proxy/v1/connections/tool-catalog/confirmations/<confirmationId>`
+
+Proxy token of the organization of the confirmation. Answer `200`, at most 4 KB:
+
+```json
+{ "confirmationId": "cf_…", "state": "pending", "expiresAt": "2026-10-31T15:06:00Z" }
+```
+
+`state` is `pending`, `approved`, `denied`, `expired` (after `expiresAt`) or `used` (after the one
+call that the Hub accepted). An unknown id, or an id of another organization or person, gets an
+`{ "error": … }` body (`404 { "error": "not_found" }` in the fake), and the app stops waiting with a
+refusal. The app reads only this route, never a list of confirmations.
 
 ### 6.5 Errors
 
@@ -651,10 +692,22 @@ In addition to the PROXY §12.1 tables (`connection_plan`, `ledger_entry`, count
 3. A team daily cap that is never `0` (0 means no limit).
 4. The nightly check of these settings pauses the connection when one changes.
 
+## 12.1 Pages of the Hub that the app opens
+
+The app opens only these pages, in the person's default browser, from the main process:
+
+| Page | When |
+| --- | --- |
+| `https://hub.culturabuilder.com/builder-ai/conexoes/aprovar/<confirmationId>` | The person allowed the cost card (section 6.4). |
+| `https://hub.culturabuilder.com/builder-ai/conexoes` | "Open the Hub" on the connection page, when this app has no `builder-proxy` consent of an organization (`consented: false`). The person allows it there, then refreshes the page. |
+
 ## 13. How the app checks this contract
 
 `bun scripts/hub-connections-call-e2e.ts` runs the real app modules against `scripts/fake-hub/`
 and writes `.buildersbot-build/hub-connections/tool-catalog.json`. `bun scripts/hub-connections-usage-e2e.ts`
 checks the catalog fields of the page, `/usage` and the access requests of section 10.1, and writes
-`.buildersbot-build/hub-connections/usage.json`. The fake Hub follows this document; the Hub team can
-read it as a reference implementation of sections 2 to 10.
+`.buildersbot-build/hub-connections/usage.json`. `bun scripts/hub-connections-treg-live-e2e.ts` checks
+the fixed client of section 2.0, the `platforms` of section 4, the approval on the Hub of section 6.4
+and the pages of section 12.1, and writes `.buildersbot-build/hub-connections/treg-live.json`. The fake
+Hub follows this document; the Hub team can read it as a reference implementation of sections 2 to
+10.

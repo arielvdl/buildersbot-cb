@@ -474,9 +474,15 @@ export interface AgentServiceOptions {
   /**
    * The Hub connections of the Cultura Builder session (`openbot_connections`). `fetch` is for tests
    * only: production always reaches the Hub origin. `enabled` is the setting of this computer;
-   * omitted, on. Null turns the tools off for this service.
+   * omitted, on. `openHub` opens a page of the Hub in the person's browser (main's
+   * `shell.openExternal`): the cost approval page and the consent page. Omitted, no page opens, so no
+   * cost can be approved. Null turns the tools off for this service.
    */
-  hubConnections?: { readonly fetch?: typeof fetch; readonly enabled?: () => boolean } | null;
+  hubConnections?: {
+    readonly fetch?: typeof fetch;
+    readonly enabled?: () => boolean;
+    readonly openHub?: (url: string) => Promise<void>;
+  } | null;
   /**
    * The memory of a server, or `null` on a desktop computer. With it, no new turn starts
    * while memory is low, and only a fixed number of turns run at the same time.
@@ -1651,6 +1657,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
             ...(hubConnections.fetch ? { fetch: hubConnections.fetch } : {}),
           }),
           ...(hubConnections.enabled ? { enabledOnComputer: hubConnections.enabled } : {}),
+          ...(hubConnections.openHub ? { openHub: hubConnections.openHub } : {}),
           agentConnectionsOff: (agentId) =>
             store.list().find((candidate) => candidate.id === agentId)?.connectionsOff ?? [],
         })
@@ -5625,6 +5632,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#hubConnections
       ? this.#hubConnections.choosePayerFor(input.connectionId, input.orgId)
       : this.hubConnectionsView();
+  }
+
+  /**
+   * Opens the connections page of the Hub in the person's browser, where the person allows this app
+   * to spend an organization's connections. The URL is fixed in the main process.
+   */
+  openHubConsent(): Effect.Effect<void> {
+    return this.#hubConnections ? this.#hubConnections.openConsent() : Effect.void;
   }
 
   /** The person asks the admins of an organization for access to a connection, or for more money. */

@@ -1,6 +1,7 @@
 import type {
   BuildersBotDesktopApi,
   HubConnectionAccessView,
+  HubConnectionPlatform,
   HubConnectionsView,
   HubConnectionUsageView,
   HubConnectionView,
@@ -22,13 +23,47 @@ const TEXT = {
     name: "Tool catalog",
     tagline: "Paid external data, with a monthly limit for each person",
     categories: ["SEO and keywords", "Company data", "App stores", "Reviews", "Open web"],
+    platforms: {
+      appStores: "App stores",
+      companyData: "Company data",
+      marketData: "Market data",
+      openWeb: "Open web",
+      imageTools: "Image tools",
+      developerData: "Developer data",
+      adsLibrary: "Ads library",
+    },
   },
   pt: {
     name: "Catálogo de ferramentas",
     tagline: "Dados externos pagos, com teto mensal por pessoa",
     categories: ["SEO e palavras-chave", "Dados de empresas", "Lojas de apps", "Avaliações", "Web aberta"],
+    platforms: {
+      appStores: "Lojas de apps",
+      companyData: "Dados de empresas",
+      marketData: "Dados de mercado",
+      openWeb: "Web aberta",
+      imageTools: "Ferramentas de imagem",
+      developerData: "Dados para devs",
+      adsLibrary: "Biblioteca de anúncios",
+    },
   },
 } as const;
+
+/** The platforms of the tool catalog in the stories: one or more in each category that the tiles fill. */
+function storyPlatforms(locale: "en" | "pt"): HubConnectionPlatform[] {
+  const names = TEXT[locale].platforms;
+  return [
+    { id: "google-ads", name: "Google Ads", group: "seo", endpoints: 6 },
+    { id: "app-store", name: names.appStores, group: "reviews", endpoints: 3 },
+    { id: "trustpilot", name: "Trustpilot", group: "reviews", endpoints: 1 },
+    { id: "company-data", name: names.companyData, group: "enrichment", endpoints: 5 },
+    { id: "market-data", name: names.marketData, group: "market", endpoints: 4 },
+    { id: "open-web", name: names.openWeb, group: "research", endpoints: 7 },
+    { id: "image-tools", name: names.imageTools, group: "generation", endpoints: 2 },
+    { id: "developer-data", name: names.developerData, group: "developer", endpoints: 3 },
+    { id: "ads-library", name: names.adsLibrary, group: "advertising", endpoints: 2 },
+  ];
+}
 
 const RESETS_AT = "2026-12-01T03:00:00.000Z";
 const AS_OF = "2026-11-18T14:05:00.000Z";
@@ -106,6 +141,7 @@ export function storyToolCatalogView(state: StoryConnectionState, locale: "en" |
     payer,
     payerOrgId: payer === "pay" ? "org_a" : null,
     enabled: state !== "paused" && state !== "pausedUnused",
+    platforms: storyPlatforms(locale),
   };
 }
 
@@ -183,5 +219,7 @@ export function createMockHubConnections(
       return structuredClone(view);
     },
     requestAccess: async () => ({ status: "sent", requestedAt: new Date().toISOString(), failure: null }),
+    // The preview has no Hub and no browser of the person: the page stays as it is.
+    openConsent: async () => undefined,
   };
 }

@@ -12,6 +12,7 @@
 import { createHash } from "node:crypto";
 import {
   decodeHubAccessRequestAnswer,
+  decodeHubConfirmationStatus,
   decodeHubConnectionCatalog,
   decodeHubConnectionUsage,
   decodeHubError,
@@ -29,6 +30,7 @@ import {
   HUB_PROXY_SCOPE,
   type HubAccessRequestAnswer,
   type HubAccessRequestKind,
+  type HubConfirmationStatus,
   type HubConnectionCatalog,
   type HubConnectionUsage,
   type HubErrorAnswer,
@@ -319,6 +321,30 @@ export class HubConnectionClient {
           HUB_CONNECTIONS_LIMITS.usageBytes,
         );
         return this.#outcome(status, value, decodeHubConnectionUsage);
+      },
+      catch: failure,
+    }),
+  );
+
+  /**
+   * The state of a cost approval that the person gives on the Hub page, with the proxy token of the
+   * organization that pays. The id stays in this process: it goes only into the path of this route.
+   */
+  readonly confirmation = Effect.fn("HubConnectionClient.confirmation")((orgId: string, confirmationId: string) =>
+    Effect.tryPromise({
+      try: async (): Promise<HubOperationOutcome<HubConfirmationStatus>> => {
+        const { status, value } = await this.#proxyRequest(
+          orgId,
+          HUB_CONNECTIONS_PATHS.confirmation(TOOL_CATALOG_CONNECTION_ID, confirmationId),
+          "GET",
+          undefined,
+          HUB_CONNECTIONS_LIMITS.confirmationBytes,
+        );
+        const outcome = this.#outcome(status, value, decodeHubConfirmationStatus);
+        // An answer about another confirmation is outside the contract.
+        if (outcome.kind === "answer" && outcome.answer.confirmationId !== confirmationId)
+          throw new HubRequestFailed("hub_unavailable", status);
+        return outcome;
       },
       catch: failure,
     }),

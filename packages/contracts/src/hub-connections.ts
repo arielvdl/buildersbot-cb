@@ -36,6 +36,19 @@ export const HUB_CONNECTIONS_PATHS = {
     `/api/builder-ai/proxy/v1/connections/${connectionId}/${operation}`,
   /** The person asks the organization's admins for access, or for more money in this period. */
   accessRequests: (connectionId: string) => `/api/builder-ai/proxy/v1/connections/${connectionId}/access-requests`,
+  /** The state of one cost approval, which the person gives on the Hub page (`HUB_PAGES.approval`). */
+  confirmation: (connectionId: string, confirmationId: string) =>
+    `/api/builder-ai/proxy/v1/connections/${connectionId}/confirmations/${encodeURIComponent(confirmationId)}`,
+} as const;
+
+/**
+ * Pages of the Hub that the app opens in the person's browser, on the Hub origin. Only these two:
+ * the person approves a cost on the page of its confirmation, and allows this app to spend an
+ * organization's connections on the connections page.
+ */
+export const HUB_PAGES = {
+  connections: "/builder-ai/conexoes",
+  approval: (confirmationId: string) => `/builder-ai/conexoes/aprovar/${encodeURIComponent(confirmationId)}`,
 } as const;
 
 /** The scope that the app asks for in a proxy token request. */
@@ -71,6 +84,11 @@ export const HUB_CONNECTIONS_LIMITS = {
   /** The categories of the vendor catalog that an organization allows, by name. */
   categories: 40,
   categoryChars: 60,
+  /** The platforms of the vendor catalog that a connection lists, for the Apps tab. */
+  platforms: 40,
+  platformNameChars: 60,
+  /** A confirmation status answer. */
+  confirmationBytes: 4 * 1024,
   /** An access request answer. */
   accessRequestBytes: 4 * 1024,
   paramsBytes: 4 * 1024,
@@ -365,6 +383,37 @@ export interface HubConnectionAccess {
   moreRequestedAt: string | null;
 }
 
+/**
+ * The groups of the vendor catalog's platforms. The Apps tab puts each platform in a category by its
+ * group. A group that this version does not know reads as `other`.
+ */
+export const HUB_PLATFORM_GROUPS = [
+  "seo",
+  "enrichment",
+  "reviews",
+  "market",
+  "research",
+  "developer",
+  "community",
+  "commerce",
+  "social",
+  "advertising",
+  "generation",
+  "other",
+] as const;
+export type HubPlatformGroup = (typeof HUB_PLATFORM_GROUPS)[number];
+
+/** One platform of the vendor catalog that the organization allows: Google Ads, App stores. */
+export interface HubConnectionPlatform {
+  /** A vendor slug, unique in the connection. */
+  id: string;
+  /** Plain text, at most 60 characters. */
+  name: string;
+  group: HubPlatformGroup;
+  /** How many endpoints of the platform the organization allows. At least 1. */
+  endpoints: number;
+}
+
 export interface HubConnectionEntry {
   id: string;
   name: string;
@@ -375,6 +424,8 @@ export interface HubConnectionEntry {
   itemsCount: number;
   dataPolicy: { vendor: string; region: string; retentionDays: number | null };
   access: HubConnectionAccess[];
+  /** The platforms of the connection, for the Apps tab. Empty when the Hub sends none. */
+  platforms: HubConnectionPlatform[];
 }
 
 export interface HubConnectionCatalog {
@@ -468,6 +519,32 @@ function decodeAccess(value: unknown): HubConnectionAccess | null {
   };
 }
 
+/** One platform, or null for a row that breaks a rule. An unknown group reads as `other`. */
+export function decodeHubConnectionPlatform(value: unknown): HubConnectionPlatform | null {
+  if (!isDynamicRecord(value) || !matches(VENDOR_SLUG, value.id)) return null;
+  if (!isHubPlainText(value.name, HUB_CONNECTIONS_LIMITS.platformNameChars) || value.name.trim() === "") return null;
+  if (!intIn(value.endpoints, 1, 1_000_000)) return null;
+  return {
+    id: value.id,
+    name: value.name,
+    group: oneOf(HUB_PLATFORM_GROUPS, value.group) ? value.group : "other",
+    endpoints: value.endpoints,
+  };
+}
+
+/** The platforms of a connection: each valid row once, by id, at most 40. Anything else gives none. */
+function decodePlatforms(value: unknown): HubConnectionPlatform[] {
+  if (!Array.isArray(value)) return [];
+  const platforms: HubConnectionPlatform[] = [];
+  for (const row of value) {
+    const platform = decodeHubConnectionPlatform(row);
+    if (!platform || platforms.some((kept) => kept.id === platform.id)) continue;
+    platforms.push(platform);
+    if (platforms.length === HUB_CONNECTIONS_LIMITS.platforms) break;
+  }
+  return platforms;
+}
+
 function decodeConnection(value: unknown): HubConnectionEntry | null {
   if (!isDynamicRecord(value) || !isHubConnectionId(value.id)) return null;
   if (!isHubPlainText(value.name, HUB_CONNECTIONS_LIMITS.nameChars)) return null;
@@ -497,6 +574,7 @@ function decodeConnection(value: unknown): HubConnectionEntry | null {
       retentionDays: intIn(policy.retentionDays, 0, 3650) ? policy.retentionDays : null,
     },
     access,
+    platforms: decodePlatforms(value.platforms),
   };
 }
 
@@ -979,6 +1057,34 @@ export function decodeToolCatalogCallOutcome(value: unknown): ToolCatalogCallOut
   if ("needsPerson" in value) return decodeHubNeedsPerson(value);
   if ("error" in value) return decodeHubError(value);
   return decodeToolCatalogCallAnswer(value);
+}
+
+// --- GET /connections/{id}/confirmations/{confirmationId} ---------------------------------------
+
+/**
+ * The states of a cost approval. The person approves or denies on the Hub page of the confirmation;
+ * the Hub sets `expired` after `expiresAt`, and `used` after the one call that it accepted.
+ */
+export const HUB_CONFIRMATION_STATES = ["pending", "approved", "denied", "expired", "used"] as const;
+export type HubConfirmationState = (typeof HUB_CONFIRMATION_STATES)[number];
+
+/**
+ * The reasons of a `not_allowed` answer to a call that carries a confirmation id: the person has not
+ * approved it on the Hub, or denied it. The Hub decides the approval, never the app.
+ */
+export const HUB_CONFIRMATION_REFUSALS = ["confirmation_not_approved", "confirmation_denied"] as const;
+
+export interface HubConfirmationStatus {
+  confirmationId: string;
+  state: HubConfirmationState;
+  expiresAt: string;
+}
+
+/** A status answer, or null when it is outside the contract. */
+export function decodeHubConfirmationStatus(value: unknown): HubConfirmationStatus | null {
+  if (!isDynamicRecord(value) || !isHubConfirmationId(value.confirmationId)) return null;
+  if (!oneOf(HUB_CONFIRMATION_STATES, value.state) || !timestamp(value.expiresAt)) return null;
+  return { confirmationId: value.confirmationId, state: value.state, expiresAt: value.expiresAt };
 }
 
 // --- GET /usage ---------------------------------------------------------------------------------

@@ -20,7 +20,14 @@ export const CULTURA_BUILDER_PROVIDER = "cultura-builder" as const;
 export const CULTURA_BUILDER_HUB = "https://hub.culturabuilder.com";
 export const CULTURA_BUILDER_GATEWAY = `${CULTURA_BUILDER_HUB}/api/builder-ai/gateway/v1`;
 
-const REGISTER_PATH = "/api/mcp-oauth/register";
+/**
+ * The public OAuth client of Builders Bot on the Hub (client name "Builders Bot"). It is not a
+ * secret: the device flow of a public client sends it in the clear. It is fixed, so the Hub can list
+ * it for the proxy routes and give its sign-ins the refresh family that a proxy token needs. Before,
+ * each sign-in registered a new client, which the Hub could never list. Every build uses it.
+ */
+export const CULTURA_BUILDER_CLIENT_ID = "28244c0a-7d6b-4256-be9b-9933cf0e6e94";
+
 const DEVICE_PATH = "/api/mcp-oauth/device";
 const TOKEN_PATH = "/api/mcp-oauth/token";
 const REVOKE_PATH = "/api/mcp-oauth/revoke";
@@ -77,8 +84,7 @@ export type CulturaBuilderTokenPoll =
 
 type Fetcher = typeof fetch;
 
-/** What the Hub answers to a register, a device authorization, a token and a session read. */
-const RegisteredClient = Schema.Struct({ client_id: Schema.String });
+/** What the Hub answers to a device authorization, a token and a session read. */
 const DeviceAuthorization = Schema.Struct({
   device_code: Schema.String,
   user_code: Schema.String,
@@ -171,36 +177,16 @@ async function readJson<S extends Schema.ConstraintDecoder<unknown>>(
   return decodeJson(text, schema);
 }
 
-/** Registers the device client. The Hub's MCP register requires a redirect that this flow never uses. */
-async function registerClient(fetcher: Fetcher): Promise<string> {
-  const response = await fetcher(`${CULTURA_BUILDER_HUB}${REGISTER_PATH}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      client_name: "Builders Bot",
-      redirect_uris: ["http://127.0.0.1:0/callback"],
-      token_endpoint_auth_method: "none",
-    }),
-    redirect: "error",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  const value = await readJson(response, RegisteredClient);
-  if (!response.ok || !value) {
-    throw new Error(`Cultura Builder client registration failed (${response.status})`);
-  }
-  return value.client_id;
-}
-
 /**
- * Starts the sign-in: registers a client, asks for a code, and returns what the dialog shows. The
- * caller polls with `pollCulturaBuilderToken`.
+ * Starts the sign-in: asks for a code for the fixed client of Builders Bot, and returns what the
+ * dialog shows. The caller polls with `pollCulturaBuilderToken`.
  */
 export function startCulturaBuilderSignIn(
   fetcher: Fetcher = fetch,
 ): Effect.Effect<CulturaBuilderDeviceCode, ProviderClientOperationError> {
   return Effect.tryPromise({
     try: async () => {
-      const clientId = await registerClient(fetcher);
+      const clientId = CULTURA_BUILDER_CLIENT_ID;
       const response = await fetcher(`${CULTURA_BUILDER_HUB}${DEVICE_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },

@@ -40,6 +40,9 @@ const RELEASED_SOURCE_KEYS = new Set([
   "error.backend.taskOpenLimitReached",
   "error.backend.taskRemoteUnsupported",
   "error.backend.taskMoveRefused",
+  // Hosts before the cost approval on the Hub send these on the cost card of a connection call.
+  "status.agent.connectionConfirmCost",
+  "status.agent.connectionConfirmCostPersonal",
 ]);
 
 const logger = createBuildersBotLogger("i18n-check");

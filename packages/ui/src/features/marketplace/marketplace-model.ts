@@ -1,5 +1,6 @@
 import type {
   ClientAgentSummary,
+  HubConnectionPlatform,
   HubConnectionView,
   InstalledSkill,
   MarketplaceAgentDetail,
@@ -64,9 +65,10 @@ export interface MarketplaceAppConnection {
 
 /**
  * One row of the Apps tab: a catalog app, a connector that the server can run, an MCP server
- * that the host holds and no catalog app claims, or a Hub connection of Cultura Builder. A
- * connector's `id` is its `ConnectorId`, and a Hub connection's `id` is its connection id. A
- * plugin's `connections` are keyed by the id of each app in the listing.
+ * that the host holds and no catalog app claims, a Hub connection of Cultura Builder, or one
+ * platform of a Hub connection. A connector's `id` is its `ConnectorId`, a Hub connection's `id` is
+ * its connection id, and a platform's `id` is `<connection id>:<platform id>`, which no catalog slug
+ * can be. A plugin's `connections` are keyed by the id of each app in the listing.
  */
 export type MarketplaceApp =
   | (AppBase & {
@@ -77,7 +79,17 @@ export type MarketplaceApp =
     })
   | (AppBase & { kind: "connector"; connector: ConnectorId; category: SkillCategory })
   | (AppBase & { kind: "custom"; server: McpServerConfig })
-  | (AppBase & { kind: "connection"; category: SkillCategory; connection: HubConnectionView });
+  | (AppBase & { kind: "connection"; category: SkillCategory; connection: HubConnectionView })
+  /**
+   * A platform of a Hub connection, such as Google Ads of the tool catalog: a tile in the category of
+   * its group, with the status of its connection. It installs nothing; it opens the connection's page.
+   */
+  | (AppBase & {
+      kind: "connection-platform";
+      category: SkillCategory;
+      connectionId: string;
+      platform: HubConnectionPlatform;
+    });
 
 /**
  * How an app connects. The category says which page parts an app reuses: a channel shows its
@@ -119,6 +131,7 @@ export function appSetup(app: MarketplaceApp): AppSetup {
     case "custom":
       return "custom";
     case "connection":
+    case "connection-platform":
       // Nothing to sign in to on this computer: the key stays in the Cultura Builder Hub.
       return "open";
   }

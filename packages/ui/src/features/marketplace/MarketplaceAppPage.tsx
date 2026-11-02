@@ -592,7 +592,14 @@ export function MarketplaceAppPage(props: { scope: MarketplaceScope; id: string 
     return current?.kind === "custom" ? current : undefined;
   };
   const connection = () => {
-    const current = app();
+    const found = app();
+    // A link to a platform's tile opens the page of its connection.
+    const current =
+      found?.kind === "connection-platform"
+        ? model()
+            .apps()
+            .find((entry) => entry.id === found.connectionId)
+        : found;
     const connections = model().connections;
     return current?.kind === "connection" && connections ? { app: current, connections } : undefined;
   };

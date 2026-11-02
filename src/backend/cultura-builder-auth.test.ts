@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { providerFailureStatus } from "./agent/provider-status";
 import {
+  CULTURA_BUILDER_CLIENT_ID,
   ensureCulturaBuilderToken,
   pollCulturaBuilderToken,
   readCulturaBuilderAccess,
@@ -76,18 +77,20 @@ describe("sessionIsFresh", () => {
 });
 
 describe("startCulturaBuilderSignIn", () => {
-  it("registers a client and asks for a code", async () => {
-    const { fetcher, calls } = hub([{ body: { client_id: "client-1" } }, { body: DEVICE }]);
+  it("asks for a code for the fixed client, with no registration", async () => {
+    const { fetcher, calls } = hub([{ body: DEVICE }]);
     const flow = await Effect.runPromise(startCulturaBuilderSignIn(fetcher));
     expect(flow.userCode).toBe("ABCD-EFGH");
     expect(flow.verificationUrlComplete).toContain("ABCD-EFGH");
-    expect(flow.clientId).toBe("client-1");
-    expect(calls[0]?.url).toContain("/api/mcp-oauth/register");
-    expect(String(calls[1]?.init?.body)).toContain("scope=builder-ai");
+    expect(flow.clientId).toBe(CULTURA_BUILDER_CLIENT_ID);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain("/api/mcp-oauth/device");
+    expect(String(calls[0]?.init?.body)).toContain("scope=builder-ai");
+    expect(String(calls[0]?.init?.body)).toContain(`client_id=${CULTURA_BUILDER_CLIENT_ID}`);
   });
 
   it("fails when the Hub answers without a code", async () => {
-    const { fetcher } = hub([{ body: { client_id: "client-1" } }, { status: 400, body: { error: "invalid" } }]);
+    const { fetcher } = hub([{ status: 400, body: { error: "invalid" } }]);
     const result = await Effect.runPromise(Effect.result(startCulturaBuilderSignIn(fetcher)));
     expect(result._tag).toBe("Failure");
   });

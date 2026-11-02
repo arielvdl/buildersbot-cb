@@ -4,6 +4,7 @@
 // confirmation id, no Hub URL. The decoders of the preload check each value again.
 
 import type {
+  HubConnectionCapability,
   HubConnectionCatalog,
   HubConnectionEntry,
   HubConnectionUsage,
@@ -54,24 +55,27 @@ function connectionView(
     payer: decision.kind,
     payerOrgId: decision.kind === "pay" ? decision.access.orgId : null,
     enabled,
+    platforms: entry.platforms.map((platform) => ({ ...platform })),
   };
 }
 
 /**
- * The connections of the catalog for the Marketplace. `enabled` is the `/session` capability of each
- * connection; `anchor` is the organization that the person chose, or that paid the last call.
+ * The connections of the catalog for the Marketplace. `capability` is the `/session` entry of each
+ * connection: a connection with none is not on for the account, so it is left out. `anchor` is the
+ * organization that the person chose, or that paid the last call.
  */
 export function connectionsView(
   catalog: HubConnectionCatalog,
-  enabled: (connectionId: string) => boolean,
+  capability: (connectionId: string) => HubConnectionCapability | undefined,
   anchor: (connectionId: string) => string | null,
   readAt: string,
 ): HubConnectionsView {
   return {
     status: "ready",
-    connections: catalog.connections.map((entry) =>
-      connectionView(entry, catalog.orgs, anchor(entry.id), enabled(entry.id)),
-    ),
+    connections: catalog.connections.flatMap((entry) => {
+      const known = capability(entry.id);
+      return known ? [connectionView(entry, catalog.orgs, anchor(entry.id), known.enabled)] : [];
+    }),
     readAt,
   };
 }

@@ -9,6 +9,7 @@ import {
   AlertTitle,
   Badge,
   Button,
+  ExternalLink,
   Info,
   Item,
   ItemActions,
@@ -251,6 +252,10 @@ export function MarketplaceConnectionPage(props: {
   };
   const agentOn = (connectionsOff: readonly string[]) => !connectionsOff.includes(view().id);
   const busy = () => props.connections.busy(view().id);
+  /** The organizations that turned the connection on for the person, where this app has no consent yet. */
+  const needsConsent = () =>
+    view().enabled &&
+    view().access.some((access) => access.org === "enabled" && access.user === "allowed" && !access.consented);
 
   return (
     <IntegrationPage
@@ -295,6 +300,32 @@ export function MarketplaceConnectionPage(props: {
                 <AlertTitle>{t("marketplace.connection.choose.title")}</AlertTitle>
                 <AlertDescription>{t("marketplace.connection.choose.description")}</AlertDescription>
               </AlertContent>
+            </Alert>
+          </Show>
+          <Show when={needsConsent() && props.connections.openConsent !== undefined}>
+            <Alert tone="warning" role="alert" report={false}>
+              <AlertIcon>
+                <Info />
+              </AlertIcon>
+              <AlertContent>
+                <AlertTitle>{t("marketplace.connection.consent.title")}</AlertTitle>
+                <AlertDescription>{t("marketplace.connection.consent.description")}</AlertDescription>
+              </AlertContent>
+              <AlertActions>
+                <Button type="button" size="sm" onClick={() => void props.connections.openConsent?.()}>
+                  <ExternalLink aria-hidden="true" />
+                  {t("marketplace.connection.consent.open")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  loading={busy()}
+                  onClick={() => props.connections.refresh()}
+                >
+                  {t("marketplace.connection.refreshShort")}
+                </Button>
+              </AlertActions>
             </Alert>
           </Show>
           <Show when={view().enabled ? row() : undefined}>

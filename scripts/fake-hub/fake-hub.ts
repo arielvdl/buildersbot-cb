@@ -4,9 +4,12 @@
 // admin route). It keeps the session, the proxy tokens, the ledger with caps, the cost approvals and
 // a log of every request, so a check can prove what the app sent and what the vendor received.
 //
-// It follows the contract as the Hub team must build it: the closed outbound header list to the
-// vendor, the reservation and the cap before the vendor call, the 80 % mark, confirm_cost bound to the
-// body, choose_org for a person who left the organization, the kill switch, and the error mapping.
+// It follows the contract as the Hub team must build it: the device sign-in that gives the refresh
+// family only to the fixed client of Builders Bot, the `platforms` of the catalog, the closed outbound
+// header list to the vendor, the reservation and the cap before the vendor call, the 80 % mark,
+// confirm_cost bound to the body and approved only on the Hub page (with its status route and the
+// `not_allowed` reasons), choose_org for a person who left the organization, the kill switch, and the
+// error mapping.
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
@@ -24,6 +27,39 @@ const VENDOR_BODY_LIMIT = 2 * 1024 * 1024;
 const CONTENT_CHARS = 200_000;
 const CONNECTION = "tool-catalog";
 const PROXY_RESOURCE = "https://hub.culturabuilder.com/api/builder-ai/proxy";
+/**
+ * The fixed public OAuth client of Builders Bot. The Hub lists it for the proxy, so only a sign-in
+ * with it gets the refresh family that proxy tokens need. A client that `/register` makes gets an
+ * access token only.
+ */
+export const FAKE_HUB_CLIENT_ID = "28244c0a-7d6b-4256-be9b-9933cf0e6e94";
+const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+const CONFIRMATION_PATH = /^\/api\/builder-ai\/proxy\/v1\/connections\/tool-catalog\/confirmations\/([^/]{1,256})$/u;
+
+/** The name and group of each platform of the fake mirror, as the Hub's curated list says them. */
+const PLATFORM_INFO: Readonly<Record<string, { readonly name: string; readonly group: string }>> = {
+  "google-ads": { name: "Google Ads", group: "seo" },
+  "open-web": { name: "Web aberta", group: "research" },
+  "company-data": { name: "Dados de empresas", group: "enrichment" },
+  "app-store": { name: "Lojas de apps", group: "reviews" },
+  "market-data": { name: "Dados de mercado", group: "market" },
+  "people-data": { name: "Pessoas e contatos", group: "enrichment" },
+  "ai-judgment": { name: "Classificação por IA", group: "generation" },
+  "ads-data": { name: "Dados de anúncios", group: "advertising" },
+  "test-clean": { name: "Ferramentas de teste", group: "developer" },
+  "test-errors": { name: "Erros de teste", group: "developer" },
+};
+
+/** One platform of the catalog entry (`platforms` of the contract). */
+export interface FakePlatform {
+  readonly id: string;
+  readonly name: string;
+  readonly group: string;
+  readonly endpoints: number;
+}
+
+/** The states of a cost approval on the Hub page. `expired` and `used` follow from the clock and the call. */
+export type FakeConfirmationState = "pending" | "approved" | "denied";
 
 export interface FakeOrg {
   readonly id: string;
@@ -116,6 +152,27 @@ export interface FakeHub {
   advance(ms: number): void;
   /** A proxy token, as the app gets one, for the checks that call the fake directly. */
   proxyToken(orgId: string | null): Promise<string>;
+  /**
+   * The `platforms` of the catalog entry: `"derived"` (the default) lists the platforms of the
+   * allowed rows; a list sends those values as they are, also malformed ones; null leaves the field
+   * out, as an older Hub does.
+   */
+  setPlatforms(rows: "derived" | readonly unknown[] | null): void;
+  /** The platforms that `"derived"` sends. */
+  platforms(): FakePlatform[];
+  /**
+   * False: `/session` has no `capabilities` (the organization did not turn a connection on), and a
+   * proxy token request gets `connections_disabled`.
+   */
+  setCapabilities(on: boolean): void;
+  /** The person approves or denies a cost on the Hub page of the confirmation. */
+  decideConfirmation(id: string, state: FakeConfirmationState): void;
+  /** The confirmation ends now, as one that nobody approved in its 5 minutes. */
+  expireConfirmation(id: string): void;
+  /** The status route says this state for the id, whatever its real state is: a Hub race. Null: the real one. */
+  sayConfirmationState(id: string, state: string | null): void;
+  /** Each read of the status route: the id, the organization of the token and the state that the fake gave. */
+  readonly confirmationReads: Array<{ readonly id: string; readonly orgId: string; readonly state: string }>;
   close(): Promise<void>;
 }
 
@@ -277,8 +334,12 @@ interface Confirmation {
   readonly endpointId: string;
   readonly bodyHash: string;
   readonly estimateMicros: number;
-  readonly expiresAt: number;
+  expiresAt: number;
   used: boolean;
+  /** What the person chose on the Hub page. The Hub accepts the id on a call only after `approved`. */
+  state: FakeConfirmationState;
+  /** A state that the status route says instead of the real one. */
+  said: string | null;
 }
 
 interface Idempotent {
@@ -342,6 +403,11 @@ export async function startFakeHub(): Promise<FakeHub> {
   const REQUEST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
   let pausedReason: string | null = null;
   let connectionsUsage = true;
+  let capabilitiesOn = true;
+  let platformRows: "derived" | readonly unknown[] | null = "derived";
+  /** The device codes of the sign-ins that wait, with the client that asked for each. */
+  const devices = new Map<string, string>();
+  const confirmationReads: Array<{ id: string; orgId: string; state: string }> = [];
   let down: "drop" | "hang" | number | null = null;
   const hanging = new Set<ServerResponse>();
   let ledger = 0;
@@ -349,6 +415,17 @@ export async function startFakeHub(): Promise<FakeHub> {
   const allowed = VENDOR_ROWS.filter((row) => row.skipHubAdmission === true || failedRule(row) === null);
   const allowedRow = (id: unknown) => allowed.find((row) => row.endpointId === id) ?? null;
   const cheapestUnit = Math.min(...allowed.map((row) => toBrl(row.unitPriceMicroUsd ?? 0)));
+  /** One platform per platform of the allowed rows, with the count of its endpoints, in the mirror's order. */
+  const derivedPlatforms = (): FakePlatform[] => {
+    const counts = new Map<string, number>();
+    for (const row of allowed) counts.set(row.platform, (counts.get(row.platform) ?? 0) + 1);
+    return [...counts].map(([id, endpoints]) => ({
+      id,
+      name: PLATFORM_INFO[id]?.name ?? id,
+      group: PLATFORM_INFO[id]?.group ?? "other",
+      endpoints,
+    }));
+  };
 
   const available = (org: FakeOrg) => Math.max(0, org.capMicros - org.settledMicros - org.reservedMicros);
   const state = (org: FakeOrg) =>
@@ -419,6 +496,9 @@ export async function startFakeHub(): Promise<FakeHub> {
             { id: "call", title: "Call", effect: "read", pricing: { unit: "call", basis: "metered" } },
           ],
           items: { count: allowed.length },
+          ...(platformRows === null
+            ? {}
+            : { platforms: platformRows === "derived" ? derivedPlatforms() : platformRows }),
           dataPolicy: { vendor: "treg.to", region: "us", retentionDays: 0 },
           access: rows.map((org) => ({
             orgId: org.id,
@@ -497,6 +577,8 @@ export async function startFakeHub(): Promise<FakeHub> {
           estimateMicros,
           expiresAt,
           used: false,
+          state: "pending",
+          said: null,
         });
         return [
           409,
@@ -520,6 +602,9 @@ export async function startFakeHub(): Promise<FakeHub> {
         estimateMicros > held.estimateMicros
       )
         return [409, { error: "input_refused", reason: "confirmation_invalid", field: "confirmationId" }];
+      // The approval is the person's click on the Hub page, never the app's word (security fix).
+      if (held.state === "denied") return [409, { error: "not_allowed", reason: "confirmation_denied" }];
+      if (held.state !== "approved") return [409, { error: "not_allowed", reason: "confirmation_not_approved" }];
       held.used = true;
     }
     if (estimateMicros > available(org))
@@ -670,8 +755,48 @@ export async function startFakeHub(): Promise<FakeHub> {
   async function route(request: IncomingMessage, path: string, raw: string): Promise<[number, unknown]> {
     const auth = request.headers.authorization ?? "";
     const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    // Dynamic client registration still answers, as the real Hub does; the app must not use it.
+    if (path === "/api/mcp-oauth/register" && request.method === "POST")
+      return [201, { client_id: `dyn_${hex(8)}`, client_name: "Builders Bot" }];
+    if (path === "/api/mcp-oauth/device" && request.method === "POST") {
+      const form = new URLSearchParams(raw);
+      const clientId = form.get("client_id") ?? "";
+      if (clientId === "" || form.get("scope") !== "builder-ai") return [400, { error: "invalid_request" }];
+      const deviceCode = `dc_${hex(16)}`;
+      devices.set(deviceCode, clientId);
+      return [
+        200,
+        {
+          device_code: deviceCode,
+          user_code: "WXYZ-2345",
+          verification_uri: "https://hub.culturabuilder.com/device",
+          verification_uri_complete: "https://hub.culturabuilder.com/device?user_code=WXYZ-2345",
+          expires_in: 600,
+          interval: 1,
+        },
+      ];
+    }
     if (path === "/api/mcp-oauth/token" && request.method === "POST") {
       const form = new URLSearchParams(raw);
+      if (form.get("grant_type") === DEVICE_GRANT) {
+        // The person approved the code on the Hub at once. Each sign-in gives person A new tokens.
+        const code = form.get("device_code") ?? "";
+        const clientId = devices.get(code);
+        if (clientId === undefined || clientId !== form.get("client_id")) return [400, { error: "invalid_grant" }];
+        devices.delete(code);
+        people.a.access = `hubat_${hex(20)}`;
+        people.a.refresh = `hubrt_${hex(20)}`;
+        // Only the listed client gets the refresh family that a proxy token needs.
+        return [
+          200,
+          {
+            access_token: people.a.access,
+            ...(clientId === FAKE_HUB_CLIENT_ID ? { refresh_token: people.a.refresh } : {}),
+            token_type: "Bearer",
+            expires_in: 900,
+          },
+        ];
+      }
       const renewal = form.get("resource") === null;
       // With a delay, a proxy token request is checked a moment after it arrives, while a renewal
       // rotates at once and answers late: a proxy token request that left with the refresh token
@@ -693,7 +818,7 @@ export async function startFakeHub(): Promise<FakeHub> {
       }
       if (form.get("resource") !== PROXY_RESOURCE || form.get("scope") !== "builder-proxy")
         return [400, { error: "invalid_request" }];
-      if (pausedReason) return [403, { error: "connections_disabled" }];
+      if (pausedReason || !capabilitiesOn) return [403, { error: "connections_disabled" }];
       const orgId = form.get("org");
       if (orgId !== null) {
         const org = ORG_ID.test(orgId) ? orgs.get(orgId) : undefined;
@@ -718,10 +843,16 @@ export async function startFakeHub(): Promise<FakeHub> {
         {
           active,
           empresa: "Empresa A",
-          capabilities: {
-            connections: { [CONNECTION]: pausedReason ? { enabled: false, reason: "paused" } : { enabled: true } },
-            connectionsUsage,
-          },
+          ...(capabilitiesOn
+            ? {
+                capabilities: {
+                  connections: {
+                    [CONNECTION]: pausedReason ? { enabled: false, reason: "paused" } : { enabled: true },
+                  },
+                  connectionsUsage,
+                },
+              }
+            : {}),
         },
       ];
     }
@@ -763,6 +894,16 @@ export async function startFakeHub(): Promise<FakeHub> {
           ],
         },
       ];
+    const confirmationPath = CONFIRMATION_PATH.exec(path);
+    if (confirmationPath && request.method === "GET") {
+      // The status of a cost approval, for the organization of the token only.
+      const id = decodeURIComponent(confirmationPath[1] ?? "");
+      const held = confirmations.get(id);
+      if (!held || held.orgId !== org.id) return [404, { error: "not_found" }];
+      const state = held.said ?? (held.used ? "used" : held.expiresAt <= now() ? "expired" : held.state);
+      confirmationReads.push({ id, orgId: org.id, state });
+      return [200, { confirmationId: id, state, expiresAt: new Date(held.expiresAt).toISOString() }];
+    }
     if (request.method !== "POST") return [404, { error: "not_found" }];
     if (path === `/api/builder-ai/proxy/v1/connections/${CONNECTION}/access-requests`) {
       // A request to the admins works also while the connection is paused or not on for the person.
@@ -925,6 +1066,26 @@ export async function startFakeHub(): Promise<FakeHub> {
       offset += ms;
     },
     proxyToken: async (orgId) => issueToken(orgId),
+    setPlatforms: (rows) => {
+      platformRows = rows;
+    },
+    platforms: derivedPlatforms,
+    setCapabilities: (on) => {
+      capabilitiesOn = on;
+    },
+    decideConfirmation: (id, state) => {
+      const held = confirmations.get(id);
+      if (held) held.state = state;
+    },
+    expireConfirmation: (id) => {
+      const held = confirmations.get(id);
+      if (held) held.expiresAt = now() - 1;
+    },
+    sayConfirmationState: (id, state) => {
+      const held = confirmations.get(id);
+      if (held) held.said = state;
+    },
+    confirmationReads,
     close: async () => {
       for (const response of hanging) response.destroy();
       hanging.clear();
