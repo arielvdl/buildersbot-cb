@@ -3,8 +3,11 @@
  *
  * The check runs in an isolated world of the extension's own, in every frame of the tab: the frames of
  * the main session and the frames of each child session (a frame of another site, such as the card
- * fields of a payment provider). It looks, also inside open shadow roots, for a password, one-time code
- * or card field with a value. Chrome's password manager and autofill fill such fields, and a
+ * fields of a payment provider). It looks for a password, one-time code or card field with a value: in
+ * each document and its open shadow roots from the guard world, and in closed shadow roots from a DOM
+ * snapshot of the session (`DOMSnapshot.captureSnapshot`, which reads them as the accessibility tree and
+ * a screenshot do). A page past `MAX_WALK` elements, or a snapshot that fails, counts as a secret: the
+ * check fails closed, so a very large page refuses reads. Chrome's password manager and autofill fill such fields, and a
  * screenshot, an accessibility tree or a read of the page would then carry the value. The check reads
  * the value but never sends it anywhere.
  *
@@ -41,8 +44,11 @@ const SECRET_FIELDS =
   'input[type="password" i],input[autocomplete~="one-time-code" i],input[autocomplete^="cc-" i],input[autocomplete*=" cc-" i]';
 /** The fields that `secret.fill` typed, with what they were then: element to "type|autocomplete". */
 const FILLED = "__bbFilledFields";
-/** Elements past which the walk for open shadow roots stops. */
-const MAX_WALK = 50_000;
+/**
+ * Elements past which the walk for open shadow roots stops, and the page counts as holding a secret
+ * (fail closed). A time budget in place of a count would let larger pages through on a fast computer.
+ */
+const MAX_WALK = 100_000;
 
 /**
  * 2 when a frame holds a secret, 1 when it holds only passwords that `secret.fill` typed and that are
@@ -68,8 +74,10 @@ const CHECK = `(() => {
       level = 1;
     }
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    for (let node = walker.nextNode(); node && walked < ${MAX_WALK}; node = walker.nextNode()) {
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       walked += 1;
+      // A page this large is not read to its end: it counts as a secret (fail closed).
+      if (walked > ${MAX_WALK}) return 2;
       if (node.shadowRoot) roots.push(node.shadowRoot);
     }
   }
@@ -109,6 +117,69 @@ async function guardWorld(tabId: number, frameId: string, session: string | unde
   return world.executionContextId;
 }
 
+const SECRET_AUTOCOMPLETE = /(^|\s)(one-time-code|cc-[a-z-]+)(\s|$)/iu;
+
+/**
+ * Whether a closed shadow root of this session holds a secret field with a value. The guard world
+ * cannot open a closed shadow root; a DOM snapshot reads the documents of the session (frames of
+ * another process have a session of their own), their shadow roots and the value of each input.
+ */
+async function closedShadowSecret(tabId: number, session: string | undefined): Promise<boolean> {
+  const snapshot = await internalCommand(tabId, "DOMSnapshot.captureSnapshot", { computedStyles: [] }, session);
+  const strings = Array.isArray(snapshot.strings) ? snapshot.strings : [];
+  const text = (index: unknown): string => (isNumber(index) && isString(strings[index]) ? strings[index] : "");
+  const documents = Array.isArray(snapshot.documents) ? snapshot.documents : [];
+  for (const document of documents) {
+    const nodes = isDynamicRecord(document) && isDynamicRecord(document.nodes) ? document.nodes : null;
+    if (!nodes) throw new BridgeError("cdp_error", "the DOM snapshot has no nodes");
+    const parents = Array.isArray(nodes.parentIndex) ? nodes.parentIndex : [];
+    const names = Array.isArray(nodes.nodeName) ? nodes.nodeName : [];
+    const attributes = Array.isArray(nodes.attributes) ? nodes.attributes : [];
+    const rare = (key: string): Map<number, unknown> => {
+      const data = isDynamicRecord(nodes[key]) ? nodes[key] : {};
+      const indexes = Array.isArray(data.index) ? data.index : [];
+      const values = Array.isArray(data.value) ? data.value : [];
+      return new Map(indexes.map((node, position) => [Number(node), values[position]]));
+    };
+    const closedRoots = new Set(
+      [...rare("shadowRootType")].filter(([, value]) => text(value) === "closed").map(([node]) => node),
+    );
+    if (closedRoots.size === 0) continue;
+    const inClosed = new Map<number, boolean>();
+    const underClosedRoot = (start: number): boolean => {
+      const path: number[] = [];
+      let found = false;
+      for (let node = start; node >= 0 && path.length < 4096; node = Number(parents[node] ?? -1)) {
+        const known = inClosed.get(node);
+        if (known !== undefined) {
+          found = known;
+          break;
+        }
+        path.push(node);
+        if (closedRoots.has(node)) {
+          found = true;
+          break;
+        }
+      }
+      for (const node of path) inClosed.set(node, found);
+      return found;
+    };
+    for (const [node, value] of rare("inputValue")) {
+      if (text(value) === "" || text(names[node]).toUpperCase() !== "INPUT") continue;
+      const pairs = Array.isArray(attributes[node]) ? attributes[node] : [];
+      let secret = false;
+      for (let index = 0; index + 1 < pairs.length; index += 2) {
+        const name = text(pairs[index]).toLowerCase();
+        const attribute = text(pairs[index + 1]);
+        if (name === "type" && attribute.toLowerCase() === "password") secret = true;
+        if (name === "autocomplete" && SECRET_AUTOCOMPLETE.test(attribute)) secret = true;
+      }
+      if (secret && underClosedRoot(node)) return true;
+    }
+  }
+  return false;
+}
+
 /** The highest level of `CHECK` in the frames of this session. `remote` frames have a session of their own. */
 async function sessionLevel(tabId: number, session: string | undefined, remote: ReadonlySet<string>): Promise<number> {
   const tree = await internalCommand(tabId, "Page.getFrameTree", {}, session);
@@ -128,7 +199,8 @@ async function sessionLevel(tabId: number, session: string | undefined, remote: 
     if (found === 2) return 2;
     level = Math.max(level, found);
   }
-  return level;
+  // A secret field in a closed shadow root: `secret.fill` never types there, so it always counts.
+  return (await closedShadowSecret(tabId, session)) ? 2 : level;
 }
 
 /**

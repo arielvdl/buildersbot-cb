@@ -756,6 +756,23 @@ async function main(): Promise<void> {
           return page(
             `<div id="host"></div><script>const root = document.getElementById("host").attachShadow({ mode: "open" }); root.innerHTML = '<input type="password">'; root.querySelector("input").value = "s3cret-shadow"</script>`,
           );
+        case "/closed-shadow-pw":
+          // A password inside a closed shadow root: page code and the guard world cannot open it.
+          return page(
+            `<div id="host"></div><script>const root = document.getElementById("host").attachShadow({ mode: "closed" }); root.innerHTML = '<input type="password">'; root.querySelector("input").value = "s3cret-closed"</script>`,
+          );
+        case "/frame-closed-shadow":
+          return page(`<p>shop</p><iframe src="/closed-shadow-pw"></iframe>`);
+        case "/huge":
+        case "/huge-shadow-pw":
+          // 120,000 elements, past the walk limit; one of them hosts an open shadow root with a password.
+          return page(
+            `<div id="many"></div><script>document.getElementById("many").innerHTML = "<i></i>".repeat(120000);${
+              url.pathname === "/huge-shadow-pw"
+                ? `const root = document.body.appendChild(document.createElement("div")).attachShadow({ mode: "open" }); root.innerHTML = '<input type="password">'; root.querySelector("input").value = "s3cret-far";`
+                : ""
+            }</script>`,
+          );
         case "/same-site-frames":
           return page(
             `<input type="password" id="p"><script>document.getElementById("p").value = "s3cret-e2e"</script>` +
@@ -1622,23 +1639,6 @@ async function main(): Promise<void> {
           app.request("cdp.send", { handle: tab, method, params });
         const digest = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
         const found: { [key: string]: unknown } = {};
-        // 1. Page code: only the engine's own functions, by digest. The agent's own code waits for scripts.
-        found.readyIsEngine = ENGINE_FUNCTIONS.has(digest(READY));
-        found.ownExpression = await denied(
-          send("Runtime.evaluate", { expression: "document.title", returnByValue: true }),
-        );
-        const world = await engineWorld(tab);
-        found.ownFunction = await denied(
-          send("Runtime.callFunctionOn", {
-            functionDeclaration: "function() { return document.cookie; }",
-            executionContextId: world,
-            returnByValue: true,
-          }),
-        );
-        found.engineFunction = await engineReady(tab, world).catch((error: unknown) =>
-          error instanceof AppError ? error.code : "error",
-        );
-        // 6. The guard world: no command makes it, and no event names its context.
         // S7: a tab command names the lease that sends it, and only the lease that holds the tab passes.
         found.otherLeaseSend = await denied(
           app.request("cdp.send", { leaseId: lease.two, handle: tab, method: "Target.getTargetInfo", params: {} }),
@@ -1659,6 +1659,23 @@ async function main(): Promise<void> {
             text: "x",
           }),
         );
+        // 1. Page code: only the engine's own functions, by digest. The agent's own code waits for scripts.
+        found.readyIsEngine = ENGINE_FUNCTIONS.has(digest(READY));
+        found.ownExpression = await denied(
+          send("Runtime.evaluate", { expression: "document.title", returnByValue: true }),
+        );
+        const world = await engineWorld(tab);
+        found.ownFunction = await denied(
+          send("Runtime.callFunctionOn", {
+            functionDeclaration: "function() { return document.cookie; }",
+            executionContextId: world,
+            returnByValue: true,
+          }),
+        );
+        found.engineFunction = await engineReady(tab, world).catch((error: unknown) =>
+          error instanceof AppError ? error.code : "error",
+        );
+        // 6. The guard world: no command makes it, and no event names its context.
         await send("Page.captureScreenshot", { format: "jpeg", quality: 10 });
         found.guardWorld = await denied(
           send("Page.createIsolatedWorld", { frameId: String(world), worldName: "builders-bot-guard" }),
@@ -1782,6 +1799,9 @@ async function main(): Promise<void> {
         found.shadowPassword = await denied(send("Page.captureScreenshot", { format: "jpeg", quality: 10 }));
         await app.request("tab.close", { handle: tab });
         const expected: DynamicRecord = {
+          otherLeaseSend: "tab_not_owned",
+          otherLeaseBatch: "tab_not_owned",
+          otherLeaseFill: "tab_not_owned",
           readyIsEngine: true,
           ownExpression: "scripts_disabled",
           ownFunction: "scripts_disabled",
@@ -1799,9 +1819,6 @@ async function main(): Promise<void> {
           targetInfoFragment: false,
           axFragment: false,
           fillPlain: "out_of_scope",
-          otherLeaseSend: "tab_not_owned",
-          otherLeaseBatch: "tab_not_owned",
-          otherLeaseFill: "tab_not_owned",
           plainValue: "",
           fillPassword: "allowed",
           screenshotAfterFill: "allowed",
@@ -1814,6 +1831,64 @@ async function main(): Promise<void> {
           ([key, value]) => JSON.stringify(found[key]) !== JSON.stringify(value),
         );
         expect(differs.length === 0, "a security check differs", { differs: Object.fromEntries(differs), found });
+        return found;
+      },
+    );
+
+    await testCase(
+      "secret check fails closed: closed shadow roots, a frame with one, and a page past the walk limit",
+      async () => {
+        await app.request("lease.open", {
+          leaseId: lease.one,
+          projectKey: project.a,
+          agentLabel: "Agente Um",
+          initials: "A1",
+        });
+        const tab = String(
+          (await app.request("tab.create", { leaseId: lease.one, url: `${base}/page?shadow=1` })).handle,
+        );
+        // The new tab navigates after it is made: a read that starts before its page loads changes origin.
+        await sleep(1_500);
+        const shot = () =>
+          denied(
+            app.request("cdp.send", {
+              handle: tab,
+              method: "Page.captureScreenshot",
+              params: { format: "jpeg", quality: 10 },
+            }),
+          );
+        const visit = async (path: string) => {
+          await app.request("cdp.send", { handle: tab, method: "Page.navigate", params: { url: `${base}${path}` } });
+          await sleep(1_500);
+        };
+        const found: { [key: string]: unknown } = {};
+        found.plain = await shot();
+        await visit("/closed-shadow-pw");
+        found.closedShadow = await shot();
+        await visit("/frame-closed-shadow");
+        found.frameClosedShadow = await shot();
+        await visit("/huge-shadow-pw");
+        let at = performance.now();
+        found.hugeWithShadowPassword = await shot();
+        found.hugeCheckMs = Math.round(performance.now() - at);
+        await visit("/huge");
+        at = performance.now();
+        // No secret, but past the walk limit: refused all the same (fail closed).
+        found.hugeNoSecret = await shot();
+        found.hugeNoSecretMs = Math.round(performance.now() - at);
+        await visit("/page?after=1");
+        found.plainAfter = await shot();
+        await app.request("tab.close", { handle: tab });
+        const expected: { [key: string]: string } = {
+          plain: "allowed",
+          closedShadow: "secret_present",
+          frameClosedShadow: "secret_present",
+          hugeWithShadowPassword: "secret_present",
+          hugeNoSecret: "secret_present",
+          plainAfter: "allowed",
+        };
+        const differs = Object.entries(expected).filter(([key, value]) => found[key] !== value);
+        expect(differs.length === 0, "a secret check differs", { differs: Object.fromEntries(differs), found });
         return found;
       },
     );
