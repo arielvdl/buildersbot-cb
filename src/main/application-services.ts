@@ -217,6 +217,7 @@ import {
   ExternalLinkOpener,
   type ExternalLinkPreferenceStore,
 } from "./external-link-opener";
+import { FeedActions } from "./feed/feed-actions";
 import { FeedService } from "./feed/feed-service";
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
@@ -677,6 +678,8 @@ export interface ApplicationServices {
   workControl: WorkControl;
   /** The feed page: one card for each run on every server, in memory only. */
   feed: FeedService;
+  /** The actions on the cards of the feed page. */
+  feedActions: FeedActions;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
@@ -3120,6 +3123,20 @@ export async function createApplicationServices({
     feed.dispose();
     return Promise.resolve();
   });
+  // The actions on the cards call the same operations as the conversation and the load panel.
+  const feedActions = new FeedActions({
+    feed,
+    pendingRequest: (kind, requestId) => service.pendingRequest(kind, requestId),
+    respondToApproval: (input) => runCauseEffect(service.respondToApproval(input)),
+    respondToPrompt: (input) => runCauseEffect(service.respondToPrompt(input)),
+    stopWork: (input) => workControl.stopWork(input),
+    bulkStopped: (input) => workControl.bulkStopped(input),
+    // The name of the error only: an error of an answer can quote the answer.
+    onFailure: (action, cause) =>
+      feedLogger.warn(`A feed action failed: ${action}.`, {
+        error: cause instanceof Error ? cause.name : typeof cause,
+      }),
+  });
   // Sends nothing: see `HostAnalytics`. The callers and the saved preference stay as they were.
   const analytics = new HostAnalytics();
   teardown.push(TEARDOWN_ORDER.analytics, "host analytics", () => Effect.runPromise(analytics.close()));
@@ -3752,6 +3769,7 @@ export async function createApplicationServices({
     agentLimit,
     workControl,
     feed,
+    feedActions,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,

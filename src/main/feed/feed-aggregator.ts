@@ -14,16 +14,25 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   type AgentApproval,
   type AgentEvent,
+  type AgentPromptQuestion,
   type AgentRuntimeSnapshot,
+  FEED_CANDIDATE_LIMIT,
+  FEED_CHOICE_LIMIT,
   FEED_CONTRACT_VERSION,
   FEED_LABEL_LIMIT,
   FEED_SNAPSHOT_LIMIT,
   FEED_STEP_LIMIT,
   FEED_TEXT_LIMIT,
   FEED_TITLE_LIMIT,
+  type FeedAccess,
+  type FeedAction,
+  type FeedCandidate,
   type FeedItem,
   type FeedItemState,
+  type FeedNeed,
   type FeedStep,
+  LOCAL_SERVER_ID,
+  MCP_ELICITATION_DECISION_QUESTION_ID,
   type RunningWork,
   SIDEBAR_PEOPLE_SECTION_ID,
   SIDEBAR_UNASSIGNED_SECTION_ID,
@@ -47,6 +56,34 @@ const PROGRAM_NAME = /^[A-Za-z0-9._+-]{1,40}$/u;
 /** The words before the program of a command that are not the program. */
 const COMMAND_PREFIXES = new Set(["env", "exec", "command", "builtin", "nohup", "time"]);
 
+/**
+ * Whether an approval asks the person to confirm it in a second step: a question of the Guard, more
+ * access, or a file change, which the agent asks for only outside what its workspace allows. The card
+ * and the check in main use this one rule.
+ */
+export function feedApprovalHighRisk(approval: Pick<AgentApproval, "kind" | "guard">): boolean {
+  return approval.guard === true || approval.kind === "permissions" || approval.kind === "file-change";
+}
+
+/**
+ * The question that a card can answer itself, or null: one question, not secret, one answer, at most
+ * `FEED_CHOICE_LIMIT` choices, and no id or choice that the redaction changes (such a question needs
+ * the conversation, as for a local script). The card and the check in main use this one rule.
+ */
+export function feedSimpleQuestion(
+  questions: readonly AgentPromptQuestion[],
+  redact: (text: string) => string,
+): AgentPromptQuestion | null {
+  const [question] = questions;
+  if (!question || questions.length !== 1) return null;
+  if (question.isSecret || question.multiSelect || question.id === MCP_ELICITATION_DECISION_QUESTION_ID) return null;
+  const options = question.options ?? [];
+  if (options.length > FEED_CHOICE_LIMIT) return null;
+  if (redact(question.id) !== question.id || options.some((option) => redact(option.label) !== option.label))
+    return null;
+  return question;
+}
+
 export interface FeedLoadWork {
   running: readonly RunningWork[];
   stopped: readonly StoppedWork[];
@@ -58,6 +95,8 @@ export interface FeedAggregatorOptions {
   /** The name of an agent that no event has named yet, such as an agent of this computer. */
   resolveName?: ((serverId: string, agentId: string) => string | null) | undefined;
   now?: (() => number) | undefined;
+  /** The server of this computer: only its cards offer actions. `LOCAL_SERVER_ID` by default. */
+  localServerId?: string | undefined;
   /** The most cards. `FEED_SNAPSHOT_LIMIT` by default. */
   limit?: number | undefined;
   retainMs?: number | undefined;
@@ -112,6 +151,7 @@ export class FeedAggregator {
   readonly #redact: (text: string) => string;
   readonly #resolveName: FeedAggregatorOptions["resolveName"];
   readonly #now: () => number;
+  readonly #localServerId: string;
   readonly #limit: number;
   readonly #retainMs: number;
   /** In timeline order: the order in which each run started, the newest last. */
@@ -120,6 +160,8 @@ export class FeedAggregator {
   /** The card of each running turn, by `server:turn`. */
   readonly #turns = new Map<string, string>();
   readonly #turnOfCard = new Map<string, string>();
+  /** The id of the newest turn of each card, as the provider gave it. */
+  readonly #turnIdOfCard = new Map<string, string>();
   /** The card that each pending request is on, by `server:kind:request`. */
   readonly #requests = new Map<string, string>();
   /** The open thread cards of each agent, by `server:agent`. */
@@ -134,6 +176,7 @@ export class FeedAggregator {
     this.#redact = options.redact;
     this.#resolveName = options.resolveName;
     this.#now = options.now ?? Date.now;
+    this.#localServerId = options.localServerId ?? LOCAL_SERVER_ID;
     this.#limit = Math.min(options.limit ?? FEED_SNAPSHOT_LIMIT, FEED_SNAPSHOT_LIMIT);
     this.#retainMs = options.retainMs ?? FEED_RETAIN_MS;
   }
@@ -170,6 +213,17 @@ export class FeedAggregator {
     const removes = [...this.#removed].slice(0, FEED_SNAPSHOT_LIMIT);
     for (const id of removes) this.#removed.delete(id);
     return { upserts, removes };
+  }
+
+  /** One card as main holds it now. The feed actions read it to check what a window sent. */
+  card(id: string): Readonly<FeedItem> | undefined {
+    return this.#cards.get(id);
+  }
+
+  /** The newest turn of a card that runs now, or null. */
+  runningTurn(id: string): string | null {
+    const card = this.#cards.get(id);
+    return card && OPEN_STATES.has(card.state) ? (this.#turnIdOfCard.get(id) ?? null) : null;
   }
 
   /** The cards in timeline order, the newest last. With a limit, the newest `limit` cards. */
@@ -268,8 +322,14 @@ export class FeedAggregator {
       stoppedIds.add(id);
       const reason = this.#text(stopped.reason, FEED_TEXT_LIMIT);
       const source = stopped.plan?.by === "reviewer" ? "task-watch" : "stopped-work";
+      const candidates = this.#candidates(stopped.candidates);
       const existing = this.#cards.get(id);
-      if (existing?.state === "stopped" && existing.stop?.reason === reason && existing.stop.source === source)
+      if (
+        existing?.state === "stopped" &&
+        existing.stop?.reason === reason &&
+        existing.stop.source === source &&
+        sameCandidates(existing.reassignTo, candidates)
+      )
         continue;
       const card = existing ?? this.#newCard(id, serverId, stopped.agentId ?? stopped.channelId, null);
       if (!stopped.agentId)
@@ -279,6 +339,8 @@ export class FeedAggregator {
       card.title = this.#text(this.#channelTitle(stopped.channelName, stopped.topicName), FEED_TITLE_LIMIT);
       card.endedAt ??= this.#iso();
       card.stop = { reason, source };
+      if (candidates.length > 0) card.reassignTo = candidates;
+      else delete card.reassignTo;
       this.#setState(card, "stopped");
       this.#touch(card);
     }
@@ -357,6 +419,8 @@ export class FeedAggregator {
     if (!OPEN_STATES.has(card.state)) this.#reopen(card);
     this.#indexTurn(serverId, card.id, approval.turnId);
     this.#clearNeed(card);
+    const reason = feedApprovalHighRisk(approval) ? this.#text(approval.reason ?? "", FEED_TEXT_LIMIT) : "";
+    const access = approval.kind === "permissions" ? this.#access(approval.permissions) : null;
     card.need = {
       kind: "approval",
       requestId: approval.requestId,
@@ -364,6 +428,9 @@ export class FeedAggregator {
       label: approval.kind === "command" ? this.#text(commandProgram(approval.command), FEED_LABEL_LIMIT) : "",
       ...(approval.guard ? { guard: true as const } : {}),
       since: this.#iso(),
+      ...(feedApprovalHighRisk(approval) ? { risk: "high" as const } : {}),
+      ...(reason ? { reason } : {}),
+      ...(access ? { access } : {}),
     };
     this.#requests.set(key(serverId, "approval", approval.requestId), card.id);
     this.#setState(card, "needs-you");
@@ -376,20 +443,27 @@ export class FeedAggregator {
     threadId: string,
     turnId: string,
     requestId: string | number,
-    questions: ReadonlyArray<{ header: string; question: string }>,
+    questions: readonly AgentPromptQuestion[],
   ): void {
     const card = this.#threadCard(serverId, agentId, threadId);
     if (!OPEN_STATES.has(card.state)) this.#reopen(card);
     this.#indexTurn(serverId, card.id, turnId);
     this.#clearNeed(card);
     const first = questions[0];
-    card.need = {
+    const simple = feedSimpleQuestion(questions, this.#redact);
+    const need: FeedNeed = {
       kind: "prompt",
       requestId,
       label: this.#text(first ? first.question || first.header : "", FEED_LABEL_LIMIT),
       questionCount: questions.length,
       since: this.#iso(),
     };
+    if (simple)
+      need.form = {
+        choices: (simple.options ?? []).map((option) => this.#text(option.label, FEED_LABEL_LIMIT)),
+        text: true,
+      };
+    card.need = need;
     this.#requests.set(key(serverId, "prompt", requestId), card.id);
     this.#setState(card, "needs-you");
     this.#touch(card);
@@ -589,6 +663,39 @@ export class FeedAggregator {
     return name === undefined ? { projectId: null, projectName: null } : { projectId: sectionId, projectName: name };
   }
 
+  #access(permissions: AgentApproval["permissions"]): FeedAccess | null {
+    if (!permissions) return null;
+    const access: FeedAccess = {};
+    if (permissions.network) access.network = true;
+    if (permissions.fileSystem.read.length > 0) access.read = permissions.fileSystem.read.length;
+    if (permissions.fileSystem.write.length > 0) access.write = permissions.fileSystem.write.length;
+    return access;
+  }
+
+  #candidates(candidates: StoppedWork["candidates"]): FeedCandidate[] {
+    return candidates.slice(0, FEED_CANDIDATE_LIMIT).flatMap((candidate) => {
+      const name = this.#text(candidate.name, INPUT_LIMITS.agentName);
+      return name ? [{ agentId: candidate.agentId, name }] : [];
+    });
+  }
+
+  /**
+   * What a window can offer on a card. Only a card of this computer offers more than `open`: the
+   * actions of a joined server's card go through its conversation, where the host decides.
+   */
+  #actions(card: FeedItem): FeedAction[] {
+    const actions: FeedAction[] = ["open"];
+    if (card.serverId !== this.#localServerId) return actions;
+    if (card.need?.kind === "approval") actions.push("approve", "deny");
+    else if (card.need?.kind === "prompt" && card.need.form) actions.push("answer");
+    if (card.threadId && OPEN_STATES.has(card.state) && this.#turnIdOfCard.has(card.id)) actions.push("stop");
+    if (card.taskId && card.id.startsWith(`${card.serverId}:task:`) && card.state === "stopped") {
+      actions.push("resume");
+      if (card.reassignTo?.length) actions.push("reassign");
+    }
+    return actions;
+  }
+
   #channelTitle(channelName: string, topicName: string | null): string {
     return topicName ? `${channelName} · ${topicName}` : channelName;
   }
@@ -692,9 +799,11 @@ export class FeedAggregator {
     const turnKey = key(serverId, turnId);
     this.#turns.set(turnKey, cardId);
     this.#turnOfCard.set(cardId, turnKey);
+    this.#turnIdOfCard.set(cardId, turnId);
   }
 
   #touch(card: FeedItem): void {
+    card.actions = this.#actions(card);
     card.revision += 1;
     card.updatedAt = this.#iso();
     if (this.#tracking) this.#changed.add(card.id);
@@ -710,6 +819,7 @@ export class FeedAggregator {
     const turnKey = this.#turnOfCard.get(id);
     if (turnKey !== undefined && this.#turns.get(turnKey) === id) this.#turns.delete(turnKey);
     this.#turnOfCard.delete(id);
+    this.#turnIdOfCard.delete(id);
     this.#changed.delete(id);
     if (this.#tracking) this.#removed.add(id);
   }
@@ -744,4 +854,12 @@ export class FeedAggregator {
   #iso(): string {
     return new Date(this.#now()).toISOString();
   }
+}
+
+function sameCandidates(a: readonly FeedCandidate[] | undefined, b: readonly FeedCandidate[]): boolean {
+  const left = a ?? [];
+  return (
+    left.length === b.length &&
+    left.every((candidate, index) => candidate.agentId === b[index]?.agentId && candidate.name === b[index]?.name)
+  );
 }

@@ -1,8 +1,14 @@
 // @vitest-environment node
 
-import { FEED_DELTA_LIMIT, FEED_TEXT_LIMIT, type FeedItem } from "@openbot/contracts/ipc";
+import {
+  FEED_CANDIDATE_LIMIT,
+  FEED_CHOICE_LIMIT,
+  FEED_DELTA_LIMIT,
+  FEED_TEXT_LIMIT,
+  type FeedItem,
+} from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
-import { decodeFeedDelta, decodeFeedDeltaOrNull, decodeFeedSnapshot } from "./feed-decoding";
+import { decodeFeedActionResult, decodeFeedDelta, decodeFeedDeltaOrNull, decodeFeedSnapshot } from "./feed-decoding";
 
 const ITEM: FeedItem = {
   v: 1,
@@ -91,5 +97,100 @@ describe("decodeFeedDelta", () => {
     const tooMany = Array.from({ length: FEED_DELTA_LIMIT + 1 }, (_, index) => ({ ...ITEM, id: `card-${index}` }));
     expect(() => decodeFeedDelta({ v: 1, cursor: 1, upserts: tooMany, removes: [] })).toThrow("Invalid feed delta.");
     expect(decodeFeedDeltaOrNull({ v: 2, cursor: 1, upserts: [], removes: [] })).toBeNull();
+  });
+});
+
+describe("the fields of stage 2", () => {
+  const ACTIONS: FeedItem = {
+    ...ITEM,
+    id: "local:t:agent-1:thread-2",
+    need: {
+      kind: "approval",
+      requestId: 8,
+      approvalKind: "permissions",
+      label: "",
+      since: ITEM.startedAt,
+      risk: "high",
+      reason: "The Guard asks you to check this step.",
+      access: { network: true, write: 2 },
+    },
+    reassignTo: [{ agentId: "agent-2", name: "Helper" }],
+    actions: ["open", "approve", "deny"],
+  };
+  const QUESTION: FeedItem = {
+    ...ITEM,
+    id: "local:t:agent-1:thread-3",
+    need: {
+      kind: "prompt",
+      requestId: "prompt-1",
+      label: "Which one?",
+      questionCount: 1,
+      since: ITEM.startedAt,
+      form: { choices: ["A", "B"], text: true },
+    },
+    actions: ["open", "answer"],
+  };
+
+  it("copies the risk, the access, the form and the candidates, and drops what the contract does not have", () => {
+    const decoded = decodeFeedSnapshot({
+      v: 1,
+      cursor: 1,
+      truncated: false,
+      items: [
+        {
+          ...ACTIONS,
+          need: { ...ACTIONS.need, command: "rm -rf /", access: { ...ACTIONS.need?.access, paths: ["/etc"] } },
+          reassignTo: [{ agentId: "agent-2", name: "Helper", provider: "codex" }],
+        },
+        { ...QUESTION, need: { ...QUESTION.need, form: { choices: ["A", "B"], text: true, labels: ["raw"] } } },
+      ],
+    });
+    expect(decoded.items).toEqual([ACTIONS, QUESTION]);
+  });
+
+  it("drops a card with too many choices, too many candidates or an unknown risk", () => {
+    const decoded = decodeFeedSnapshot({
+      v: 1,
+      cursor: 1,
+      truncated: false,
+      items: [
+        {
+          ...QUESTION,
+          id: "many-choices",
+          need: {
+            ...QUESTION.need,
+            form: { choices: Array.from({ length: FEED_CHOICE_LIMIT + 1 }, (_, i) => `c${i}`), text: true },
+          },
+        },
+        {
+          ...ACTIONS,
+          id: "many-candidates",
+          reassignTo: Array.from({ length: FEED_CANDIDATE_LIMIT + 1 }, (_, i) => ({ agentId: `a${i}`, name: "A" })),
+        },
+        { ...ACTIONS, id: "unknown-risk", need: { ...ACTIONS.need, risk: "medium" } },
+        ITEM,
+      ],
+    });
+    expect(decoded.items.map((item) => item.id)).toEqual([ITEM.id]);
+  });
+});
+
+describe("decodeFeedActionResult", () => {
+  it("keeps the count and the failures, and drops other fields", () => {
+    expect(
+      decodeFeedActionResult({
+        v: 1,
+        done: 1,
+        failed: [{ itemId: "local:task:t1", reason: "stale", cause: "Error: secret" }],
+        stack: "x",
+      }),
+    ).toEqual({ v: 1, done: 1, failed: [{ itemId: "local:task:t1", reason: "stale" }] });
+  });
+
+  it("refuses another version and an unknown reason", () => {
+    expect(() => decodeFeedActionResult({ v: 2, done: 0, failed: [] })).toThrow("Invalid feed action result.");
+    expect(() =>
+      decodeFeedActionResult({ v: 1, done: 0, failed: [{ itemId: "local:task:t1", reason: "exploded" }] }),
+    ).toThrow("Invalid feed action result.");
   });
 });
