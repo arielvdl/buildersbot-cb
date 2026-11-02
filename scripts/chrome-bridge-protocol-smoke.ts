@@ -772,6 +772,43 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     );
     measures.hostRssAfterLoadKb = rssKb(s1.child.pid);
 
+    // B3b: an answer after the app's deadline is dropped; the connection and the other agents go on.
+    const slowHandle = randomBase64Url(16);
+    const otherHandle = randomBase64Url(16);
+    let lateError = "";
+    try {
+      await app.run(
+        app.api.request(
+          s1.installId,
+          "cdp.send",
+          { handle: slowHandle, method: "Runtime.evaluate", params: { order: 1, stubDelayMs: 1500 } },
+          { key: slowHandle, timeoutMs: 300 },
+        ),
+      );
+    } catch (error) {
+      lateError = error instanceof Error && "code" in error ? String(error.code) : String(error);
+    }
+    // The late answer reaches the app now.
+    await new Promise((done) => setTimeout(done, 1600));
+    const afterLate = await app
+      .run(
+        app.api.request(
+          s1.installId,
+          "cdp.send",
+          { handle: otherHandle, method: "Runtime.evaluate", params: { order: 1 } },
+          { key: otherHandle },
+        ),
+      )
+      .then(
+        () => "ok",
+        (error: unknown) => (error instanceof Error && "code" in error ? String(error.code) : String(error)),
+      );
+    check(
+      "a late answer after the app's deadline is dropped: the connection stays, another agent's request passes",
+      lateError === "timeout" && afterLate === "ok" && app.ready.filter((id) => id === s1.installId).length === 1,
+      { lateError, afterLate, readyCount: app.ready.filter((id) => id === s1.installId).length },
+    );
+
     // B4: the app restarts with one feature less; reconnection time.
     await app.stop();
     await until(() => !s1.extension.view.appOnline, 5000, "the host to report the app away");

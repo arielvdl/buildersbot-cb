@@ -55,7 +55,8 @@ export interface ChromeAgents {
   start(): Promise<void>;
   /** The person turned Chrome on: start, write the manifest and open the pairing window. */
   connect(): Promise<void>;
-  stop(): Promise<void>;
+  /** `turnedOff`: the person turned "My Chrome" off, so the Native Messaging manifest goes too. */
+  stop(options?: { readonly turnedOff?: boolean }): Promise<void>;
 }
 
 /**
@@ -223,12 +224,22 @@ export function createChromeAgents(options: ChromeAgentsOptions): ChromeAgents {
           ),
       );
     },
-    stop: async () => {
+    stop: async (stopOptions = {}) => {
       generation += 1;
       host.dispose();
       const current = runtime;
+      const service = bridge;
       runtime = null;
       bridge = null;
+      if (stopOptions.turnedOff && current && service)
+        await current
+          .runPromise(service.disconnectChrome)
+          .catch((error: unknown) =>
+            options.log(
+              "warn",
+              `chrome bridge: could not remove the manifest: ${error instanceof Error ? error.message : String(error)}`,
+            ),
+          );
       await current?.dispose();
     },
   };

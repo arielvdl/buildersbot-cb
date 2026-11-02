@@ -13,7 +13,13 @@
  * - outgoing frames go through one queue that waits for the socket's `drain`;
  * - at most 64 requests are in flight (16 for one queue key, such as one tab); up to 1024 more wait
  *   in order, and past that a request fails at once with `limit`;
- * - each request has a deadline counted from the moment its frames go to the socket, not from the queue.
+ * - each request has a deadline counted from the moment its frames go to the socket, not from the queue;
+ *   the answer to a request that passed its deadline is dropped when it comes, and the connection stays
+ *   (the extension's own deadline starts later, so a late answer is normal for a stuck page);
+ * - the handshake has a deadline from the accept, and a connection refused with `busy` closes after
+ *   `rejectedIdleMs`, so idle connections do not take the places of the paired profiles;
+ * - when the keys are due for renewal, no new request starts; the connection closes once the requests
+ *   in flight end, and the service sends the held requests again on the next connection.
  */
 
 import type { Socket } from "node:net";
@@ -53,7 +59,15 @@ export const CONNECTION_LIMITS = {
   waiting: 1024,
   /** Bytes queued for the socket; above this, new requests fail with `limit`. */
   queuedBytes: 64 * 1024 * 1024,
+  /** Ids of requests that passed their deadline, kept to drop their late answers. */
+  expiredIds: 1024,
+  expiredIdMs: 5 * 60 * 1000,
+  /** A connection refused with `busy` waits this long, then closes; its host connects again later. */
+  rejectedIdleMs: 60_000,
 } as const;
+
+/** The close reason of a connection that renews its keys; the service holds requests for the next one. */
+export const RENEWAL_CLOSE_REASON = "keys are due for renewal";
 
 /** A request failed. `code` is a protocol error code, or `chrome_not_connected` when the connection ended. */
 export class BridgeRequestError extends Error {
@@ -152,6 +166,9 @@ export class HostConnection {
   readonly #inFlightByKey = new Map<string, number>();
   #inFlight = 0;
   #waiting: Waiting[] = [];
+  /** Request ids that passed their deadline, with the time until which a late answer is dropped. */
+  readonly #expired = new Map<number, number>();
+  #renewing = false;
   #admitted: "window" | "unexpected" | null = null;
   // Pairing
   #pairing: {
@@ -177,6 +194,8 @@ export class HostConnection {
     socket.on("drain", () => this.#flush());
     socket.on("error", () => this.close("socket error"));
     socket.on("close", () => this.close("socket closed"));
+    // The deadline counts from the accept: a peer that never sends its commit does not hold a place.
+    this.#handshakeTimer = setTimeout(() => this.close("handshake deadline"), BRIDGE_LIMITS.handshakeTimeoutMs);
     socket.resume();
   }
 
@@ -302,7 +321,6 @@ export class HostConnection {
         });
         const welcome = this.#handshake.onCommit(value);
         this.#phase = "hello";
-        this.#handshakeTimer = setTimeout(() => this.close("handshake deadline"), BRIDGE_LIMITS.handshakeTimeoutMs);
         this.#writeFrame(welcome);
         return;
       }
@@ -358,9 +376,10 @@ export class HostConnection {
 
   #rejectWith(reject: HandshakeMessage<"reject">) {
     if (this.#handshakeTimer) clearTimeout(this.#handshakeTimer);
-    this.#handshakeTimer = null;
     this.#handshake = null;
     this.#phase = "rejected";
+    // An idle refused connection closes later; a pairing window closes it at once.
+    this.#handshakeTimer = setTimeout(() => this.close("refused and idle"), CONNECTION_LIMITS.rejectedIdleMs);
     this.#writeFrame(reject);
     this.#log(`chrome bridge: handshake refused (${reject.code})`);
   }
@@ -381,7 +400,11 @@ export class HostConnection {
       const envelope = decodeResponseEnvelope(message);
       if (!envelope.ok) throw new ChannelError("protocol", envelope.error);
       const { id, body, err } = envelope.value;
-      if (!this.#pending.has(id)) throw new ChannelError("protocol", "a response answers no pending request");
+      if (!this.#pending.has(id)) {
+        // The answer of a request that passed its deadline: dropped, and the connection stays.
+        if (this.#expired.delete(id)) return;
+        throw new ChannelError("protocol", "a response answers no pending request");
+      }
       if (!this.#settle(id, err ? { error: err } : { body: body ?? {} }))
         throw new ChannelError("protocol", "a response body does not match its operation");
     } else {
@@ -393,7 +416,20 @@ export class HostConnection {
       });
       if (!decoded.ok) throw new ChannelError("protocol", decoded.error);
     }
-    if (channel.needsNewKeys()) this.close("keys are due for renewal");
+    if (channel.needsNewKeys()) this.#startRenewal();
+  }
+
+  /** Whether the connection waits for its requests to end before it closes to renew its keys. */
+  get renewing(): boolean {
+    return this.#renewing;
+  }
+
+  /** No new request starts; the connection closes when the requests in flight end. */
+  #startRenewal() {
+    if (this.#renewing) return;
+    this.#renewing = true;
+    this.#log("chrome bridge: keys are due for renewal; the requests in flight end first");
+    if (this.#pending.size === 0) this.close(RENEWAL_CLOSE_REASON);
   }
 
   /** After its consent, the extension sends its state once, before the pin: it waits for the pin. */
@@ -490,7 +526,7 @@ export class HostConnection {
     body: OperationBodies[O],
     options: { key?: string; timeoutMs?: number } = {},
   ): Promise<ResultBodies[O]> {
-    if (this.#phase !== "ready")
+    if (this.#phase !== "ready" || this.#renewing)
       return Promise.reject(new BridgeRequestError("chrome_not_connected", "Chrome is not connected."));
     return this.#send(op, body, {
       key: options.key ?? null,
@@ -530,10 +566,10 @@ export class HostConnection {
         this.#seal({ t: "req", id, op, body })
           .then(() => {
             if (!this.#pending.has(id)) return;
-            pending.timer = setTimeout(
-              () => this.#settle(id, { error: { code: "timeout", message: `${op} took too long.` } }),
-              options.timeoutMs,
-            );
+            pending.timer = setTimeout(() => {
+              this.#noteExpired(id);
+              this.#settle(id, { error: { code: "timeout", message: `${op} took too long.` } });
+            }, options.timeoutMs);
           })
           .catch(() => this.close("a message could not be sealed"));
       };
@@ -544,7 +580,18 @@ export class HostConnection {
     });
   }
 
+  /** Keeps the id of a request that passed its deadline, so its late answer is dropped. */
+  #noteExpired(id: number) {
+    const now = Date.now();
+    for (const [old, until] of this.#expired) {
+      if (until > now && this.#expired.size < CONNECTION_LIMITS.expiredIds) break;
+      this.#expired.delete(old);
+    }
+    this.#expired.set(id, now + CONNECTION_LIMITS.expiredIdMs);
+  }
+
   #canStart(key: string | null): boolean {
+    if (this.#renewing) return false;
     if (this.#inFlight >= CONNECTION_LIMITS.inFlight) return false;
     if (key !== null && (this.#inFlightByKey.get(key) ?? 0) >= CONNECTION_LIMITS.inFlightPerKey) return false;
     // Keep the order of one key: a later request of the same key does not pass an earlier one.
@@ -570,6 +617,10 @@ export class HostConnection {
     if ("body" in outcome) matched = pending.accept(outcome.body);
     else pending.reject(new BridgeRequestError(outcome.error.code, outcome.error.message));
     if (!matched) pending.reject(new BridgeRequestError("cdp_error", "The extension answered with a wrong body."));
+    if (this.#renewing) {
+      if (this.#pending.size === 0) this.close(RENEWAL_CLOSE_REASON);
+      return matched;
+    }
     this.#startWaiting();
     return matched;
   }

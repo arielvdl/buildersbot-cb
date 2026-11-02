@@ -306,12 +306,17 @@ export class StubExtension {
             : 0;
         if (order <= (this.#lastByHandle.get(body.handle) ?? -1)) this.view.orderBroken = true;
         this.#lastByHandle.set(body.handle, order);
+        // A test can make one answer late, as a stuck page makes it.
+        const delay =
+          typeof body.params === "object" && body.params !== null && "stubDelayMs" in body.params
+            ? Number(body.params.stubDelayMs)
+            : (this.#options.evaluateDelayMs ?? 0);
         // Answer later, outside the frame queue, so requests overlap as they would in Chrome.
         setTimeout(() => {
           this.view.inFlight -= 1;
           this.#inFlightByHandle.set(body.handle, (this.#inFlightByHandle.get(body.handle) ?? 1) - 1);
           void this.#respond(id, { body: { result: { order } } });
-        }, this.#options.evaluateDelayMs ?? 0);
+        }, delay);
       },
     };
   }

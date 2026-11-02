@@ -35,10 +35,17 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { type BridgeSocket, bridgeSocket, preparePrivateFolder } from "./bridge-paths";
 import type { PeerChecker } from "./bridge-peer";
 import { BridgeStateStore, type KeySealer, type PairedBrowser } from "./bridge-state";
-import { BridgeRequestError, type ConnectionHost, HostConnection, type PairingPrompt } from "./host-connection";
+import {
+  BridgeRequestError,
+  type ConnectionHost,
+  HostConnection,
+  type PairingPrompt,
+  RENEWAL_CLOSE_REASON,
+} from "./host-connection";
 import {
   checkNativeHostManifest,
   nativeHostManifest,
+  removeNativeHostManifest,
   watchNativeHostManifest,
   writeNativeHostManifest,
 } from "./native-host-manifests";
@@ -52,6 +59,8 @@ export const UNEXPECTED_CARDS_PER_HOUR = 3;
  * again, and the card the person just closed comes back.
  */
 export const REFUSED_KEY_QUIET_MS = 10 * 60 * 1000;
+/** A request that met a connection renewing its keys waits this long for the next connection of the profile. */
+export const RENEWAL_WAIT_MS = 10_000;
 
 export class ChromeBridgeFailure extends Schema.TaggedError<ChromeBridgeFailure>()("ChromeBridgeFailure", {
   cause: Schema.Defect(),
@@ -114,6 +123,11 @@ export interface ChromeBridgeShape {
    * open; a change cancels the window.
    */
   readonly connectChrome: Effect.Effect<{ readonly expiresAt: number; readonly manifest: string }, ChromeBridgeFailure>;
+  /**
+   * The person turned "My Chrome" off: the manifest is removed, so Chrome can no longer start the host
+   * until the next "Connect Chrome". Only where the app may write it (packaged, or the owner's opt-in).
+   */
+  readonly disconnectChrome: Effect.Effect<void, ChromeBridgeFailure>;
   readonly connected: Effect.Effect<readonly ConnectedBrowser[]>;
   readonly paired: Effect.Effect<readonly PairedBrowser[]>;
   readonly request: <O extends ChromeBridgeOperation>(
@@ -163,6 +177,8 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
   let cardOpen: HostConnection | null = null;
   const cardsShown: number[] = [];
   const quietKeys = new Map<string, number>();
+  /** Profiles whose connection closed to renew its keys, and the requests that wait for the next one. */
+  const renewals = new Map<string, { until: number; waiters: Array<() => void> }>();
 
   const windowOpen = () => pairingWindow !== null && pairingWindow.expiresAt > now();
 
@@ -230,6 +246,9 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
       if (!installId || !hello) return;
       ready.get(installId)?.close("the same profile connected again");
       ready.set(installId, connection);
+      const renewal = renewals.get(installId);
+      renewals.delete(installId);
+      for (const wake of renewal?.waiters ?? []) wake();
       void state.touch(installId, now()).catch(() => undefined);
       options.onReady?.(describe(connection));
     },
@@ -237,12 +256,34 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
       const installId = connection.installId;
       if (installId) options.onEvent?.(installId, event, body);
     },
-    closed: (connection) => {
+    closed: (connection, reason) => {
       connections.delete(connection);
       const installId = connection.installId;
       if (installId && ready.get(installId) === connection) ready.delete(installId);
+      if (installId && reason === RENEWAL_CLOSE_REASON && !renewals.has(installId))
+        renewals.set(installId, { until: now() + RENEWAL_WAIT_MS, waiters: [] });
       if (cardOpen === connection) cardOpen = null;
     },
+  };
+
+  /** Waits for the next connection of a profile that renews its keys; false when it does not renew. */
+  const nextConnection = (installId: string): Promise<boolean> => {
+    const current = ready.get(installId);
+    if (current && !current.renewing) return Promise.resolve(false);
+    let renewal = renewals.get(installId);
+    if (!renewal && current?.renewing) {
+      renewal = { until: now() + RENEWAL_WAIT_MS, waiters: [] };
+      renewals.set(installId, renewal);
+    }
+    if (!renewal || renewal.until <= now()) return Promise.resolve(false);
+    const waiting = renewal;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), Math.max(0, waiting.until - now()));
+      waiting.waiters.push(() => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
   };
 
   const describe = (connection: HostConnection): ConnectedBrowser => ({
@@ -311,23 +352,40 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
         extensionId: nativeHost.extensionId,
       })
     : null;
-  // A manifest that someone changed is written back at each start; a missing one stays missing, because
-  // only the person's click writes it (DESIGN §3.4).
-  if (
-    nativeHost &&
-    manifest &&
-    (yield* bridgeIO(() => checkNativeHostManifest(nativeHost.folder, manifest))) === "changed"
-  ) {
-    yield* bridgeIO(() =>
-      writeNativeHostManifest({
-        folder: nativeHost.folder,
-        manifest,
-        packaged: nativeHost.packaged,
-        allowRealBrowser: nativeHost.allowRealBrowser,
-      }),
-    );
+  const repairManifest = async (): Promise<"ok" | "missing" | "repaired"> => {
+    if (!nativeHost || !manifest) return "missing";
+    const status = await checkNativeHostManifest(nativeHost.folder, manifest);
+    if (status !== "changed") return status;
+    await writeNativeHostManifest({
+      folder: nativeHost.folder,
+      manifest,
+      packaged: nativeHost.packaged,
+      allowRealBrowser: nativeHost.allowRealBrowser,
+    });
     log("chrome bridge: the Native Messaging manifest was changed and is repaired");
-  }
+    return "repaired";
+  };
+  /**
+   * While the manifest exists, the app watches it for the life of the bridge (DESIGN §3.4): a change by
+   * another process is written back at once, and it cancels an open pairing window. A missing one stays
+   * missing: only the person's click writes it.
+   */
+  let stopLifeWatch: (() => void) | null = null;
+  const watchForLife = () => {
+    if (!nativeHost || !manifest || stopLifeWatch) return;
+    stopLifeWatch = watchNativeHostManifest(nativeHost.folder, manifest.name, () => {
+      void checkNativeHostManifest(nativeHost.folder, manifest).then((status) => {
+        if (status !== "changed") return;
+        if (pairingWindow !== null) {
+          log("chrome bridge: the manifest changed during pairing; the window is cancelled");
+          closeWindow();
+        }
+        void repairManifest().catch(() => log("chrome bridge: could not repair the Native Messaging manifest"));
+      });
+    });
+  };
+  yield* Effect.addFinalizer(() => Effect.sync(() => stopLifeWatch?.()));
+  if ((yield* bridgeIO(repairManifest)) !== "missing") watchForLife();
   let stopWatch: (() => void) | null = null;
   const openWindow = () => {
     pairingWindow = { expiresAt: now() + BRIDGE_LIMITS.pairingWindowMs, claimedBy: null };
@@ -372,16 +430,35 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
         clearTimeout(timer);
         unwatch();
       };
+      watchForLife();
       return { expiresAt, manifest: written };
+    }),
+    disconnectChrome: bridgeIO(async () => {
+      stopLifeWatch?.();
+      stopLifeWatch = null;
+      closeWindow();
+      if (!nativeHost || !manifest || !(nativeHost.packaged || nativeHost.allowRealBrowser)) return;
+      await removeNativeHostManifest(nativeHost.folder, manifest.name);
+      log("chrome bridge: the Native Messaging manifest is removed");
     }),
     connected: Effect.sync(() => [...ready.values()].map(describe)),
     paired: Effect.sync(() => state.data.browsers),
     request: (installId, op, body, requestOptions) =>
       Effect.tryPromise({
-        try: () => {
-          const connection = ready.get(installId);
-          if (!connection) throw new BridgeRequestError("chrome_not_connected", "This Chrome is not connected.");
-          return connection.request(op, body, requestOptions);
+        try: async () => {
+          const send = () => {
+            const connection = ready.get(installId);
+            if (!connection) throw new BridgeRequestError("chrome_not_connected", "This Chrome is not connected.");
+            return connection.request(op, body, requestOptions);
+          };
+          try {
+            return await send();
+          } catch (error) {
+            // A request that a connection renewing its keys did not send goes to the next connection.
+            if (!(error instanceof BridgeRequestError) || error.code !== "chrome_not_connected") throw error;
+            if (!(await nextConnection(installId))) throw error;
+            return await send();
+          }
         },
         catch: (cause) =>
           cause instanceof BridgeRequestError

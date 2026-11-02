@@ -2381,7 +2381,7 @@ export async function createApplicationServices({
       logger.warn("Agents did not refresh for the web access change.", toLogValue(error)),
     );
     if (webAccess === "chrome") void chromeAgents.connect();
-    else if (leftChrome) void chromeAgents.stop();
+    else if (leftChrome) void chromeAgents.stop({ turnedOff: true });
   });
   // The Cultura Builder process reads its model windows at spawn, so a new context window starts it again.
   let culturaBuilderFullContext = appBehavior.culturaBuilderFullContext;
