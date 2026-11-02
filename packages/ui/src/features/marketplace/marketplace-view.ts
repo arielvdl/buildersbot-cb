@@ -152,7 +152,8 @@ export function matchesApp(app: MarketplaceApp, query: string): boolean {
 
 /**
  * The apps of each category, in the catalog order. A server that the user added is in Other. A Hub
- * connection has its own group, "Connections", so it is not in a category here.
+ * connection has its own group, "Connections", so it is not in a category here; the tiles of its
+ * platforms are, each in the category of its group.
  */
 export function appCategories(apps: readonly MarketplaceApp[]): { category: SkillCategory; apps: MarketplaceApp[] }[] {
   const categoryOf = (app: MarketplaceApp): SkillCategory => (app.kind === "custom" ? "other" : app.category);
@@ -168,9 +169,17 @@ export function connectionApps(apps: readonly MarketplaceApp[]): MarketplaceApp[
   return apps.filter((app) => app.kind === "connection");
 }
 
-/** The apps that the user connected, and the ones that need attention. Hub connections are apart. */
+/**
+ * The apps that the user connected, and the ones that need attention. Hub connections are apart, and
+ * the tiles of their platforms are not listed: the connection stands for them.
+ */
 export function ownedApps(apps: readonly MarketplaceApp[]): MarketplaceApp[] {
-  return apps.filter((app) => app.kind !== "connection" && (app.status === "connected" || app.status === "attention"));
+  return apps.filter(
+    (app) =>
+      app.kind !== "connection" &&
+      app.kind !== "connection-platform" &&
+      (app.status === "connected" || app.status === "attention"),
+  );
 }
 
 /** The Hub connections that the person uses, and the ones that need attention. */

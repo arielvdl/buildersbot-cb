@@ -573,6 +573,14 @@ export const messages = defineMessages("marketplace", {
   "marketplace.connection.choose.title": "Choose who pays",
   "marketplace.connection.choose.description":
     "More than one organization can pay. Choose one below, or answer the card in the chat at the next call.",
+  "marketplace.connection.consent.title": "Allow Builders Bot on the Hub",
+  "marketplace.connection.consent.description":
+    "Builders Bot cannot spend the paid connections of your organization yet. Allow it on the Cultura Builder Hub, then refresh this page.",
+  "marketplace.connection.consent.open": "Open the Hub",
+  "marketplace.connection.platform.tagline": {
+    one: "Via Cultura Builder · {count} tool",
+    other: "Via Cultura Builder · {count} tools",
+  },
   "marketplace.connection.gives.title": "What it gives",
   "marketplace.connection.gives.fallback":
     "Paid external data for your agents: SEO and keyword data, company data, app stores, reviews, public web data and more.",

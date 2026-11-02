@@ -268,6 +268,11 @@ export interface AgentHarnessOptions {
   }) => "accept" | "decline" | Promise<"accept" | "decline">;
   /** Whether a person that the host stamps on a message is a team member. Default: nobody is. */
   readonly remotePerson?: (personId: string) => boolean;
+  /**
+   * Opens a page of the Hub in the person's browser, as main does with `shell.openExternal`: the cost
+   * approval page and the consent page. Default: records nothing and opens nothing.
+   */
+  readonly openHub?: (url: string) => Promise<void>;
 }
 
 /** A person of the team, as the host stamps one on a message. */
@@ -332,7 +337,7 @@ export async function startAgentHarness(options: AgentHarnessOptions) {
       customProviders: () => [],
       mcpServers: () => [],
     },
-    hubConnections: { fetch: options.hubFetch },
+    hubConnections: { fetch: options.hubFetch, ...(options.openHub ? { openHub: options.openHub } : {}) },
     ...(options.remotePerson ? { channelRemotePerson: options.remotePerson } : {}),
   });
   agents.on("event", (event) => {

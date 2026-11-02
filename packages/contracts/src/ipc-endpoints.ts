@@ -1428,6 +1428,11 @@ export const IPC_ENDPOINTS = {
     requestAccess: request<HubConnectionAccessRequestInput, HubConnectionAccessRequestResult>()(
       "hub-connections:request-access",
     ),
+    /**
+     * Opens the connections page of the Hub in the person's browser, where the person allows this app
+     * to spend an organization's connections. Main opens one fixed URL; the renderer sends none.
+     */
+    openConsent: request<undefined, void>()("hub-connections:open-consent"),
   },
   // The commercial license of the account. Main opens the Checkout page; the renderer never sends a URL.
   license: {

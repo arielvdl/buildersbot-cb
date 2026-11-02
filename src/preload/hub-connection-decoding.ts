@@ -68,6 +68,7 @@ export function decodeHubConnectionsView(value: unknown): HubConnectionsView {
       payer: connection.payer,
       payerOrgId: connection.payerOrgId,
       enabled: connection.enabled,
+      platforms: connection.platforms.map(({ id, name, group, endpoints }) => ({ id, name, group, endpoints })),
     })),
   };
 }

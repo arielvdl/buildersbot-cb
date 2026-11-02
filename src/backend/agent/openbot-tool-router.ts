@@ -837,6 +837,8 @@ export class BuildersBotToolRouter {
       ask,
       guard,
       notify,
+      // The wait for a cost approval on the Hub ends with the turn.
+      signal: request.signal,
     });
     if (!result) return null;
     return this.#guardGate

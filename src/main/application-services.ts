@@ -128,6 +128,7 @@ import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { browserMemory } from "../backend/host-memory";
+import { isHubPageUrl } from "../backend/hub-connections/hub-connection-tools";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
 import type { McpToolRuntimes } from "../backend/mcp-provider-shapes";
@@ -2045,6 +2046,15 @@ export async function createApplicationServices({
         Effect.mapError((error) => new AgentLifecycleFailed({ operation: "saveProviderUse", cause: error.cause })),
       ),
     preferredProvider: setupState.preferredProvider ?? "cultura-builder",
+    // The person approves a connection cost, and allows this app to spend an organization's
+    // connections, on pages of the Hub. Only those pages open, in the default browser, where the
+    // person is signed in to the Hub.
+    hubConnections: {
+      openHub: async (url) => {
+        if (!isHubPageUrl(url)) throw new Error("Only a page of the Cultura Builder Hub opens here.");
+        await shell.openExternal(url);
+      },
+    },
     bundledExecutables: providerRuntimes.bundledExecutables(),
     prepareAgentWorkspace: (agent) =>
       Effect.gen(function* () {

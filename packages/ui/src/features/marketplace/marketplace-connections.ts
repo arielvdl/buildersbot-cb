@@ -4,6 +4,8 @@ import type {
   HubConnectionAccessView,
   HubConnectionsViewStatus,
   HubConnectionView,
+  HubPlatformGroup,
+  SkillCategory,
 } from "@openbot/contracts/ipc";
 import type { MarketplaceAgent, MarketplaceApp, MarketplaceAppStatus } from "./marketplace-model";
 
@@ -35,6 +37,11 @@ export interface MarketplaceConnections {
   agents: () => readonly MarketplaceConnectionAgent[];
   /** Turns the connection on or off for one agent. Off: the agent does not get the connection's tools. */
   setAgentConnection: (agentId: string, connectionId: string, on: boolean) => Promise<void>;
+  /**
+   * Opens the connections page of the Hub in the browser, where the person allows this app to spend an
+   * organization's connections. Absent where this client cannot open it.
+   */
+  openConsent?: (() => Promise<void>) | undefined;
 }
 
 export interface MarketplaceConnectionAgent extends MarketplaceAgent {
@@ -43,6 +50,26 @@ export interface MarketplaceConnectionAgent extends MarketplaceAgent {
 }
 
 export type ConnectionApp = Extract<MarketplaceApp, { kind: "connection" }>;
+export type ConnectionPlatformApp = Extract<MarketplaceApp, { kind: "connection-platform" }>;
+
+/**
+ * The category of the Apps tab for each platform group, as the owner chose on 2026-10-31: the tiles
+ * fill the categories whose catalog apps the default list hides.
+ */
+export const PLATFORM_CATEGORY = {
+  seo: "research",
+  research: "research",
+  reviews: "research",
+  community: "research",
+  enrichment: "data-analytics",
+  market: "data-analytics",
+  commerce: "data-analytics",
+  developer: "coding",
+  generation: "design",
+  advertising: "other",
+  social: "other",
+  other: "other",
+} as const satisfies Record<HubPlatformGroup, SkillCategory>;
 
 /** A row that can pay: the organization turned the connection on, the person may use it, and this app may spend. */
 export function canPayRow(row: HubConnectionAccessView): boolean {
@@ -95,6 +122,38 @@ export function connectionApp(view: HubConnectionView): ConnectionApp {
     category: "research",
     connection: view,
   };
+}
+
+/**
+ * The tiles of a connection's platforms, one per platform, with the status of the connection. Only
+ * while Cultura Builder has the connection on and the person uses it (`connectionStatus` is not
+ * `idle`): an account without the connection, or a paused one, has no tile. `tagline` writes the line
+ * under the name, such as "Via Cultura Builder · 4 tools".
+ */
+export function connectionPlatformApps(
+  view: HubConnectionView,
+  tagline: (endpoints: number) => string,
+): ConnectionPlatformApp[] {
+  const status = connectionStatus(view);
+  if (!view.enabled || status === "idle") return [];
+  return view.platforms.map((platform) => ({
+    kind: "connection-platform",
+    id: `${view.id}:${platform.id}`,
+    name: platform.name,
+    tagline: tagline(platform.endpoints),
+    status,
+    category: PLATFORM_CATEGORY[platform.group],
+    connectionId: view.id,
+    platform,
+  }));
+}
+
+/** The apps of the Apps tab for the Hub connections: each connection's row, then the tiles of its platforms. */
+export function hubConnectionApps(
+  views: readonly HubConnectionView[],
+  tagline: (endpoints: number) => string,
+): MarketplaceApp[] {
+  return views.flatMap((view) => [connectionApp(view), ...connectionPlatformApps(view, tagline)]);
 }
 
 /**

@@ -83,6 +83,9 @@ const cards: Array<{ reason: string; guard: boolean; decision: "accept" | "decli
 let cardPlan: Array<"accept" | "decline"> = [];
 
 const HUB_CARD = /^(?:An agent wants to run|Who pays for|Pay for)/u;
+/** The Hub pages that the app opened in the browser. On a cost approval page, the person approves. */
+const opened: string[] = [];
+const APPROVAL_PAGE = "https://hub.culturabuilder.com/builder-ai/conexoes/aprovar/";
 const harness = await startAgentHarness({
   root,
   mark: MARK,
@@ -97,6 +100,11 @@ const harness = await startAgentHarness({
     const decision = isHub ? (cardPlan.shift() ?? "decline") : "accept";
     cards.push({ ...card, decision, hub: isHub });
     return decision;
+  },
+  openHub: async (url) => {
+    opened.push(url);
+    if (url.startsWith(APPROVAL_PAGE))
+      hub.decideConfirmation(decodeURIComponent(url.slice(APPROVAL_PAGE.length)), "approved");
   },
 });
 // After the harness: the service modules read the home folder that it set.
@@ -340,15 +348,17 @@ try {
   });
 
   await step(
-    "confirm_cost: a card, the person's click, then one confirmed call with the approved ceiling",
+    "confirm_cost: a card, the person's approval on the Hub, then one confirmed call with the approved ceiling",
     async () => {
       cardPlan = ["accept"];
       const before = hubCalls().length;
+      const openedBefore = opened.length;
       const [done] = await turn([call("market.quote-pro", { body: { symbol: "PETR4" } })]);
       assert.ok(done?.success, done?.text);
       assert.equal(done.fields.chargedMicros, 400_000);
       const card = cards.at(-1);
       assert.ok(card?.hub && card.reason.includes("Empresa A") && card.reason.includes("0.40"), card?.reason);
+      assert.deepEqual(opened.slice(openedBefore), [`${APPROVAL_PAGE}${hub.issuedConfirmations.at(-1)}`]);
       const sent = hubCalls()
         .slice(before)
         .map((request) => JSON.parse(request.body));
@@ -856,6 +866,25 @@ try {
     assert.equal(changed.body.reason, "confirmation_invalid");
     const lowered = await post({ endpointId: "market.quote-pro", body: { symbol: "AAA" }, maxCostMicros: 1 });
     assert.equal(lowered.body.error, "cost_above_limit");
+    // The person has not approved it on the Hub page yet: the app's word is not an approval.
+    const unapproved = await post({
+      endpointId: "market.quote-pro",
+      body: { symbol: "AAA" },
+      confirmationId: ask.body.confirmationId,
+    });
+    assert.deepEqual(
+      [unapproved.status, unapproved.body.error, unapproved.body.reason],
+      [409, "not_allowed", "confirmation_not_approved"],
+    );
+    const deniedAsk = await post({ endpointId: "market.quote-pro", body: { symbol: "DDD" } });
+    hub.decideConfirmation(deniedAsk.body.confirmationId, "denied");
+    const denied = await post({
+      endpointId: "market.quote-pro",
+      body: { symbol: "DDD" },
+      confirmationId: deniedAsk.body.confirmationId,
+    });
+    assert.equal(denied.body.reason, "confirmation_denied");
+    hub.decideConfirmation(ask.body.confirmationId, "approved");
     const good = await post({
       endpointId: "market.quote-pro",
       body: { symbol: "AAA" },

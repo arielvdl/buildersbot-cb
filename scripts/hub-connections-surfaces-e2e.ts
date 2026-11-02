@@ -1,6 +1,7 @@
 // Checks the screens of the Hub connections in Storybook, in a headless browser with a new profile:
 // the tool catalog in the curated Apps list (hidden by default, shown in use or by a profile, found by
-// the search and a link), its Marketplace page (what it gives, categories, cap with the 80 % mark, who
+// the search and a link), the tiles of its platforms in their categories (only while it is in use;
+// a tile opens the catalog's page), "Open the Hub" of a connection with no consent, its Marketplace page (what it gives, categories, cap with the 80 % mark, who
 // pays, the switch of each agent, where the data goes, and each state: warning, reached, not on,
 // choose who pays, paused, consent, signed out), Usage › Connections, and the cost lines of a chat
 // with "Ask the admin for more". The stories run the real components, the real curation and the real
@@ -40,6 +41,8 @@ const TEXT = {
     ask: "Ask the admin",
     sent: "Request sent on",
     usage: "Connections",
+    tiles: "Via Cultura Builder · 6 tools",
+    openHub: "Open the Hub",
   },
   pt: {
     name: "Catálogo de ferramentas",
@@ -54,6 +57,8 @@ const TEXT = {
     ask: "Pedir ao admin",
     sent: "Pedido enviado em",
     usage: "Conexões",
+    tiles: "Via Cultura Builder · 6 ferramentas",
+    openHub: "Abrir o Hub",
   },
 } as const;
 
@@ -149,6 +154,31 @@ async function groupTitles(page: Page): Promise<string[]> {
     .evaluateAll((titles) => titles.map((title) => title.firstChild?.textContent?.trim() ?? ""));
 }
 
+/** The rows of each category group of the list, by the group's title. */
+async function rowsByGroup(page: Page): Promise<Record<string, string[]>> {
+  return page
+    .locator(".marketplace-app-group")
+    .evaluateAll((groups) =>
+      Object.fromEntries(
+        groups.map((group) => [
+          group.querySelector(".marketplace-app-group-title")?.firstChild?.textContent?.trim() ?? "",
+          [...group.querySelectorAll(".marketplace-app-row-hit")].map((row) =>
+            (row.getAttribute("aria-label") ?? "").replace(/^(Open|Abrir) /u, ""),
+          ),
+        ]),
+      ),
+    );
+}
+
+/** The tiles of the story's platforms, by the category of their group (`PLATFORM_CATEGORY`). */
+const PLATFORM_TILES: Readonly<Record<string, readonly string[]>> = {
+  Research: ["Google Ads", "App stores", "Trustpilot", "Open web"],
+  "Data & Analytics": ["Company data", "Market data"],
+  Coding: ["Developer data"],
+  Design: ["Image tools"],
+  Other: ["Ads library"],
+};
+
 /** Ends the run after the checks, with no screenshots. */
 class ChecksDone extends Error {}
 
@@ -163,6 +193,9 @@ try {
   assert.ok(!(await rowNames(page)).includes(TEXT.en.name), "the default list shows a connection that is not on");
   assert.ok(!(await groupTitles(page)).includes(TEXT.en.group), "the default list has a Connections group");
   const search = page.getByRole("searchbox", { name: "Search the marketplace" });
+  await search.fill("Google Ads");
+  await page.waitForFunction(() => document.querySelector(".marketplace-empty") !== null);
+  assert.equal(await page.locator(".marketplace-app-row").count(), 0, "a connection that is not on has tiles");
   await search.fill("Tool catalog");
   await page.waitForFunction(() => document.querySelectorAll(".marketplace-app-row-hit").length === 1);
   assert.deepEqual(await rowNames(page), [TEXT.en.name], "the search does not find the connection");
@@ -187,11 +220,32 @@ try {
   assert.equal(await nav.getByRole("button", { name: TEXT.en.name }).count(), 1);
   steps.push("in use: the curated list and the side panel show it, with its state");
 
+  // In use: each platform of the catalog is a tile in the category of its group, with the
+  // connection's state and no install button; "Your apps" does not list them; a tile opens the page.
+  const groups = await rowsByGroup(page);
+  for (const [category, tiles] of Object.entries(PLATFORM_TILES))
+    for (const tile of tiles)
+      assert.ok(groups[category]?.includes(tile), `${tile} is not in ${category}: ${JSON.stringify(groups)}`);
+  assert.deepEqual(groups[TEXT.en.group], [TEXT.en.name], "a platform tile is in the Connections group");
+  const tile = page.locator(".marketplace-app-row", { has: page.locator('[aria-label="Open Google Ads"]') });
+  assert.equal(await tile.getByText(TEXT.en.on, { exact: true }).count(), 1, "the tile does not say On");
+  assert.equal(await tile.getByText("Via Cultura Builder · 6 tools", { exact: true }).count(), 1);
+  assert.equal(await tile.getByRole("button").count(), 1, "the tile has a button other than its row");
+  assert.equal(await nav.getByRole("button", { name: "Google Ads" }).count(), 0, "Your apps lists a tile");
+  await search.fill("Trustpilot");
+  await page.waitForFunction(() => document.querySelectorAll(".marketplace-app-row-hit").length === 1);
+  assert.deepEqual(await rowNames(page), ["Trustpilot"], "the search does not find the tile");
+  await search.fill("");
+  await page.getByRole("button", { name: "Open Google Ads" }).click();
+  await page.getByRole("heading", { name: TEXT.en.name, level: 3 }).waitFor({ timeout: 60_000 });
+  steps.push("in use: one tile per platform in its category, with On and no install button; a tile opens the page");
+
   // Paused by Cultura Builder with no spend yet: still installed, so the curated list keeps it.
   await open(page, marketplace("connections-paused"));
   await page.locator(".marketplace-app-row").first().waitFor();
   assert.ok((await rowNames(page)).includes(TEXT.en.name), "a paused connection that the person has is hidden");
-  steps.push("paused with no spend: the curated list still shows it");
+  assert.ok(!(await rowNames(page)).includes("Google Ads"), "a paused connection has platform tiles");
+  steps.push("paused with no spend: the curated list still shows it, with no platform tile");
 
   // An organization profile names it: shown, also when it is not on.
   await open(page, marketplace("connections-profile"));
@@ -300,6 +354,10 @@ try {
       { exact: true },
     )
     .waitFor({ timeout: 60_000 });
+  // The consent alert: "Open the Hub" (main opens the Hub's connections page); Refresh is in the header.
+  const consent = page.getByRole("alert").filter({ hasText: "Allow Builders Bot on the Hub" });
+  await consent.getByRole("button", { name: "Open the Hub" }).click();
+  assert.equal(await page.getByRole("button", { name: "Refresh the connection" }).count(), 1);
   await open(page, marketplace("connection-signed-out"));
   await page
     .getByText(
@@ -309,7 +367,7 @@ try {
       },
     )
     .waitFor({ timeout: 60_000 });
-  steps.push("paused, no consent and signed out: each page says why");
+  steps.push("paused, no consent (with Open the Hub and Refresh) and signed out: each page says why");
 
   // Usage › Connections: the charges apart from the model estimate, with the platforms.
   await open(page, "agents-usage--connections", "en", "dark", ".connection-usage");
@@ -422,6 +480,13 @@ try {
       all: false,
     },
     {
+      name: "consent",
+      id: marketplace("connection-page-consent"),
+      ready: ".marketplace-connection-page",
+      sizes: ["normal", "narrow"],
+      all: true,
+    },
+    {
       name: "paused",
       id: marketplace("connection-page-paused"),
       ready: ".marketplace-connection-page",
@@ -463,8 +528,20 @@ try {
               (await shotPage.getByText(item, { exact: true }).count()) >= 1,
               `${view.name} ${locale} has no "${item}"`,
             );
-        if (view.name === "list")
+        if (view.name === "list") {
           assert.ok((await groupTitles(shotPage)).includes(TEXT[locale].group), `list ${locale} has no group`);
+          assert.equal(
+            await shotPage.getByText(TEXT[locale].tiles, { exact: true }).count(),
+            1,
+            `list ${locale} has no tile line "${TEXT[locale].tiles}"`,
+          );
+        }
+        if (view.name === "consent")
+          assert.equal(
+            await shotPage.getByRole("button", { name: TEXT[locale].openHub }).count(),
+            1,
+            `consent ${locale} has no "${TEXT[locale].openHub}"`,
+          );
         if (view.name === "reached" && locale === "pt")
           assert.equal(await shotPage.getByRole("button", { name: TEXT.pt.more }).count(), 1, "no Pedir mais ao admin");
         // Usage shows its connection part below the model report: the picture shows that part.
