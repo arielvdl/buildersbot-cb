@@ -440,12 +440,27 @@ async function main(): Promise<void> {
              </script>`,
           );
         case "/compose4":
-          // A button named "Archive" whose child is a send control of its own, over the button's center.
+          // Buttons named "Archive" whose child is a send control of its own, over the whole button: by an
+          // onclick attribute, by a listener that no attribute shows, and slotted into a shadow root (open,
+          // closed). And a button "Bold" with a plain child and room around it.
           return html(
             "Compose",
             `<label>To <input aria-label="To" id="to"></label>
-             <button id="archive" aria-label="Archive" style="padding:0"><span aria-label="Send" onclick="event.stopPropagation(); fetch('/sent', { method: 'POST', body: JSON.stringify({ to: 'child', text: 'child' }) })" style="display:inline-block;width:120px;height:40px">✈</span></button>
-             <button id="bold" style="padding:0"><span style="display:inline-block;width:120px;height:40px">Bold</span></button>`,
+             <button aria-label="Archive one" style="padding:0"><span aria-label="Send" onclick="event.stopPropagation(); send('attr')" style="display:inline-block;width:120px;height:40px">✈</span></button>
+             <button aria-label="Archive two" style="padding:0"><span id="listened" style="display:inline-block;width:120px;height:40px">✈</span></button>
+             <x-archive id="open-host" role="button" aria-label="Archive three" tabindex="0"><span id="slotted-open" style="display:inline-block;width:120px;height:40px">✈</span></x-archive>
+             <x-archive id="closed-host" role="button" aria-label="Archive four" tabindex="0"><span id="slotted-closed" style="display:inline-block;width:120px;height:40px">✈</span></x-archive>
+             <button id="bold" style="padding:8px"><span>Bold</span></button>
+             <script>
+               function send(by) { fetch('/sent', { method: 'POST', body: JSON.stringify({ to: 'child', text: by }) }); }
+               document.getElementById('listened').addEventListener('click', (event) => { event.stopPropagation(); send('listener'); });
+               for (const [host, mode] of [['open-host', 'open'], ['closed-host', 'closed']]) {
+                 const root = document.getElementById(host).attachShadow({ mode });
+                 root.innerHTML = '<div style="display:inline-block"><slot></slot></div>';
+               }
+               for (const id of ['slotted-open', 'slotted-closed'])
+                 document.getElementById(id).addEventListener('click', (event) => { event.stopPropagation(); send(id); });
+             </script>`,
           );
         case "/send-frame":
           return html(
@@ -1367,16 +1382,24 @@ async function main(): Promise<void> {
         // A child of the button with its own click handler sits at the click point (review of 02/11,
         // third batch): each element from the one at the point up to the target is checked.
         await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose4") });
-        let page4 = await fresh();
-        const childSend = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Archive"') })).text;
-        page4 = await fresh();
+        const childSend: Record<string, string> = {};
+        for (const name of ["Archive one", "Archive two", "Archive three", "Archive four"]) {
+          const page4 = await fresh();
+          childSend[name] = (await call(agents.carla, "click", { tabId, target: lineRef(page4, `"${name}"`) })).text;
+        }
+        const page4 = await fresh();
         passes.boldWithChild = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Bold"') })).text;
         await sleep(500);
         const sentAround = sent.slice(sentBefore);
-        expect(childSend.includes("nothing was clicked"), "a send control inside a button went out", {
-          childSend,
+        // Safe either way: the click is refused, or it lands on the button's own edge, so the child's
+        // handler never runs. What must not happen is a message.
+        for (const [name, text] of Object.entries(childSend))
+          expect(text.includes("nothing was clicked") || !text.startsWith("Error"), `a click failed: ${name}`, text);
+        expect(
+          !sentAround.some((entry) => entry.to === "child"),
+          "a send control inside a button went out",
           sentAround,
-        });
+        );
         for (const [name, text] of Object.entries(more))
           expect(text.includes("approval"), `a send went around the card: ${name}`, { text, sentAround });
         expect(archive.includes("nothing was clicked"), "a send named as another action went out", {

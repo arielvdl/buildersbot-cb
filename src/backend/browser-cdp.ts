@@ -813,9 +813,10 @@ export class BrowserCdpEngine {
       clickCount?: number | undefined;
       modifiers?: string[] | undefined;
       /**
-       * A last check, just before the click, of the element that the target resolved to and of the
-       * elements at the click point up to it: a refusal text stops the click. A target with no element
-       * (a point) is refused when this is set.
+       * A last check, just before the click, of the element that the target resolved to: a refusal text
+       * stops the click. With it, the click lands only on a point where the element hit is the target
+       * itself (or the inside of its own shadow trees), never on a child of it, which can act on its
+       * own. A target with no element (a point) is refused.
        */
       checkTarget?: ClickTargetCheck | undefined;
     } = {},
@@ -833,23 +834,10 @@ export class BrowserCdpEngine {
               const found = yield* this.#targetFingerprint(send, resolved.backendNodeId, resolved.sessionId);
               const refusal = checkTarget.target(found);
               if (refusal !== null) return yield* browserFailure(new Error(refusal));
-              let hitId = 0;
-              const at = yield* this.#elementPointEffect(
-                send,
-                resolved.backendNodeId,
-                true,
-                resolved.sessionId,
-                true,
-                (hit) => {
-                  hitId = hit;
-                },
-              );
-              // The click lands on the element at the point, which can be a control of its own inside the
-              // target (a child with its own click handler): each element from it up to the target is checked.
-              const chain = hitId ? yield* clickChain(send, hitId, resolved.backendNodeId, resolved.sessionId) : null;
-              const hitRefusal = checkTarget.hit(chain);
-              if (hitRefusal !== null) return yield* browserFailure(new Error(hitRefusal));
-              return at;
+              // The event goes to the element at the point. A child of the target can act on its own, also
+              // through a listener that no check can see (a framework that listens at the root), so the
+              // click lands only where the element hit is the target itself.
+              return yield* this.#ownPointEffect(send, resolved.backendNodeId, resolved.sessionId);
             })
           : yield* this.#targetPointEffect(send, target, true, true, deadline);
         const { sessionId, ...coordinates } = point;
@@ -3043,6 +3031,91 @@ export class BrowserCdpEngine {
     return yield* this.#elementPointEffect(send, resolved.backendNodeId, hitTest, resolved.sessionId, scrollIntoView);
   });
 
+  /**
+   * A point of the element where the element hit (in the page's own DOM, not the browser's inside of a
+   * field) is the element itself, or the inside of its own shadow trees: the center, the corners, then
+   * a grid. A point over a child of the element, or over anything else, is not taken. It fails when the
+   * element has no such point.
+   */
+  readonly #ownPointEffect = Effect.fn("BrowserCdp.ownPoint")(function* (
+    this: BrowserCdpEngine,
+    send: SendCommand,
+    backendNodeId: number,
+    sessionId?: string,
+  ): Effect.fn.Return<{ x: number; y: number; sessionId?: string | undefined }, BrowserOperationError> {
+    yield* send("DOM.scrollIntoViewIfNeeded", { backendNodeId }, sessionId);
+    const box = yield* send("DOM.getBoxModel", { backendNodeId }, sessionId);
+    const model = recordValue(box.model);
+    // The border box: the padding of an element is the element itself, and often its only own point.
+    const quad = Array.isArray(model?.border) ? model.border.filter(isFiniteNumber) : [];
+    if (quad.length < 8) return yield* browserFailure(new Error("Element has no visible clickable bounds."));
+    const metrics = yield* send("Page.getLayoutMetrics", {}, sessionId);
+    const viewport = recordValue(metrics.cssLayoutViewport);
+    const width = numberValue(viewport?.clientWidth);
+    const height = numberValue(viewport?.clientHeight);
+    const xs = quad.slice(0, 8).filter((_, index) => index % 2 === 0);
+    const ys = quad.slice(0, 8).filter((_, index) => index % 2 === 1);
+    const left = Math.max(0, Math.min(...xs));
+    const right = Math.min(width - 1, Math.max(...xs));
+    const top = Math.max(0, Math.min(...ys));
+    const bottom = Math.min(height - 1, Math.max(...ys));
+    if (width <= 0 || height <= 0 || right < left || bottom < top)
+      return yield* browserFailure(new Error("Element has no visible clickable bounds."));
+    // Five steps across each side, 2 px in from the edge, the center first.
+    const step = (low: number, high: number, part: number) => {
+      const margin = Math.min(2, (high - low) / 4);
+      return low + margin + ((high - low - 2 * margin) * part) / 4;
+    };
+    const grid: Array<{ x: number; y: number }> = [{ x: (left + right) / 2, y: (top + bottom) / 2 }];
+    for (let py = 0; py <= 4; py += 1)
+      for (let px = 0; px <= 4; px += 1) grid.push({ x: step(left, right, px), y: step(top, bottom, py) });
+    const executionContextId = yield* automationContextId(send, sessionId);
+    const resolvedTarget = yield* send("DOM.resolveNode", { backendNodeId, executionContextId }, sessionId);
+    const targetObject = stringValue(recordValue(resolvedTarget.object)?.objectId);
+    if (!targetObject) return yield* browserFailure(new Error("Element is no longer attached to the document."));
+    const tried = new Set<string>();
+    return yield* Effect.gen(function* () {
+      for (const point of grid) {
+        const key = `${Math.round(point.x)}:${Math.round(point.y)}`;
+        if (tried.has(key)) continue;
+        tried.add(key);
+        // The hit test takes document coordinates; input events keep viewport coordinates.
+        const hit = yield* send(
+          "DOM.getNodeForLocation",
+          {
+            x: Math.round(point.x + numberValue(viewport?.pageX)),
+            y: Math.round(point.y + numberValue(viewport?.pageY)),
+            includeUserAgentShadowDOM: false,
+          },
+          sessionId,
+        );
+        const hitId = numberValue(hit.backendNodeId);
+        if (!hitId) continue;
+        if (hitId === backendNodeId) return { ...point, ...(sessionId === undefined ? {} : { sessionId }) };
+        const resolvedHit = yield* send("DOM.resolveNode", { backendNodeId: hitId, executionContextId }, sessionId);
+        const hitObject = stringValue(recordValue(resolvedHit.object)?.objectId);
+        if (!hitObject) continue;
+        const own = yield* send(
+          "Runtime.callFunctionOn",
+          {
+            objectId: hitObject,
+            functionDeclaration: OWN_HIT_FUNCTION,
+            arguments: [{ objectId: targetObject }],
+            returnByValue: true,
+          },
+          sessionId,
+        ).pipe(Effect.ensuring(send("Runtime.releaseObject", { objectId: hitObject }, sessionId).pipe(Effect.ignore)));
+        if (recordValue(own.result)?.value === true)
+          return { ...point, ...(sessionId === undefined ? {} : { sessionId }) };
+      }
+      return yield* browserFailure(
+        new Error(
+          "The target has no point that is not covered by elements inside it, which can act on their own: nothing was clicked. Click the inner element by its own ref.",
+        ),
+      );
+    }).pipe(Effect.ensuring(send("Runtime.releaseObject", { objectId: targetObject }, sessionId).pipe(Effect.ignore)));
+  });
+
   readonly #elementPointEffect = Effect.fn("BrowserCdp.elementPoint")(function* (
     this: BrowserCdpEngine,
     send: SendCommand,
@@ -3050,8 +3123,6 @@ export class BrowserCdpEngine {
     hitTest: boolean,
     sessionId?: string,
     scrollIntoView = true,
-    /** Gets the element at the point that the hit test chose (the target or a node inside it). */
-    onHit?: (hitId: number) => void,
   ): Effect.fn.Return<{ x: number; y: number; sessionId?: string | undefined }, BrowserOperationError> {
     if (scrollIntoView) yield* send("DOM.scrollIntoViewIfNeeded", { backendNodeId }, sessionId);
     const box = yield* send("DOM.getBoxModel", { backendNodeId }, sessionId);
@@ -3098,7 +3169,6 @@ export class BrowserCdpEngine {
       );
       const hitId = numberValue(hit.backendNodeId);
       if (hitId && (yield* hitActivatesTarget(send, hitId, backendNodeId, sessionId))) {
-        onHit?.(hitId);
         return { ...point, ...session };
       }
       blockerId ||= hitId;
@@ -3440,103 +3510,28 @@ function uniquePoints(points: Array<{ x: number; y: number }>): Array<{ x: numbe
   });
 }
 
-/** One element between the one at a click point and the click target: what names it, and whether it acts. */
-export interface ClickChainEntry {
-  readonly tag: string;
-  readonly role: string;
-  /** Its own names: aria-label, title, alt, a button value, and its visible text. */
-  readonly labels: readonly string[];
-  /** A control of its own: a native control, a control role, a click attribute or a tab stop. */
-  readonly interactive: boolean;
-}
-
 /** The last check of a click (the send gate of the person's Chrome). A text refuses the click. */
 export interface ClickTargetCheck {
   target(found: { role: string; name: string; visibleText: string }): string | null;
-  /** The elements from the one at the click point up to the target; null when it does not reach the target. */
-  hit(chain: readonly ClickChainEntry[] | null): string | null;
 }
 
 /**
- * The elements from the one at a click point (`this`) up to the target, the target left out, in the
- * automation world. A label that names the target is the last one. Null when the walk does not reach
- * the target.
+ * Whether the element hit at a click point (`this`; a text node counts as its element) is the target
+ * itself, or is inside the target's own shadow trees, open or closed: the target's own parts, not a
+ * child of the page's that the target holds or that a slot shows in it.
  */
-const CLICK_CHAIN_FUNCTION = `function(target) {
-  const start = this instanceof CSSPseudoElement ? this.element : this;
-  const chain = [];
-  const controls = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option', 'treeitem', 'switch', 'checkbox', 'radio']);
-  for (let node = start; node; node = node.parentNode || node.host) {
-    if (node === target) return chain;
-    if (chain.length >= 32) return null;
-    if (node.nodeType !== 1) continue;
-    const tag = node.localName || '';
-    const role = (node.getAttribute('role') || '').trim().split(/\\s+/)[0].toLowerCase();
-    // The text inside a field is what someone writes, not the name of a control.
+const OWN_HIT_FUNCTION = `function(target) {
+  let node = this.nodeType === 3 ? this.parentNode : this;
+  if (node instanceof CSSPseudoElement) node = node.element;
+  for (let depth = 0; node && depth < 64; depth += 1) {
+    if (node === target) return true;
     const root = node.getRootNode();
-    const editable = node.isContentEditable ||
-      (root instanceof ShadowRoot && ['input', 'textarea'].includes(root.host?.localName || ''));
-    const labels = [node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('alt'),
-      tag === 'input' && ['button', 'submit', 'reset'].includes(node.type) ? node.value : null,
-      editable ? null : String(node.innerText ?? node.textContent ?? '').replace(/\\s+/g, ' ').trim().slice(0, 500)]
-      .filter((label) => typeof label === 'string' && label.trim() !== '');
-    const interactive = ['button', 'select', 'textarea', 'summary', 'option'].includes(tag) ||
-      (tag === 'a' && node.hasAttribute('href')) || (tag === 'input' && node.type !== 'hidden') ||
-      controls.has(role) || node.hasAttribute('onclick') || node.hasAttribute('tabindex');
-    chain.push({ tag, role, labels, interactive });
-    if (tag === 'label' && node.control === target) return chain;
+    if (!(root instanceof ShadowRoot)) return false;
+    if (root.host === target) return true;
+    node = root.host;
   }
-  return null;
+  return false;
 }`;
-
-/** The elements from `hit` up to `target` (`CLICK_CHAIN_FUNCTION`), or null. */
-const clickChain = Effect.fn("Browser.clickChain")(function* (
-  send: SendCommand,
-  hit: number,
-  target: number,
-  sessionId?: string,
-) {
-  if (hit === target) return [];
-  const executionContextId = yield* automationContextId(send, sessionId);
-  const objectIds: string[] = [];
-  return yield* Effect.gen(function* () {
-    for (const backendNodeId of [hit, target]) {
-      const resolved = yield* send("DOM.resolveNode", { backendNodeId, executionContextId }, sessionId);
-      const objectId = stringValue(recordValue(resolved.object)?.objectId);
-      if (!objectId) return null;
-      objectIds.push(objectId);
-    }
-    const result = yield* send(
-      "Runtime.callFunctionOn",
-      {
-        objectId: objectIds[0],
-        functionDeclaration: CLICK_CHAIN_FUNCTION,
-        arguments: [{ objectId: objectIds[1] }],
-        returnByValue: true,
-      },
-      sessionId,
-    );
-    const value = recordValue(result.result)?.value;
-    if (!Array.isArray(value)) return null;
-    return value.filter(isRecord).map(
-      (entry): ClickChainEntry => ({
-        tag: stringValue(entry.tag),
-        role: stringValue(entry.role),
-        labels: Array.isArray(entry.labels) ? entry.labels.filter(isString) : [],
-        interactive: entry.interactive === true,
-      }),
-    );
-  }).pipe(
-    Effect.ensuring(
-      Effect.gen(function* () {
-        yield* Effect.all(
-          objectIds.map((objectId) => send("Runtime.releaseObject", { objectId }, sessionId).pipe(Effect.ignore)),
-          { concurrency: "unbounded" },
-        );
-      }).pipe(Effect.orDie),
-    ),
-  );
-});
 
 const hitActivatesTarget = Effect.fn("Browser.hitActivatesTarget")(function* (
   send: SendCommand,

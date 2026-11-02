@@ -338,18 +338,6 @@ export function clickTargetCheck(url: string, snapshot: BrowserSnapshot | null):
       const label = controlSends(found.role || null, names, composer);
       return label === null ? null : refusal(label);
     },
-    hit: (chain) => {
-      if (chain === null) return refusal("an element at the click point that is not the target");
-      for (const entry of chain) {
-        const sending = entry.labels.find((label) => SEND_NAME.test(label));
-        if (sending !== undefined) return refusal(sending);
-        if (!entry.interactive) continue;
-        // A control of its own inside the target: the same check as the target.
-        const label = controlSends(entry.role || null, entry.labels, composer);
-        if (label !== null) return refusal(label);
-      }
-      return null;
-    },
   };
 }
 
