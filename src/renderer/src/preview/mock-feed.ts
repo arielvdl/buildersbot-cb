@@ -17,6 +17,8 @@ import type { Listener } from "./mock-support";
 export interface MockFeedOptions {
   /** The cards when the page opens. 40 by default. */
   items?: FeedItem[] | number;
+  /** The agents of the generated cards. The agents of `MOCK_FEED_AGENTS` by default. */
+  agents?: ReadonlyArray<MockFeedAgent> | undefined;
   /** Adds and changes cards on a timer, as a busy workspace does. */
   live?: { intervalMs: number } | undefined;
 }
@@ -32,7 +34,14 @@ const PROJECTS = [
   null,
 ] as const;
 
-export const MOCK_FEED_AGENTS = [
+export interface MockFeedAgent {
+  id: string;
+  name: string;
+  /** An index into the fixture projects. */
+  project: number;
+}
+
+export const MOCK_FEED_AGENTS: readonly MockFeedAgent[] = [
   { id: "lider", name: "Líder Opus", project: 0 },
   { id: "editor", name: "Editor iMasters", project: 2 },
   { id: "validador", name: "Validador iMasters", project: 2 },
@@ -45,7 +54,7 @@ export const MOCK_FEED_AGENTS = [
   { id: "pesquisa", name: "Pesquisa", project: 4 },
   { id: "suporte", name: "Suporte", project: 4 },
   { id: "dados", name: "Dados", project: 3 },
-] as const;
+];
 
 const TITLES = [
   "Deploy do Hub (hub-prod-02)",
@@ -102,8 +111,13 @@ function iso(time: number): string {
 }
 
 /** One card of the fixtures. `index` 0 is the oldest. */
-export function mockFeedItem(index: number, total: number, now = MOCK_FEED_NOW): FeedItem {
-  const agent = pick(MOCK_FEED_AGENTS, index * 7);
+export function mockFeedItem(
+  index: number,
+  total: number,
+  now = MOCK_FEED_NOW,
+  agents: readonly MockFeedAgent[] = MOCK_FEED_AGENTS,
+): FeedItem {
+  const agent = pick(agents, index * 7);
   const project = PROJECTS[agent.project] ?? null;
   // The newest runs are the open ones.
   const fromEnd = total - 1 - index;
@@ -162,14 +176,21 @@ export function mockFeedItem(index: number, total: number, now = MOCK_FEED_NOW):
 }
 
 /** `count` cards in timeline order, the newest last. */
-export function mockFeedItems(count: number, now = MOCK_FEED_NOW): FeedItem[] {
-  return Array.from({ length: count }, (_, index) => mockFeedItem(index, count, now));
+export function mockFeedItems(
+  count: number,
+  now = MOCK_FEED_NOW,
+  agents: readonly MockFeedAgent[] = MOCK_FEED_AGENTS,
+): FeedItem[] {
+  return Array.from({ length: count }, (_, index) => mockFeedItem(index, count, now, agents));
 }
 
 export function createMockFeed(options: MockFeedOptions = {}): FeedDesktopApi {
   const initial = options.items ?? 40;
   const items = new Map<string, FeedItem>(
-    (typeof initial === "number" ? mockFeedItems(initial) : initial).map((item) => [item.id, item]),
+    (typeof initial === "number" ? mockFeedItems(initial, MOCK_FEED_NOW, options.agents) : initial).map((item) => [
+      item.id,
+      item,
+    ]),
   );
   const listeners = new Set<Listener<FeedDelta>>();
   let cursor = 0;

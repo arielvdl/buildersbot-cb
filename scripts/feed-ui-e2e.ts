@@ -7,6 +7,8 @@
 // - "/" goes to the search, and a search keeps only the matching runs;
 // - with new runs coming, scrolling up pauses the timeline and counts "N new", and the button goes
 //   back to the newest card and follows again;
+// - in the whole app of the preview, the Feed button of the page rail opens the page, and a card opens
+//   the chat of its agent;
 // - the light and the dark palette render, and no error halts the page.
 // Pass the URL that `bun run storybook` reports:
 //
@@ -88,7 +90,8 @@ const report: {
 };
 
 function storyUrl(id: string, locale: Locale, scheme: Scheme): string {
-  return `${storybook}/iframe.html?id=features-feed--${id}&viewMode=story&globals=locale:${locale};colorScheme:${scheme}`;
+  const story = id.includes("--") ? id : `features-feed--${id}`;
+  return `${storybook}/iframe.html?id=${story}&viewMode=story&globals=locale:${locale};colorScheme:${scheme}`;
 }
 
 async function open(browser: Browser, id: string, locale: Locale, scheme: Scheme) {
@@ -296,12 +299,43 @@ async function checkScreens(browser: Browser): Promise<void> {
   report.steps.push("light and dark screenshots");
 }
 
+/**
+ * The whole app of the preview: the Feed button of the page rail opens the page beside the sidebar,
+ * and "Open conversation" on a card opens the chat of its agent and closes the page.
+ */
+async function checkInApp(browser: Browser): Promise<void> {
+  for (const scheme of ["dark", "light"] as const) {
+    const { context, page } = await open(browser, "app--playground", "pt", scheme);
+    try {
+      const rail = page.getByRole("navigation", { name: "Páginas" });
+      await rail.getByRole("button", { name: "Feed", exact: true }).click({ timeout: 240_000 });
+      await page.locator(".feed-card").first().waitFor({ timeout: 30_000 });
+      await page.locator(".feed-team-member").first().waitFor({ timeout: 10_000 });
+      assert.equal(
+        await rail.getByRole("button", { name: "Feed", exact: true }).getAttribute("aria-current"),
+        "page",
+        "The rail marks the Feed page.",
+      );
+      await shot(page, scheme === "dark" ? "feed-mvp-app-escuro" : "feed-mvp-app-claro");
+      if (scheme === "dark") {
+        const card = page.locator(".feed-card").last();
+        const agent = (await card.locator(".feed-card-agent").textContent())?.trim() ?? "";
+        await card.getByRole("button", { name: "Abrir conversa" }).click();
+        await page.locator(".feed-page").waitFor({ state: "detached", timeout: 10_000 });
+        report.steps.push(`in the app: the rail opens the feed; a card opens the chat of ${agent}`);
+      }
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch(
   browserExecutable ? { executablePath: resolve(browserExecutable), headless: true } : { headless: true },
 );
 try {
-  for (const check of [checkFiveThousand, checkLive, checkLiveScroll, checkScreens]) {
+  for (const check of [checkFiveThousand, checkLive, checkLiveScroll, checkScreens, checkInApp]) {
     try {
       await check(browser);
     } catch (error) {

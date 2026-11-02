@@ -1645,7 +1645,12 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     },
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
-    feed: createMockFeed(options.feed),
+    // The cards name the agents of this preview, so a card opens a chat that exists.
+    feed: createMockFeed({
+      ...options.feed,
+      agents:
+        options.feed?.agents ?? agents.map((agent, index) => ({ id: agent.id, name: agent.name, project: index })),
+    }),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
