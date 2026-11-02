@@ -642,6 +642,7 @@ function registerIpcHandlers({
   agentLimit,
   workControl,
   feed,
+  feedActions,
   agentDefaults,
   agentMemoryLimit,
   memoryReview,
@@ -761,6 +762,7 @@ function registerIpcHandlers({
     ...dynamicIslandIpcHandlers({ dynamicIsland }),
     ...feedIpcHandlers({
       feed,
+      actions: feedActions,
       appWindows: () => {
         const main = windowHolder.current;
         return main ? [main, ...windows.getChatWindows()] : [];

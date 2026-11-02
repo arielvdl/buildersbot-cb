@@ -13,18 +13,20 @@
 
 import {
   type AgentEvent,
+  type AgentPromptQuestion,
   type AgentRuntimeSnapshot,
   FEED_CONTRACT_VERSION,
   FEED_DELTA_LIMIT,
   FEED_DELTAS_PER_SECOND,
   FEED_SNAPSHOT_LIMIT,
   type FeedDelta,
+  type FeedItem,
   type FeedSnapshot,
   LOCAL_SERVER_ID,
   type SidebarLayoutSnapshot,
 } from "@openbot/contracts/ipc";
 import { redactMcpValues } from "../../backend/mcp-redaction";
-import { FeedAggregator, type FeedLoadWork } from "./feed-aggregator";
+import { FeedAggregator, type FeedLoadWork, feedSimpleQuestion } from "./feed-aggregator";
 
 /** The shortest time between two deltas. */
 export const FEED_BATCH_MS = 1_000 / FEED_DELTAS_PER_SECOND;
@@ -70,6 +72,7 @@ export interface FeedStats {
 export class FeedService {
   readonly #aggregator: FeedAggregator;
   readonly #options: FeedServiceOptions;
+  readonly #redact: (text: string) => string;
   readonly #watchers = new Map<number, FeedWatcher>();
   readonly #drains: Array<() => void> = [];
   #cursor = 0;
@@ -83,8 +86,9 @@ export class FeedService {
   constructor(options: FeedServiceOptions = {}) {
     this.#options = options;
     const secretValues = options.secretValues;
+    this.#redact = (text) => redactMcpValues(text, secretValues?.() ?? []);
     this.#aggregator = new FeedAggregator({
-      redact: (text) => redactMcpValues(text, secretValues?.() ?? []),
+      redact: this.#redact,
       resolveName: options.resolveName,
       now: options.now,
       limit: options.limit,
@@ -113,6 +117,26 @@ export class FeedService {
     this.#sweep(true);
     const { items, truncated } = this.#aggregator.items(Math.min(limit, FEED_SNAPSHOT_LIMIT));
     return { v: FEED_CONTRACT_VERSION, cursor: this.#cursor, items, truncated };
+  }
+
+  /** One card as main holds it now, for the feed actions. */
+  card(id: string): Readonly<FeedItem> | undefined {
+    return this.#aggregator.card(id);
+  }
+
+  /** The turn of a card that runs now, or null. */
+  runningTurn(id: string): string | null {
+    return this.#aggregator.runningTurn(id);
+  }
+
+  /** The question that a card can answer itself, by the rule and the redaction of the cards. */
+  simpleQuestion(questions: readonly AgentPromptQuestion[]): AgentPromptQuestion | null {
+    return feedSimpleQuestion(questions, this.#redact);
+  }
+
+  /** Reads this computer's load again now, after an action changed it, so the cards follow at once. */
+  refreshLoad(): void {
+    this.#readLoad();
   }
 
   /** A window starts or stops to watch. The first window reads this computer's runs and load. */

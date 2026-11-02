@@ -406,6 +406,42 @@ export class AttentionRegistry {
     );
   }
 
+  /**
+   * A question or an approval that waits for the person now, with whose it is: its agent and its public
+   * thread. The feed checks a card against it before it answers, because a provider can use a request
+   * id again for a new request. Null when nothing waits under this id. Read only.
+   */
+  pendingRequest(
+    kind: "approval" | "prompt",
+    requestId: RequestId,
+  ):
+    | { kind: "approval"; requestId: RequestId; agentId: string; threadId: string; approval: AgentApproval }
+    | { kind: "prompt"; requestId: RequestId; agentId: string; threadId: string; questions: AgentPromptQuestion[] }
+    | null {
+    if (kind === "approval") {
+      const pending = this.#approvals.get(requestId);
+      return pending
+        ? {
+            kind,
+            requestId: pending.id,
+            agentId: pending.approval.agentId,
+            threadId: pending.approval.threadId,
+            approval: structuredClone(pending.approval),
+          }
+        : null;
+    }
+    const pending = this.#prompts.get(requestId);
+    return pending
+      ? {
+          kind,
+          requestId: pending.id,
+          agentId: pending.agentId,
+          threadId: pending.publicThreadId,
+          questions: structuredClone(pending.questions),
+        }
+      : null;
+  }
+
   hasAttentionFor(agentId: string): boolean {
     return (
       [...this.#prompts.values()].some((pending) => pending.agentId === agentId) ||

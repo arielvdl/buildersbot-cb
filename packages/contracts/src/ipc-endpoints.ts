@@ -305,7 +305,14 @@ import type {
   ExternalLinkFallback,
   ExternalLinkPreference,
 } from "./ipc-external-links";
-import type { FeedDelta, FeedSnapshot, FeedSnapshotInput, FeedWatchInput } from "./ipc-feed";
+import type {
+  FeedActionInput,
+  FeedActionResult,
+  FeedDelta,
+  FeedSnapshot,
+  FeedSnapshotInput,
+  FeedWatchInput,
+} from "./ipc-feed";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
 import type { GuardPreferenceChange, GuardState } from "./ipc-guard";
 import type { ApplyHermesImportInput, HermesImportPreview } from "./ipc-hermes-import";
@@ -1028,6 +1035,12 @@ export const IPC_ENDPOINTS = {
     /** Whether this window shows the page now. Main sends deltas only to a window that does. */
     setWatching: request<FeedWatchInput, void>()("feed:set-watching"),
     delta: event<FeedDelta>()("feed:delta"),
+    /**
+     * An action of the person on cards: approve, deny, answer, stop, resume, reassign. The window sends
+     * ids only; main checks each card again and calls the operation that the conversation or the load
+     * panel calls. It answers which cards it did and why it did not do the others.
+     */
+    act: request<FeedActionInput, FeedActionResult>()("feed:act"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view

@@ -5,7 +5,7 @@ import { createMemo } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { createFeedStore } from "../src/features/feed/stores/feed-store";
-import { createMockFeed, MOCK_FEED_AGENTS } from "../src/preview/mock-feed";
+import { createMockFeed, MOCK_FEED_AGENTS, mockFeedActionItems } from "../src/preview/mock-feed";
 import "./feed-story.css";
 
 /**
@@ -29,8 +29,18 @@ function storyTeam(items: readonly FeedItem[]): FeedTeamMember[] {
  * The feed page with the preview mock behind the real store: a full read, then the deltas, as main
  * sends them. `live` adds a card and a step on a timer.
  */
-function FeedStory(props: { items: number; live?: number; onOpen: (item: FeedItem) => void }) {
-  const api = createMockFeed({ items: props.items, live: props.live ? { intervalMs: props.live } : undefined });
+function FeedStory(props: {
+  items: number;
+  live?: number;
+  /** The cards of the actions story instead of a normal day. */
+  actions?: boolean;
+  onOpen: (item: FeedItem) => void;
+}) {
+  const api = createMockFeed({
+    items: props.actions ? mockFeedActionItems() : props.items,
+    live: props.live ? { intervalMs: props.live } : undefined,
+    actionDelayMs: 600,
+  });
   const feed = createFeedStore(
     () => api,
     (cause) => String(cause),
@@ -44,6 +54,7 @@ function FeedStory(props: { items: number; live?: number; onOpen: (item: FeedIte
         loading={feed.state.loading}
         error={feed.state.error}
         onOpen={props.onOpen}
+        onAct={api.act}
       />
     </div>
   );
@@ -82,3 +93,15 @@ export const Live: Story = { args: { items: 40, live: 700 } };
 
 /** 5,000 cards while new runs come, for the scrolling check. */
 export const LiveFiveThousand: Story = { args: { items: 5_000, live: 250 } };
+
+/**
+ * One card of each action: a command to approve, a question of the Guard and more access (high risk,
+ * a second step), a question with choices, a question with a typed answer, two questions (for the
+ * conversation), a run to stop, three stopped tasks to resume or reassign, one by one or selected
+ * together, a card that main refuses, and a card of a joined server, which offers only "open".
+ * Each action takes 0.6 s, so the waiting state shows.
+ */
+export const Actions: Story = { args: { items: 0, actions: true } };
+
+/** The actions on the light palette. */
+export const ActionsLight: Story = { args: { items: 0, actions: true }, globals: { colorScheme: "light" } };

@@ -89,6 +89,7 @@ The architecture notes are in one file for each topic:
 - [The feed page](architecture/feed.md)
   - [The contract](architecture/feed.md#the-contract)
   - [The main process](architecture/feed.md#the-main-process)
+  - [Actions](architecture/feed.md#actions)
   - [The window](architecture/feed.md#the-window)
   - [Joined servers](architecture/feed.md#joined-servers)
   - [Known limits](architecture/feed.md#known-limits)

@@ -1978,6 +1978,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#attention.agentIdForRequest(requestId);
   }
 
+  /** A question or an approval that waits for the person now, with its agent and thread (`AttentionRegistry`). */
+  pendingRequest(kind: "approval" | "prompt", requestId: string | number) {
+    return this.#attention.pendingRequest(kind, requestId);
+  }
+
   getLocalAttention(agentId: string) {
     return this.#attention.localAttention(agentId);
   }

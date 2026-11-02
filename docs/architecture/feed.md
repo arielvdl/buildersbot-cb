@@ -12,9 +12,9 @@ It is a page, not a dialog. It has two parts:
   or the channel, the state, the step that it does now, and what it waits for. "Open conversation"
   (or "Open channel") opens the place of the run.
 
-This is step 1 of the feed: read only. A card that needs the person tells what it waits for and opens
-the conversation, where the person answers. Approve, deny, answer, resume and reassign on the card
-are step 2. The feed of a joined server with the data of its host is step 3.
+Step 1 of the feed is the read-only timeline. Step 2 adds the actions on the card: approve, deny,
+answer, stop, resume and reassign, also on many stopped tasks at once (see [Actions](#actions)). The
+feed of a joined server with the data of its host is step 3.
 
 ## The contract
 
@@ -43,6 +43,7 @@ The IPC group is `feed` (`window.openbot.feed`):
 | `getSnapshot` | Every card (at most 5,000), in timeline order, with the cursor of the last delta. |
 | `setWatching` | The window shows the page, or stops to show it. Main sends deltas only to a window that watches. |
 | `delta` (event) | The cards that changed and the ids of the removed cards. The cursor goes up by one at each delta. |
+| `act` | An action of the person on cards, with ids only (`FeedActionInput` version 1). It answers which cards were done and why the others were not (`FeedActionResult`). |
 
 The handlers (`src/main/ipc/feed-handlers.ts`) accept only the main window and the chat windows: the
 Dynamic Island and the browser dock overlay share the origin of the app and are refused before the
@@ -109,6 +110,10 @@ Schedule and Workflows pages do (`windowPageKind` is `titled`). The shared compo
 | `FeedJumpBar.tsx` | Live or paused, and the counters "Needs you", "Stopped", "Working": each click goes to the next such card. |
 | `FeedTimeline.tsx` | The timeline, on `createChatVirtualizer`: only the cards on screen are in the DOM. |
 | `FeedItemCard.tsx` | One card. |
+| `FeedCardActions.tsx` | The actions of a card: the buttons, the answer, the second step, the wait and the notice. |
+| `FeedBulkBar.tsx` | The selection of stopped tasks: resume them, or give them to one agent. |
+| `feed-actions-controller.ts` | The state of the actions: the change at once, the way back, the selection, the keys. |
+| `feed-actions-view.ts` | The DOM-free part of the actions: the card as it shows while its action runs, the labels. |
 | `feed-view.ts` | The DOM-free projection: filters, rows, counters, Team. |
 
 The adapter is `src/renderer/src/features/feed/`: `stores/feed-store.ts` keeps one record of cards
@@ -124,8 +129,71 @@ button at the bottom goes back to the newest card. The timeline is an ARIA `feed
 move between the cards. A polite live region says when more runs need the person, not each step.
 
 `src/renderer/stories/Feed.stories.tsx` shows the page with the preview mock
-(`src/renderer/src/preview/mock-feed.ts`): empty, a normal day, 5,000 cards, and new runs on a timer,
-on both palettes. `scripts/feed-ui-e2e.ts` checks them in a headless browser.
+(`src/renderer/src/preview/mock-feed.ts`): empty, a normal day, 5,000 cards, new runs on a timer, and
+one card of each action (`Actions`), on both palettes. The mock answers `act` with the checks of main
+after 0.6 s, and refuses every action on one card. `scripts/feed-ui-e2e.ts` and
+`scripts/feed-actions-ui-e2e.ts` check them in a headless browser.
+
+## Actions
+
+The window sends ids only: the card, and the request of an approval or a question. Main never takes a
+command, a path, an agent of a request or a channel from the window. `src/main/feed/feed-actions.ts`
+(`FeedActions`, no Electron) reads the card as main holds it now and checks again:
+
+| Check | Refusal |
+| --- | --- |
+| The card exists. | `gone` |
+| The card is of this computer. A card of a joined server offers only `open`. | `remote` |
+| The request that the window names is the one that the card waits for now (same id, same type). | `stale` |
+| The attention registry still has the request open, for the agent and the thread of the card (`AgentService.pendingRequest`). A provider can use a request id again. | `stale` |
+| The card offers the action (`FeedItem.actions`, set by the aggregator with the same rules). | `not-allowed` |
+| A `high` risk approval came with `confirmed: true`. The risk is read from the live request, not from the window. | `unconfirmed` |
+| The same action on the same request, or on the same run, is not running and was not done. | `duplicate` |
+| For a reassign, the agent is one that the card offers. | `not-member` |
+
+Then it calls the operation that the conversation or the load panel calls. There is no other path
+to a decision:
+
+| Action | Operation |
+| --- | --- |
+| `approve`, `deny` | `AgentService.respondToApproval`, as the local `agent:respond-to-approval` handler |
+| `answer` | `AgentService.respondToPrompt`, as the local `agent:respond-to-prompt` handler |
+| `stop` | `WorkControl.stopWork`, the Stop of the load panel: a channel run through its channel, a chat turn through `interrupt` |
+| `resume`, `reassign` | `WorkControl.bulkStopped`, the action of the stopped work page of Settings. A resume of a task that stopped because an outside step may already have happened gives the new turn the note of what was done. |
+
+After a stop, a resume or a reassign, main reads the load again, so the cards follow at once. The log
+of a failed action has the action name and the error name only, never a text of the person.
+
+The aggregator sets, for each card of this computer:
+
+- `approve` and `deny` on an approval. A question of the Guard, a permissions approval and a file
+  change are `risk: "high"`; the card shows the reason (cleaned, redacted, clipped) and, for a
+  permissions approval, what it asks for without a path (`access`).
+- `answer` on a question that a card can answer itself (`form`): one question, not secret, one
+  answer, at most `FEED_CHOICE_LIMIT` choices, and no id or choice that the redaction changes. The
+  window sends the index of a choice or a typed answer; main takes the label from the live request.
+- `stop` on a run that works or waits for the person.
+- `resume`, and `reassign` with the agents that can take the task (`reassignTo`), on a stopped
+  channel task.
+
+On the page (`FeedCardActions.tsx`, `FeedBulkBar.tsx`, `feed-actions-controller.ts`):
+
+- The card changes at once: an answered approval or question leaves the card, and the card says
+  "Approving…" or the like. Main's next delta of the card replaces this. A refusal takes the card
+  back as it was and says why, on the card and in the polite live region.
+- A `high` risk approval, a stop, and a denial asked with N wait for a second step: a confirmation on
+  the card takes the focus. Enter confirms, Escape cancels. A second A does not confirm.
+- J and K move between the cards, as the arrow keys do. A, N and R act only when the card itself has
+  the focus, not a field or a button in it.
+- The stopped cards have a check box. The bar above the timeline selects the stopped cards that the
+  filters show, and resumes them or gives them to one agent, at most `FEED_BULK_LIMIT` in one call.
+
+`scripts/feed-actions-e2e.ts` checks the actions with the real agent service, the real `WorkControl`
+and a stand-in Codex app-server: approve (also twice at the same time), deny, a forged, crossed,
+retyped, remote and old card, the confirmation of a high risk approval, the answers, stop, the resume
+with the note of what was done, a bulk resume and a reassign. Its report is
+`.openbot-build/feed-actions-e2e/report.json`. `scripts/feed-actions-ui-e2e.ts` checks the cards, the
+keys, the change at once and the way back in the `Actions` stories, in a headless browser.
 
 ## Joined servers
 
@@ -134,7 +202,8 @@ today, on the path that the sidebar and the Dynamic Island use. The host decides
 member gets, so the feed shows no run that the member cannot already see, and no new data leaves the
 host. No Team API route or capability is added. The stopped channel tasks, the waits and the task
 reviewer are local only, so a joined server shows none of them. A feed with the data of the host
-(`feed-v1`, filtered by the role of the member) is step 3 and is off.
+(`feed-v1`, filtered by the role of the member) is step 3 and is off. A card of a joined server
+offers no action: its conversation answers it, and the host decides who may.
 
 ## Known limits
 
@@ -144,3 +213,6 @@ reviewer are local only, so a joined server shows none of them. A feed with the 
 - The Team list shows the live state of the agents of the active server; an agent of another server
   shows the state of its newest card.
 - A delta sends the whole card, with its last 20 steps. In the E2E burst, a card was about 1.8 KB.
+- A chat turn that was stopped, a plan limit and a failed chat turn have no resume on the card: only
+  stopped channel tasks have one, as in the load panel. The conversation sends a new message.
+- A card does not show the whole command of an approval. "Open conversation" shows it.

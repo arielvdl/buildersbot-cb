@@ -4,11 +4,14 @@
 // not have never reaches the page.
 
 import {
+  FEED_ACTION_VERSION,
+  type FeedActionResult,
   type FeedDelta,
   type FeedItem,
   type FeedNeed,
   type FeedSnapshot,
   type FeedStep,
+  isFeedActionResult,
   isFeedDeltaEnvelope,
   isFeedItem,
   isFeedItemId,
@@ -28,6 +31,18 @@ function copyNeed(need: FeedNeed): FeedNeed {
     ...(need.guard === undefined ? {} : { guard: need.guard }),
     ...(need.questionCount === undefined ? {} : { questionCount: need.questionCount }),
     since: need.since,
+    ...(need.risk === undefined ? {} : { risk: need.risk }),
+    ...(need.reason === undefined ? {} : { reason: need.reason }),
+    ...(need.access === undefined
+      ? {}
+      : {
+          access: {
+            ...(need.access.network === undefined ? {} : { network: need.access.network }),
+            ...(need.access.read === undefined ? {} : { read: need.access.read }),
+            ...(need.access.write === undefined ? {} : { write: need.access.write }),
+          },
+        }),
+    ...(need.form === undefined ? {} : { form: { choices: [...need.form.choices], text: need.form.text } }),
   };
 }
 
@@ -62,6 +77,9 @@ function copyItem(item: FeedItem): FeedItem {
     ...(item.quiet === undefined ? {} : { quiet: { state: item.quiet.state, minutes: item.quiet.minutes } }),
     ...(item.subtasks === undefined ? {} : { subtasks: { done: item.subtasks.done, total: item.subtasks.total } }),
     ...(item.queued === undefined ? {} : { queued: item.queued }),
+    ...(item.reassignTo === undefined
+      ? {}
+      : { reassignTo: item.reassignTo.map((candidate) => ({ agentId: candidate.agentId, name: candidate.name })) }),
     actions: [...item.actions],
     revision: item.revision,
   };
@@ -92,4 +110,14 @@ export function decodeFeedDelta(value: unknown): FeedDelta {
  */
 export function decodeFeedDeltaOrNull(value: unknown): FeedDelta | null {
   return isFeedDeltaEnvelope(value) ? decodeFeedDelta(value) : null;
+}
+
+/** The answer to an action: which cards were done, and why the others were not. */
+export function decodeFeedActionResult(value: unknown): FeedActionResult {
+  if (!isFeedActionResult(value)) throw new Error("Invalid feed action result.");
+  return {
+    v: FEED_ACTION_VERSION,
+    done: value.done,
+    failed: value.failed.map((entry) => ({ itemId: entry.itemId, reason: entry.reason })),
+  };
 }
