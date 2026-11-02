@@ -130,6 +130,12 @@ mac:
       to: remote-desktop-runtime
     - from: build/cua-driver/darwin/${arch}
       to: cua-driver/darwin/${arch}
+    # The `chrome-peer` addon (`bun run prepare:chrome-bridge`): before the app reads a byte from a Chrome
+    # host connection, it checks the host's signature and that Google Chrome started it. The host itself
+    # is built for one signing certificate, so it is not here: `scripts/sign-local-macos.sh` adds the one
+    # for the owner's certificate (channel `local`). A Developer ID build has no host until the store ID exists.
+    - from: .buildersbot-build/chrome-peer/${arch}
+      to: chrome-peer
   # The Computer Use driver arrives signed by Cua AI with the hardened runtime, a secure timestamp
   # and `com.apple.security.automation.apple-events`. Re-signing it with Builders Bot's inherited
   # entitlements would drop that entitlement and break the driver's Automation route, so its own

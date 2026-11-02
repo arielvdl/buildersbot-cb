@@ -5,6 +5,7 @@
  * Chrome. The app asks before it reads a byte.
  */
 
+import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import type { Socket } from "node:net";
 import type { ChromeBridgeChannel } from "@openbot/contracts/chrome-bridge/extension-ids";
@@ -13,6 +14,12 @@ import { Schema } from "effect";
 /** The signed host inside the app bundle (`scripts/build-chrome-host.ts`). */
 export const STORE_HOST_REQUIREMENT =
   'anchor apple generic and certificate leaf[subject.OU] = "ZTRDTUL87R" and identifier "app.buildersbot.chrome-host"';
+
+/** The signing identifier of the host that `scripts/sign-local-macos.sh` puts in a locally signed app. */
+export const LOCAL_HOST_IDENTIFIER = "app.buildersbot.chrome-host-local";
+
+/** The SHA-1 of a certificate, as a code requirement writes it. */
+const CERTIFICATE_HASH = /^[0-9a-f]{40}$/u;
 
 /**
  * Google Chrome, which starts its native host itself: Google's Developer ID (EQHXZ8M8AV) and the
@@ -99,18 +106,63 @@ export function loadPeerChecker(
   };
 }
 
-/** The host requirement of a channel; E2E passes its own. */
-export function hostRequirement(channel: ChromeBridgeChannel, e2eRequirement?: string): string | null {
+/**
+ * The host requirement of a channel. E2E passes its own requirement; a local app passes the hash of
+ * the certificate that signed it, because `scripts/sign-local-macos.sh` signs the host with the same one.
+ */
+export function hostRequirement(channel: ChromeBridgeChannel, pinned?: string): string | null {
   if (channel === "store") return STORE_HOST_REQUIREMENT;
+  if (channel === "local") {
+    if (!pinned || !CERTIFICATE_HASH.test(pinned))
+      throw new Error("A local app needs the hash of its own certificate to check the Chrome host.");
+    return `identifier "${LOCAL_HOST_IDENTIFIER}" and certificate leaf = H"${pinned}"`;
+  }
+  if (channel === "e2e") return pinned ?? null;
+  return null;
+}
+
+/**
+ * The requirement of the process that starts the host of a channel: Google Chrome for an installed app,
+ * whoever signed it; E2E passes its own.
+ */
+export function chromeRequirement(channel: ChromeBridgeChannel, e2eRequirement?: string): string | null {
+  if (channel === "store" || channel === "local") return GOOGLE_CHROME_REQUIREMENT;
   if (channel === "e2e") return e2eRequirement ?? null;
   return null;
 }
 
-/** The requirement of the process that starts the host of a channel; E2E passes its own. */
-export function chromeRequirement(channel: ChromeBridgeChannel, e2eRequirement?: string): string | null {
-  if (channel === "store") return GOOGLE_CHROME_REQUIREMENT;
-  if (channel === "e2e") return e2eRequirement ?? null;
-  return null;
+/** How an installed app is signed, so which host it carries and how it checks it. */
+export type PackagedSigning =
+  | { readonly channel: "store" }
+  | { readonly channel: "local"; readonly certificate: string };
+
+const TEAM_REQUIREMENT =
+  /^designated => identifier "app\.buildersbot\.desktop" and anchor apple generic and .*certificate leaf\[subject\.OU\] = "?ZTRDTUL87R"?$/mu;
+const LOCAL_REQUIREMENT =
+  /^designated => identifier "app\.buildersbot\.desktop" and certificate leaf = H"([0-9a-f]{40})"$/mu;
+
+/**
+ * The channel of an installed app, from its designated requirement as `codesign -d -r-` prints it: the
+ * team's Developer ID is `store`; a certificate of the owner's own (`scripts/sign-local-macos.sh`) is
+ * `local`, pinned to that certificate. Anything else, such as the ad-hoc signature of `bun run package`,
+ * is null: such an app has no host it can check, and the bridge stays off.
+ */
+export function packagedSigning(designated: string): PackagedSigning | null {
+  if (TEAM_REQUIREMENT.test(designated)) return { channel: "store" };
+  const certificate = LOCAL_REQUIREMENT.exec(designated)?.[1];
+  return certificate ? { channel: "local", certificate } : null;
+}
+
+/**
+ * The designated requirement of a bundle or a binary, as `codesign -d -r-` writes it on standard output
+ * (the path goes to standard error), or "" when codesign fails.
+ */
+export function designatedRequirement(path: string): Promise<string> {
+  return new Promise((resolve) => {
+    execFile("/usr/bin/codesign", ["-d", "-r-", path], { encoding: "utf8", timeout: 10_000 }, (error, stdout) =>
+      resolve(error ? "" : stdout),
+    );
+  });
 }
 
 /**

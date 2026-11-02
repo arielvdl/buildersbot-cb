@@ -36,9 +36,10 @@ export const CHROME_BRIDGE_PROTOCOL = { current: 1, min: 1 } as const;
 /** The app refuses an older extension with `reject{update_extension}`; the extension then asks for an update. */
 export const MIN_EXTENSION_VERSION = "1.0.0";
 
-/** The Native Messaging host name. Development and E2E builds use their own names and sockets. */
+/** The Native Messaging host name. Each channel has its own name and socket, so two apps never share one. */
 export const NATIVE_HOST_NAMES = {
   store: "app.buildersbot.chrome_host",
+  local: "app.buildersbot.chrome_host_local",
   dev: "app.buildersbot.chrome_host_dev",
   e2e: "app.buildersbot.chrome_host_e2e",
 } as const;

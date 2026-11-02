@@ -11,6 +11,10 @@
  *   owner sets `OPENBOT_CHROME_BRIDGE_REAL_CHROME=1` (`native-host-manifests.ts`).
  * - The pairing card is a native dialog of the app: the words that Chrome must show, and three
  *   options, with the right one at a random place. Nothing is typed.
+ * - An installed app takes its channel from its own signature (`packagedSigning`): the team's Developer
+ *   ID is `store`; the owner's own certificate (`scripts/sign-local-macos.sh`) is `local`, with a host
+ *   signed by the same certificate. An app with an ad-hoc signature has no host it can check, and the
+ *   bridge stays off. A development run is `dev`.
  */
 
 import { randomBytes } from "node:crypto";
@@ -25,7 +29,13 @@ import {
   type ChromeProject,
   ChromeTabsHost,
 } from "../../backend/chrome-tabs-host";
-import { chromeRequirement, hostRequirement, loadPeerChecker } from "./bridge-peer";
+import {
+  chromeRequirement,
+  designatedRequirement,
+  hostRequirement,
+  loadPeerChecker,
+  packagedSigning,
+} from "./bridge-peer";
 import { type KeySealer, writePrivate } from "./bridge-state";
 import { ChromeBridgeService, type ChromeBridgeShape } from "./chrome-bridge-service";
 import type { PairingPrompt, PairingRequest } from "./host-connection";
@@ -81,8 +91,16 @@ async function projectSecret(folder: string, sealer: KeySealer): Promise<Uint8Ar
   return secret;
 }
 
+/** The channel of this app and the certificate that pins its host, or null when the bridge cannot start. */
+async function bridgeChannel(
+  options: Pick<ChromeAgentsOptions, "packaged" | "resourcesPath">,
+): Promise<{ readonly channel: ChromeBridgeChannel; readonly certificate?: string } | null> {
+  if (!options.packaged) return { channel: "dev" };
+  // `<bundle>/Contents/Resources`: the signature of the bundle is the signature of this app.
+  return packagedSigning(await designatedRequirement(join(options.resourcesPath, "..", "..")));
+}
+
 export function createChromeAgents(options: ChromeAgentsOptions): ChromeAgents {
-  const channel: ChromeBridgeChannel = options.packaged ? "store" : "dev";
   const arch = process.arch === "arm64" ? "arm64" : "x64";
   const stateFolder = join(options.userData, "chrome-bridge");
   const addon = options.packaged
@@ -130,6 +148,19 @@ export function createChromeAgents(options: ChromeAgentsOptions): ChromeAgents {
       return null;
     }
     const launched = generation;
+    const signing = await bridgeChannel(options);
+    if (!signing) {
+      options.log(
+        "warn",
+        "chrome bridge: this app has no signature that its Chrome host can check, so the bridge is off. Sign it with scripts/sign-local-macos.sh.",
+      );
+      return null;
+    }
+    const { channel } = signing;
+    if (!existsSync(hostBinary)) {
+      options.log("warn", "chrome bridge: the Chrome host is missing from this app, so the bridge is off");
+      return null;
+    }
     await mkdir(stateFolder, { recursive: true, mode: 0o700 });
     secret = await projectSecret(stateFolder, sealer);
     // The host's project keys come from the saved secret, so a restart keeps the same groups and leases.
@@ -146,7 +177,7 @@ export function createChromeAgents(options: ChromeAgentsOptions): ChromeAgents {
         channel,
         stateFolder,
         sealer,
-        peerChecker: loadPeerChecker(addon, hostRequirement(channel), chromeRequirement(channel)),
+        peerChecker: loadPeerChecker(addon, hostRequirement(channel, signing.certificate), chromeRequirement(channel)),
         prompt,
         appVersion: options.appVersion,
         ...(extensionId
