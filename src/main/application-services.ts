@@ -2006,6 +2006,7 @@ export async function createApplicationServices({
   await Effect.runPromise(agentApiKeys.syncVault().pipe(Effect.ignore));
   // The schedule triggers of workflows share the routine timer; built after the workflows below.
   let workflowTriggers: WorkflowTriggers | null = null;
+  let recoveryLedger: Pick<WorkControl, "takeSafeResume"> | null = null;
   const service: AgentService = new AgentService({
     store,
     mailbox,
@@ -2145,6 +2146,10 @@ export async function createApplicationServices({
     optimizations,
     channelLane: () => channelLane.get(),
     securityGuard: () => securityGuard.get(),
+    // `workControl` is built later, after the agent service; a failure before it exists takes no ledger.
+    safeResume: {
+      recoveryBudget: { take: (channelId, taskId) => recoveryLedger?.takeSafeResume(channelId, taskId) ?? true },
+    },
     startRetry: {
       settings: () => startRetry.get(),
       // The breakers stay after a restart. A write that fails loses only that copy.
@@ -3074,6 +3079,7 @@ export async function createApplicationServices({
       },
     },
   });
+  recoveryLedger = workControl;
   workControl.start();
   teardown.push(TEARDOWN_ORDER.workControl, "the recovery timer", () => {
     workControl.stop();

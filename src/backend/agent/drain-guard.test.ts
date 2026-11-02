@@ -234,6 +234,7 @@ async function startChannelTurn(options: { review: string | null }): Promise<Run
       delta: () => undefined,
       sendsDelta: () => false,
       accepted: () => Effect.void,
+      carriedTurnResume: () => null,
     }),
     hooks: {
       emitError: (code: string) => run.errors.push(code),

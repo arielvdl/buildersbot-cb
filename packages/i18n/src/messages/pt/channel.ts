@@ -10,6 +10,8 @@ export const messages = {
   "channel.stoppedTask.reassign": "Reatribuir",
   "channel.task.retrying": "{name} não começou. Tentando de novo ({attempt}/{max}), próxima em {seconds} s",
   "channel.task.onBackup": "{name} roda no modelo de reserva {model}",
+  "channel.task.resuming":
+    "{name} parou numa falha curta do provedor. Continua de onde parou ({attempt}/{max}), em {seconds} s",
   "channel.task.wait.tab": "Aguardando - {name} responde antes a mensagem anterior desta aba",
   "channel.task.wait.agentTabs": {
     one: "Aguardando - {name} já trabalha em {count} aba, o máximo ao mesmo tempo. Esta mensagem começa quando ela terminar",

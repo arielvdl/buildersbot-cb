@@ -49,6 +49,7 @@ import { StoredStateFailure, storedIO, storedSync, toStoredStateFailure } from "
 export type { ExportedAttachmentFile, GeneratedAttachmentSource } from "./attachment-files";
 
 import { isStartRetryMarker, type StartRetryMarker, startRetryView, untilMs } from "./agent/start-retry";
+import { isTurnResumeMarker, type TurnResumeMarker, turnResumeView } from "./agent/turn-resume";
 import { isEmptyStoredFile, parseStoredJson } from "./atomic-json-file";
 import { channelTabLane } from "./channel-tab-lane";
 import { mailboxReactionRowKey } from "./database/mailbox-projection";
@@ -177,6 +178,8 @@ interface StoredDelivery {
   planContinuation?: PlanContinuationMarker;
   /** The provider did not start this delivery, and the drain tries it again (`start-retry.ts`). */
   startRetry?: StartRetryMarker;
+  /** A brief provider failure stopped its channel turn, and the turn continues (`turn-resume.ts`). */
+  turnResume?: TurnResumeMarker;
 }
 
 /** A delivery that waits for its automatic plan continuation. It is queued, but not in the queue the user sees. */
@@ -256,6 +259,7 @@ export interface DeliveryContext {
   resumeAfterUsageLimit?: UsageLimitContinuation;
   planContinuation?: PlanContinuationMarker;
   startRetry?: StartRetryMarker;
+  turnResume?: TurnResumeMarker;
   channelId?: string;
 }
 
@@ -1728,7 +1732,10 @@ export class MailboxStore {
 
   #mayStart(delivery: StoredDelivery): boolean {
     return (
-      !delivery.editId && !this.#queueUpdates.has(delivery.id) && untilMs(delivery.startRetry?.nextAt ?? null) === 0
+      !delivery.editId &&
+      !this.#queueUpdates.has(delivery.id) &&
+      untilMs(delivery.startRetry?.nextAt ?? null) === 0 &&
+      untilMs(delivery.turnResume?.nextAt ?? null) === 0
     );
   }
 
@@ -1746,13 +1753,16 @@ export class MailboxStore {
     );
   }
 
-  /** The deliveries that wait for a start retry, with the time each may start. Read at boot to arm the timers. */
+  /**
+   * The deliveries that wait for a start retry or a safe resume, with the time each may start. Read at
+   * boot to arm the timers.
+   */
   startRetries(): { agentId: string; deliveryId: string; nextAt: string | null }[] {
-    return this.#state.deliveries.flatMap((delivery) =>
-      delivery.status === "queued" && delivery.startRetry
-        ? [{ agentId: delivery.recipientAgentId, deliveryId: delivery.id, nextAt: delivery.startRetry.nextAt }]
-        : [],
-    );
+    return this.#state.deliveries.flatMap((delivery) => {
+      if (delivery.status !== "queued") return [];
+      const nextAt = delivery.startRetry?.nextAt ?? delivery.turnResume?.nextAt;
+      return nextAt === undefined ? [] : [{ agentId: delivery.recipientAgentId, deliveryId: delivery.id, nextAt }];
+    });
   }
 
   /**
@@ -2696,6 +2706,43 @@ export class MailboxStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * A channel turn that a brief provider failure stopped, back at its place in the queue with its safe
+   * resume. The queue does not start it before `marker.nextAt`, and the same delivery continues.
+   */
+  requeueForTurnResume = Effect.fn("MailboxStore.requeueForTurnResume")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: TurnResumeMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], {
+        status: "queued",
+        turnId: null,
+        error: null,
+        turnResume: marker,
+      });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * Keeps what a turn of this delivery did when a brief provider failure stopped it for the person
+   * (`TurnResumeMarker.forPerson`). The turn then ends as before; a resume of the task reads the note.
+   */
+  recordTurnResume = Effect.fn("MailboxStore.recordTurnResume")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: TurnResumeMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], { turnResume: marker });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
   /** Ends the start retry of a queued delivery, so it starts at once, such as when the person sends it again. */
   clearStartRetry(deliveryId: string): void {
     const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);
@@ -3201,6 +3248,7 @@ export class MailboxStore {
       ...(delivery.resumeAfterUsageLimit ? { resumeAfterUsageLimit: delivery.resumeAfterUsageLimit } : {}),
       ...(delivery.planContinuation ? { planContinuation: delivery.planContinuation } : {}),
       ...(delivery.startRetry ? { startRetry: delivery.startRetry } : {}),
+      ...(delivery.turnResume ? { turnResume: delivery.turnResume } : {}),
       ...(message.channelId ? { channelId: message.channelId } : {}),
       managedAttachments: message.attachments.map((attachment) => ({
         ...toAttachmentSummary(attachment),
@@ -3230,6 +3278,7 @@ export class MailboxStore {
       resumeAfterUsageLimit: _resumeAfterUsageLimit,
       planContinuation: _planContinuation,
       startRetry,
+      turnResume,
       ...publicDelivery
     } = delivery;
     // Between two turns of one request, the request still runs for the person who sent it.
@@ -3241,6 +3290,9 @@ export class MailboxStore {
       ...publicDelivery,
       ...(steerFallback && delivery.status === "queued" ? { steerFallback } : {}),
       ...(startRetry && delivery.status === "queued" ? { startRetry: startRetryView(startRetry) } : {}),
+      ...(!startRetry && turnResume?.nextAt && delivery.status === "queued"
+        ? { startRetry: turnResumeView(turnResume) }
+        : {}),
       sender: structuredClone(message.sender),
       text: message.text,
       attachments: message.attachments.map(toAttachmentSummary),
@@ -3669,6 +3721,7 @@ function isStoredDelivery(value: unknown): value is StoredDelivery {
         Array.isArray(value.resumeAfterUsageLimit.previousTurnIds) &&
         value.resumeAfterUsageLimit.previousTurnIds.every(isString))) &&
     (value.startRetry === undefined || isStartRetryMarker(value.startRetry)) &&
+    (value.turnResume === undefined || isTurnResumeMarker(value.turnResume)) &&
     (value.planContinuation === undefined ||
       (isRecord(value.planContinuation) &&
         Array.isArray(value.planContinuation.turnIds) &&

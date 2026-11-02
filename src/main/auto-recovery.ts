@@ -10,7 +10,7 @@
  */
 
 import type { StoppedWorkPlan } from "@openbot/contracts/ipc";
-import { sourceText } from "@openbot/i18n/source";
+import { matchingSourceKeys, sourceText } from "@openbot/i18n/source";
 import { createBuildersBotLogger } from "@openbot/logging";
 
 /** Tries for one task before it is left alone. A reassignment is the try of the new owner. */
@@ -45,11 +45,21 @@ const NOT_RESUMABLE: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a resume can fix a stopped task: its reason is not one that asks for a member, and the agent
- * that had it still exists.
+ * A reason that only the person settles: a short provider failure stopped the task after an outside
+ * action, such as a post or a push, that may already have happened (`backend/agent/turn-resume.ts`).
+ * A resume or another agent could do it a second time, so neither the automatic recovery nor the task
+ * reviewer acts on it.
+ */
+export function needsPerson(reason: string): boolean {
+  return matchingSourceKeys(reason).includes("error.backend.channelTaskMayBeDone");
+}
+
+/**
+ * Whether a resume can fix a stopped task: its reason is not one that asks for a member or for the
+ * person, and the agent that had it still exists.
  */
 export function resumable(reason: string, ownerMissing: boolean): boolean {
-  return !ownerMissing && !NOT_RESUMABLE.has(reason);
+  return !ownerMissing && !NOT_RESUMABLE.has(reason) && !needsPerson(reason);
 }
 
 export interface MemberInfo {

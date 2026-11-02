@@ -189,6 +189,9 @@ export const messages = defineMessages("settings", {
   "settings.startRetry.usageLimit.title": "Try again after a usage limit",
   "settings.startRetry.usageLimit.description":
     "Some accounts move to another account by themselves, as after the 5-hour limit of Claude. Off, a usage limit goes to the backup model at once.",
+  "settings.startRetry.resumeUncertain.title": "Continue also when an outside action is uncertain",
+  "settings.startRetry.resumeUncertain.description":
+    'Only with "Continue after a short failure" on, in Advanced optimizations. When a post, a message, a push or a payment started before the failure and no result came back, the agent continues and checks first whether it happened. Risk: the agent can do the action twice. Off, the task waits for you.',
   "settings.startRetry.fallback.title": "Default backup model",
   "settings.startRetry.fallback.description":
     "For an agent that has no backup model of its own. The task and its files go to this provider.",
@@ -423,7 +426,7 @@ export const messages = defineMessages("settings", {
     "Long old messages of a channel go to agents shortened, with a link to read the rest. Risk: an agent can decide without the part that was cut.",
   "settings.optimizations.safeResume.title": "Continue after a short failure",
   "settings.optimizations.safeResume.description":
-    "A channel task that stops for a short provider or network failure continues by itself, at most 3 times. Risk: an action done before the failure can happen again.",
+    "A channel task that stops for a short provider or network failure continues by itself in the same session, at most 3 times, when nothing that it did can happen twice. When a post, a push or another outside action may already have happened, the task waits for you. Risk: the agent can skip or redo a step that the app cannot see.",
   "settings.optimizations.routing.title": "Lighter channel routing",
   "settings.optimizations.routing.description":
     'The choice of who answers in a channel uses less reasoning. A follow-up in Portuguese or Spanish, such as "continua", continues the work of its tab, and work in another tab does not make the lead choose again. Risk: a worse choice for an unclear request.',

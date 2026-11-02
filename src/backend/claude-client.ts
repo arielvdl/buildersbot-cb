@@ -1393,7 +1393,8 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     const turn = runtime.activeTurn;
     if (turn) {
       for (const [toolCallId, name] of turn.toolCalls) {
-        this.#emitToolCall(runtime, toolCallId, name, true);
+        // No tool result came for this call, so the turn's effect journal reads it as uncertain.
+        this.#emitToolCall(runtime, toolCallId, name, true, undefined, false, true);
       }
       turn.toolCalls.clear();
       // A rejected window alone is not a failure: the request can still run on overage. Only the
@@ -1476,7 +1477,11 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     });
   }
 
-  /** `failed` is the tool result's `is_error`, such as a shell command with a non-zero exit. */
+  /**
+   * `failed` is the tool result's `is_error`, such as a shell command with a non-zero exit.
+   * `unanswered` is a call that the turn ended before its result came: it shows as completed, as
+   * before, and the item says that no result came (`turn-effects.ts`).
+   */
   #emitToolCall(
     runtime: ThreadRuntime,
     id: string,
@@ -1484,6 +1489,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
     completed: boolean,
     input?: unknown,
     failed = false,
+    unanswered = false,
   ): void {
     const turn = runtime.activeTurn;
     if (!turn) return;
@@ -1510,6 +1516,7 @@ export class ClaudeAgentClient extends EventEmitter<ClientEvents> {
           type: "toolCall",
           name,
           status: completed ? (failed ? "failed" : "completed") : "in_progress",
+          ...(unanswered ? { unanswered: true } : {}),
           // The skill that a `Skill` call loads, for the turn's activity line.
           ...(name === "Skill" && isRecord(input) && typeof input.skill === "string"
             ? { skill: input.skill.slice(0, INPUT_LIMITS.identifier) }

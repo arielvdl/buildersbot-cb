@@ -185,6 +185,9 @@ export const messages = {
   "settings.startRetry.usageLimit.title": "Tentar de novo depois do aviso de limite",
   "settings.startRetry.usageLimit.description":
     "Algumas contas passam sozinhas para outra conta, como depois do limite de 5 horas do Claude. Desligado, o limite vai direto para o modelo de reserva.",
+  "settings.startRetry.resumeUncertain.title": "Continuar também com ação externa incerta",
+  "settings.startRetry.resumeUncertain.description":
+    'Só com "Continuar após uma falha curta" ligado, em Otimizações avançadas. Quando um post, uma mensagem, um push ou um pagamento começou antes da falha e não voltou resultado, o agente continua e confere antes se aconteceu. Risco: o agente pode fazer a ação duas vezes. Desligado, a tarefa espera por você.',
   "settings.startRetry.fallback.title": "Modelo de reserva padrão",
   "settings.startRetry.fallback.description":
     "Para o agente que não tem modelo de reserva próprio. A tarefa e os arquivos dela vão para esse provedor.",
@@ -404,7 +407,7 @@ export const messages = {
     "Mensagens antigas e longas de um canal vão aos agentes cortadas, com um link para ler o resto. Risco: um agente pode decidir sem a parte cortada.",
   "settings.optimizations.safeResume.title": "Continuar após uma falha curta",
   "settings.optimizations.safeResume.description":
-    "Uma tarefa de canal que para por uma falha curta do provedor ou da rede continua sozinha, no máximo 3 vezes. Risco: uma ação feita antes da falha pode se repetir.",
+    "Uma tarefa de canal que para por uma falha curta do provedor ou da rede continua sozinha na mesma sessão, no máximo 3 vezes, quando nada do que ela fez pode acontecer duas vezes. Quando um post, um push ou outra ação externa pode já ter acontecido, a tarefa espera por você. Risco: o agente pode pular ou refazer um passo que o app não vê.",
   "settings.optimizations.routing.title": "Roteamento de canal mais leve",
   "settings.optimizations.routing.description":
     'A escolha de quem responde num canal usa menos raciocínio. Um seguimento em português ou espanhol, como "continua", continua o trabalho da sua aba, e o trabalho de outra aba não faz o líder escolher de novo. Risco: uma escolha pior para um pedido pouco claro.',

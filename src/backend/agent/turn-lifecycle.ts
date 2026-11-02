@@ -82,6 +82,8 @@ import {
   toolUsage,
   toThreadItem,
 } from "./thread-items";
+import { type OwnToolCall, OwnToolCalls, type TurnEffect, TurnEffects } from "./turn-effects";
+import { TURN_RESUME_CAUSES, type TurnResumeMarker } from "./turn-resume";
 import { TurnTraces, traceMessage } from "./turn-traces";
 import { collectProviderUsage } from "./usage-collection";
 import { USAGE_LIMIT_METHOD, type UsageLimitGate } from "./usage-limit-gate";
@@ -225,6 +227,32 @@ export interface TurnHooks {
   ): Effect.Effect<void>;
   /** Whether the user stopped this turn, in the agent's own chat (`taskId` null) or in a task. */
   turnStopped(agentId: string, taskId: string | null, turnId: string): boolean;
+  /**
+   * Whether the safe resume (`turn-resume.ts`, the optimization `safe-resume`) is on. While it is, the
+   * banner of a brief provider error of a channel turn waits for the end of the turn: a turn that
+   * continues by itself shows none. Omitted: off.
+   */
+  safeResumeOn?(): boolean;
+  /**
+   * A brief provider failure ended this channel turn in the middle: the safe resume decides
+   * (`DrainScheduler.resumeChannelTurn`). It calls `requeue` with the marker to store on the
+   * deliveries. "resumed" when they went back to the queue to continue; `{ ask }` when an outside step
+   * of the turn may already have happened, with the text for the task; null when it does not apply,
+   * and the turn ends as before. Omitted: never.
+   */
+  resumeChannelTurn?<E>(
+    input: {
+      agentId: string;
+      turnId: string;
+      provider: AgentClient["provider"];
+      deliveries: readonly DeliveryContext[];
+      /** The provider's error, for its class only. It is never stored or logged. */
+      error: string;
+      effects: readonly TurnEffect[];
+      ownCalls: readonly OwnToolCall[];
+    },
+    requeue: (marker: TurnResumeMarker) => Effect.Effect<void, E>,
+  ): Effect.Effect<"resumed" | { ask: string } | null, E>;
   /** Whether the agent has an open wait for one of these deliveries. */
   hasOpenWait(agentId: string, deliveryIds: readonly string[]): boolean;
   /** Ends the provider session of a routine run. Nothing for any other session, or a second time. */
@@ -289,6 +317,15 @@ export class TurnLifecycle {
   readonly #itemTurns = new Map<string, string>();
   /** The real start and end of each step of a running turn, for the trace of the finished turn. */
   readonly #traces = new TurnTraces();
+  /** What each tool step of a running turn can change and whether it ended, for the safe resume. */
+  readonly #effects = new TurnEffects();
+  /** The calls to the app's own outside tools of each running turn, as the tool router ran them. */
+  readonly ownCalls = new OwnToolCalls();
+  /**
+   * The brief provider errors of channel turns whose banner waits for the end of the turn while the
+   * safe resume is on. A turn that continues by itself shows none; any other shows it as before.
+   */
+  readonly #heldChannelErrors = new Map<string, HeldProviderError>();
   #scope = Scope.makeUnsafe();
   readonly #turnAssociations = new Map<string, Deferred.Deferred<void, TurnOperationFailed>>();
   /**
@@ -447,6 +484,9 @@ export class TurnLifecycle {
     this.#openSteps.clear();
     this.#itemTurns.clear();
     this.#traces.clear();
+    this.#effects.clear();
+    this.ownCalls.clear();
+    this.#heldChannelErrors.clear();
     this.#observedCompactions.clear();
   }).bind(this);
 
@@ -479,6 +519,11 @@ export class TurnLifecycle {
       ) {
         // The turn does not end here, so it keeps no trace.
         this.#traces.drop(turnId);
+        this.#effects.drop(turnId);
+        this.ownCalls.take(turnId);
+        const held = this.#heldChannelErrors.get(turnId);
+        this.#heldChannelErrors.delete(turnId);
+        if (held) this.#hooks.emitError("agent_error", held.message, turn.agentId, held.context);
         this.#instructions.dropTurn(turn.agentId, turnId);
         // The client is gone, so no browser tool of this turn can run. Other agents keep their controls.
         this.#browser.endControl(this.#conversation.publicThreadId(turn.agentId, turn.threadId), turnId);
@@ -501,6 +546,17 @@ export class TurnLifecycle {
     }
   }).bind(this);
 
+  /**
+   * Whether this exact call of an own outside tool (`OWN_EXTERNAL_TOOLS`) already ended with a result in
+   * an earlier turn of the same task, which a brief provider failure stopped (`turn-resume.ts`). The tool
+   * router then answers with that and does not run the action twice, whatever the model does.
+   */
+  repeatedOwnCall(agentId: string, turnId: string, tool: string, digest: string): boolean {
+    return this.#mailbox
+      .findDeliveriesByTurn(agentId, turnId)
+      .some(({ turnResume }) => turnResume?.doneCalls.some((call) => call.tool === tool && call.digest === digest));
+  }
+
   hasEnded(turnId: string): boolean {
     return this.#endedTurns.has(turnId);
   }
@@ -519,6 +575,12 @@ export class TurnLifecycle {
   #taskForThread(agentId: string, externalThreadId: string): string | null {
     const threadId = this.#conversation.publicThreadId(agentId, externalThreadId);
     return this.#conversation.isTaskThread(threadId) ? this.#hooks.taskForThread(threadId) : null;
+  }
+
+  /** Whether a provider thread is a channel tab's, not the agent's own chat or one of its tasks. */
+  #channelThread(agentId: string, externalThreadId: string): boolean {
+    const threadId = this.#conversation.publicThreadId(agentId, externalThreadId);
+    return !this.#conversation.isTaskThread(threadId) && this.#conversation.isExecutionThread(threadId);
   }
 
   /** The channel tab lane of a provider thread, or null for any other thread. */
@@ -638,6 +700,7 @@ export class TurnLifecycle {
           acted: false,
         });
         this.#traces.begin(turnId, new Date().toISOString());
+        this.#effects.begin(turnId);
         const publicThreadId = this.#conversation.publicThreadId(agentId, threadId);
         const snapshot = this.#conversation.ensureSnapshot(agentId, publicThreadId);
         snapshot.activeTurnId = turnId;
@@ -698,6 +761,7 @@ export class TurnLifecycle {
         if (item.type === "collabAgentToolCall") this.#applyCodexSubagents(agentId, threadId, turnId, item);
         const threadItem = toThreadItem(item);
         if (!threadItem) return;
+        this.#effects.observe(turnId, threadItem, notification.method === "item/completed");
         yield* this.#applyItem(agentId, threadId, turnId, threadItem, notification.method === "item/completed");
         return;
       }
@@ -932,6 +996,20 @@ export class TurnLifecycle {
           this.#failoverTurns.set(errorTurnId, { message, context });
           return;
         }
+        // A brief error of a channel turn may end in a continuation: its banner waits for the end.
+        if (
+          notification.method === "error" &&
+          agentId &&
+          threadId &&
+          errorTurnId !== null &&
+          this.#runningTurns.has(errorTurnId) &&
+          TURN_RESUME_CAUSES.has(context.causeCode) &&
+          this.#hooks.safeResumeOn?.() === true &&
+          this.#channelThread(agentId, threadId)
+        ) {
+          this.#heldChannelErrors.set(errorTurnId, { message, context });
+          return;
+        }
         const taskId =
           notification.method === "error" && agentId && threadId ? this.#taskForThread(agentId, threadId) : null;
         if (taskId !== null) {
@@ -987,6 +1065,10 @@ export class TurnLifecycle {
       this.#completingTurns.add(turnId);
       // A turn that runs again below starts a new trace, so each path takes this one.
       const trace = this.#traces.take(turnId, new Date().toISOString());
+      const effects = this.#effects.take(turnId);
+      const ownCalls = this.ownCalls.take(turnId);
+      const heldChannelError = this.#heldChannelErrors.get(turnId);
+      this.#heldChannelErrors.delete(turnId);
       const noUpdateCalled = this.#noUpdateTurns.delete(turnId);
       const reportedFailure = this.#reportedFailures.get(turnId);
       this.#reportedFailures.delete(turnId);
@@ -1082,6 +1164,54 @@ export class TurnLifecycle {
         !channelTurn &&
         deliveries.every(({ delivery }) => !this.#failoverRetries.get(delivery.id)?.has(failedKey)) &&
         this.#hooks.mayFailOver(agentId);
+      // A brief provider failure in the middle of a channel task: the safe resume decides from what the
+      // turn did whether it continues by itself in the same session (`turn-resume.ts`). Off, or for any
+      // other failure, the turn ends as before.
+      let mayBeDone: string | null = null;
+      if (
+        channelTurn &&
+        status === "failed" &&
+        !limited &&
+        !refused &&
+        running !== undefined &&
+        reportedError !== undefined &&
+        deliveries.length > 0 &&
+        this.#hooks.resumeChannelTurn
+      ) {
+        const decision = yield* this.#hooks.resumeChannelTurn(
+          {
+            agentId,
+            turnId,
+            provider: running.client.provider,
+            deliveries,
+            error: reportedError,
+            effects,
+            ownCalls,
+          },
+          (marker) =>
+            Effect.suspend(() => {
+              for (const message of snapshot.messages) {
+                if (this.#itemTurns.get(message.id) !== turnId || message.status !== "streaming") continue;
+                message.status = "interrupted";
+                markIncompleteImageGeneration(message, message.status);
+              }
+              if (trace) this.#attachTrace(snapshot.messages, agentId, turnId, trace);
+              return this.#requeueTurn(agentId, threadId, turnId, snapshot, deliveries, undefined, undefined, marker);
+            }),
+        );
+        if (decision === "resumed") {
+          const subagents = snapshot.messages.find((message) => message.id === `${turnId}:subagents`);
+          stopRunningSubagents(subagents?.subagents, new Date().toISOString(), { background: false });
+          for (const [itemId, itemTurnId] of this.#itemTurns) if (itemTurnId === turnId) this.#itemTurns.delete(itemId);
+          this.#openSteps.endTurn(turnId);
+          this.#hooks.scheduleDrain(agentId);
+          return;
+        }
+        if (decision !== null) mayBeDone = decision.ask;
+      }
+      // The banner of a brief error that waited for a continuation that did not happen.
+      if (heldChannelError)
+        this.#hooks.emitError("agent_error", heldChannelError.message, agentId, heldChannelError.context);
       // A foreground subagent ends with its turn. A background one works on and reports later.
       const subagents = snapshot.messages.find((message) => message.id === `${turnId}:subagents`);
       stopRunningSubagents(subagents?.subagents, new Date().toISOString(), { background: false });
@@ -1182,7 +1312,8 @@ export class TurnLifecycle {
       // The failed turn of the agent's own chat only: a task shows its outcome in its own row.
       if (!taskTurn && outcome === "failed") this.#failedTurns.set(agentId, turnId);
       else if (!taskTurn) this.#failedTurns.delete(agentId);
-      const failure = refusedFailure ?? reportedError;
+      // An outside step that may already have happened replaces the provider's text on the task's card.
+      const failure = mayBeDone ?? refusedFailure ?? reportedError;
       if (refused) {
         yield* this.#hooks.dropRefusedSession(agentId, threadId);
         const taskId = taskTurn ? this.#taskForThread(agentId, threadId) : null;
@@ -1385,6 +1516,11 @@ export class TurnLifecycle {
     this.#markEnded(turnId);
     this.#instructions.dropTurn(agentId, turnId);
     const trace = this.#traces.take(turnId, new Date().toISOString());
+    this.#effects.drop(turnId);
+    this.ownCalls.take(turnId);
+    const heldError = this.#heldChannelErrors.get(turnId);
+    this.#heldChannelErrors.delete(turnId);
+    if (heldError) this.#hooks.emitError("agent_error", heldError.message, agentId, heldError.context);
     const deliveries = yield* turnStep(() => this.#mailbox.findDeliveriesByTurn(agentId, turnId)).pipe(
       Effect.catchCause((cause) => report(cause).pipe(Effect.as([]))),
     );
@@ -1500,6 +1636,7 @@ export class TurnLifecycle {
     deliveries: readonly DeliveryContext[],
     resumeAfterUsageLimit?: UsageLimitContinuation,
     startRetry?: StartRetryMarker,
+    turnResume?: TurnResumeMarker,
   ) {
     for (const context of deliveries) {
       const { delivery } = context;
@@ -1519,9 +1656,11 @@ export class TurnLifecycle {
           }
         : undefined;
       yield* (
-        startRetry
-          ? this.#mailbox.requeueForStartRetry(delivery.id, startRetry)
-          : this.#mailbox.requeueRefused(delivery.id, continuation)
+        turnResume
+          ? this.#mailbox.requeueForTurnResume(delivery.id, turnResume)
+          : startRetry
+            ? this.#mailbox.requeueForStartRetry(delivery.id, startRetry)
+            : this.#mailbox.requeueRefused(delivery.id, continuation)
       ).pipe(toTurnOperationFailed);
       this.#mailboxSync.syncDeliveryMessage(snapshot, delivery.id);
     }

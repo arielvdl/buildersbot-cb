@@ -35,7 +35,9 @@ import type { ChannelQueueHold } from "../backend/channel-service";
 import {
   AutoRecovery,
   autoReassignee,
+  MAX_RESUMES,
   type MemberInfo,
+  needsPerson,
   type ReassignCandidate,
   RecoveryLedger,
   reassignCandidates,
@@ -184,7 +186,10 @@ export class WorkControl {
           ? this.#options.service.channels.store.tasks(channelId).find((entry) => entry.id === taskId)
           : undefined;
         const stopped = (task?.state === "paused" || task?.state === "failed") && Boolean(task.error);
-        return stopped ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried))) : null;
+        // An outside action that may already have happened is for the person: another agent could repeat it.
+        return stopped && !needsPerson(task.error ?? "")
+          ? autoReassignee(this.#candidatesFor(channelId, taskId, new Set(tried)))
+          : null;
       },
       resume: (channelId, taskId) =>
         this.#command({ type: "resume", channelId, taskId, recipientAgentId: null }, "auto").then(() => undefined),
@@ -235,6 +240,22 @@ export class WorkControl {
     options.service.channels.observeCommands((command) =>
       this.#stops.note(command, this.#ownOperations.has(command.operationId)),
     );
+  }
+
+  /**
+   * The safe resume of a channel turn takes one recovery of a task (`backend/agent/turn-resume.ts`):
+   * one failure, with its tries, counts as one resume in the ledger that "Resume by itself" and the task
+   * reviewer share, so the three keep one limit per task. It also starts the interval of "Resume by
+   * itself" again, so the two do not act on the task one after the other. False when the task has no
+   * resume left: the task then stops as before.
+   */
+  takeSafeResume(channelId: string, taskId: string): boolean {
+    const now = (this.#options.now ?? Date.now)();
+    const record = this.#ledger.see(channelId, taskId, now);
+    if (record.gaveUp || record.resumes >= MAX_RESUMES) return false;
+    record.resumes += 1;
+    record.lastActionAt = now;
+    return true;
   }
 
   start(): void {
@@ -927,6 +948,7 @@ export class WorkControl {
             task.id,
             resumable(error, task.ownerAgentId !== null && !agents.has(task.ownerAgentId)),
             () => {
+              if (needsPerson(error)) return false;
               const tried = new Set(this.#ledger.peek(channelId, task.id)?.tried ?? []);
               return autoReassignee(reassignCandidates(owner, members, tried)) !== null;
             },
