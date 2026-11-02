@@ -1101,23 +1101,31 @@ function unquotedText(raw: string): string {
   return text;
 }
 
-/** Brace expansion: `{a,b}` or `{1..3}` makes several words, or flags, of one (`-{d,X}`). */
-const BRACES = /\{[^{}]*(?:,|\.\.)[^{}]*\}/u;
-/** Globs and extended globs: a file named `-d` or `--pre=x` becomes a flag. */
-const GLOB = /[*?[]|[!@+]\(/u;
+/**
+ * Brace expansion: `{a,b}`, `{1..3}` and nested braces make several words, or flags, of one
+ * (`-{d,X}`). Any unquoted `{` in a word fails closed; only the shell's own word `{` is not one.
+ */
+const BRACE = /\{/u;
+/** Globs: a file named `-d` or `--pre=x` becomes a flag. */
+const GLOB = /[*?[]/u;
+/**
+ * An unquoted `(` right after a character of a word: an extended glob (`!(…)`, `@(…)`, `+(…)`, `?(…)`,
+ * `*(…)`) or a function definition. The reader splits a word at `(`, so this is read on the text.
+ */
+const GLUED_PARENTHESIS = /[^\s;&|()<>$]\(/u;
 
 /**
  * Whether the shell leaves a word as it is written: no variable, substitution, arithmetic or `$'…'`; no
- * brace expansion, glob or tilde at its start in an unquoted part; no history `!`. `[` and `[[` are
- * the test programs.
+ * `{`, glob or tilde at its start in an unquoted part; no history `!`. `[` and `[[` are the test
+ * programs, and `{` alone opens a group.
  */
 function literal(word: ShellWord, command: string): boolean {
   if (EXPANSION.test(word.expandable) || word.subcommands.length > 0) return false;
-  if (word.value === "[" || word.value === "[[") return true;
+  if (word.value === "[" || word.value === "[[" || word.value === "{") return true;
   const bare = unquotedText(command.slice(word.start, word.end));
   return !(
     EXPANSION.test(bare) ||
-    BRACES.test(bare) ||
+    BRACE.test(bare) ||
     GLOB.test(bare) ||
     bare.startsWith("~") ||
     /![^\s=]/u.test(bare)
@@ -1149,6 +1157,7 @@ function classifyAt(command: string, depth: number): CommandEffect {
   // as in a here-document.
   if (/\/dev\/(?:tcp|udp)\//u.test(command)) return outside("network redirection");
   if (command.includes(">(")) return outside("process substitution");
+  if (GLUED_PARENTHESIS.test(unquotedText(command))) return outside("extended glob");
   const { statements, cut } = readShell(command, STATEMENT_LIMIT);
   let strongest = result("read", "");
   for (const statement of statements)
