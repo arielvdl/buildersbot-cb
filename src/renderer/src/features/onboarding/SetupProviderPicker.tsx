@@ -219,15 +219,10 @@ export function createSetupProviders(
   /**
    * The providers that this window cannot connect.
    *
-   * Cultura Builder signs in with a Hub device code that only the computer that runs it can start,
-   * and no released Team API route carries that sign-in to a joined server's host. A host with no
-   * Cultura Builder sign-in of its own reports it as "login required", and the row could then only
-   * offer a button that does nothing. The desktop account of this window is not the host's sign-in.
-   *
-   * A server with no screen, such as a sector server in a container, has no place to sign in at all.
-   * What makes Cultura Builder work there is an optional Team API route that starts the
-   * `cultura-device` sign-in on the host, behind a new capability. Until a host has it, the row says
-   * that Cultura Builder does not connect through a remote server yet.
+   * A host with `providers-v8` starts the Cultura Builder Hub device code through the Team API.
+   * The code goes to this window, and the token stays on the host. A host without that capability
+   * reports Cultura Builder as "login required", and this window cannot sign it in. The desktop
+   * account of this window is not the host's sign-in.
    */
   const unreachable = createMemo<ReadonlySet<AgentProviderId>>(() => {
     if (!props.hostProviders) return NO_PROVIDERS;

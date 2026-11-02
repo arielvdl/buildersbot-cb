@@ -83,8 +83,14 @@ const V2_RUNTIME_PROVIDERS = [...V1_RUNTIME_PROVIDERS, "antigravity"] as const;
 type ProviderSignInMethod = "code" | "relay";
 
 function codeSignInProviders(capabilities: readonly string[]): readonly AgentProviderId[] {
+  const paste = capabilities.includes(PROVIDERS_SIGN_IN_V3_CAPABILITY);
+  if (capabilities.includes(PROVIDERS_V8_CAPABILITY)) {
+    return AGENT_PROVIDERS.filter((provider) => {
+      const codeSignIn = agentProviderDescriptor(provider).localCodeSignIn;
+      return codeSignIn === "device" || (codeSignIn === "paste" && paste);
+    });
+  }
   if (capabilities.includes(PROVIDERS_V4_CAPABILITY)) {
-    const paste = capabilities.includes(PROVIDERS_SIGN_IN_V3_CAPABILITY);
     return PROVIDERS_V4_SIGN_IN_PROVIDERS.filter(
       (provider) => paste || agentProviderDescriptor(provider).localCodeSignIn !== "paste",
     );
