@@ -416,9 +416,7 @@ async function allocateDevelopmentPorts(
     );
     reservedPorts.add(apiPort);
     sharedEnvironment.OPENBOT_API_PORT = String(apiPort);
-    if (!sharedEnvironment.OPENBOT_AUTH_API_URL) {
-      sharedEnvironment.OPENBOT_AUTH_API_URL = `http://127.0.0.1:${apiPort}`;
-    }
+    useStackAccountApi(sharedEnvironment, `http://127.0.0.1:${apiPort}`);
     configureSiteHostingDevelopmentEnvironment(sharedEnvironment, apiPort);
     if (services.includes("remote")) {
       const signalPort = await findAvailablePort(
@@ -569,6 +567,34 @@ async function runDevelopmentServices(specs: DevelopmentServiceSpec[], stack: De
   } catch (error) {
     await stopAll("SIGTERM");
     throw error;
+  }
+}
+
+/**
+ * Points the dev app at the account API of this stack. The dev host signs a throwaway account in
+ * at startup, so an `OPENBOT_AUTH_API_URL` from the environment sent that sign-in to another server:
+ * `launchctl setenv` had given the production URL to each process of the macOS session, and each
+ * `bun run dev` asked production for a code for openbot-dev-host@example.com. The Signal URL of
+ * that server goes with it.
+ */
+function useStackAccountApi(environment: NodeJS.ProcessEnv, apiUrl: string): void {
+  for (const name of ["OPENBOT_AUTH_API_URL", "OPENBOT_REMOTE_SIGNAL_URL"] as const) {
+    const inherited = environment[name];
+    if (inherited === undefined || inherited === apiUrl) continue;
+    logger.warn(
+      `Ignoring ${name}=${urlOrigin(inherited)} from the environment. The dev app uses this stack's services.`,
+    );
+    delete environment[name];
+  }
+  environment.OPENBOT_AUTH_API_URL = apiUrl;
+}
+
+/** The origin only: a URL from the environment can hold a user name, a password or a token. */
+function urlOrigin(value: string): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "(not a URL)";
   }
 }
 
