@@ -1,7 +1,8 @@
 // Checks the screens of the Hub connections in Storybook, in a headless browser with a new profile:
 // the tool catalog in the curated Apps list (hidden by default, shown in use or by a profile, found by
 // the search and a link), the tiles of its platforms in their categories (only while it is in use;
-// a tile opens the catalog's page), "Open the Hub" of a connection with no consent, its Marketplace page (what it gives, categories, cap with the 80 % mark, who
+// a tile opens the catalog's page; 40 tiles with every provider on), "Open the Hub" of a connection with
+// no consent, its Marketplace page (what it gives, categories, cap with the 80 % mark, who
 // pays, the switch of each agent, where the data goes, and each state: warning, reached, not on,
 // choose who pays, paused, consent, signed out), Usage › Connections, and the cost lines of a chat
 // with "Ask the admin for more". The stories run the real components, the real curation and the real
@@ -369,6 +370,36 @@ try {
     .waitFor({ timeout: 60_000 });
   steps.push("paused, no consent (with Open the Hub and Refresh) and signed out: each page says why");
 
+  // Every provider on: 40 tiles (the most that the contract keeps) in every category, a search that
+  // stays quick, and the page with thousands of tools and a limit of US$ 20.
+  const openedAt = Date.now();
+  await open(page, marketplace("connections-all-providers"));
+  await page.locator(".marketplace-app-row").first().waitFor();
+  const listMs = Date.now() - openedAt;
+  const tiles = page.locator(".marketplace-app-row", { hasText: "Via Cultura Builder · " });
+  assert.equal(await tiles.count(), 40, "not one tile per platform");
+  const allGroups = await rowsByGroup(page);
+  assert.deepEqual(allGroups[TEXT.en.group], [TEXT.en.name], "a platform tile is in the Connections group");
+  for (const category of ["Research", "Data & Analytics", "Coding", "Design", "Other"])
+    assert.ok(
+      (allGroups[category] ?? []).some((name) => name.startsWith("Data source")),
+      `no tile in ${category}`,
+    );
+  const searchAll = page.getByRole("searchbox", { name: "Search the marketplace" });
+  const typedAt = Date.now();
+  await searchAll.fill("Data source 37");
+  await page.waitForFunction(() => document.querySelectorAll(".marketplace-app-row-hit").length === 1);
+  const searchMs = Date.now() - typedAt;
+  await searchAll.fill("");
+  await page.waitForFunction(() => document.querySelectorAll(".marketplace-app-row-hit").length > 40);
+  await open(page, marketplace("connection-page-all-providers"));
+  await page.getByText("4120 tools allowed", { exact: false }).first().waitFor({ timeout: 60_000 });
+  assert.equal(await page.getByText("$4.18 of $20.00 used this month", { exact: true }).count(), 1);
+  assert.equal(await page.getByText("Builders Bot asks you before a call above $0.50.", { exact: true }).count(), 1);
+  steps.push(
+    `every provider on: 40 tiles in every category, the search finds one in ${searchMs} ms (list shown in ${listMs} ms), and the page shows 4120 tools and $4.18 of $20.00`,
+  );
+
   // Usage › Connections: the charges apart from the model estimate, with the platforms.
   await open(page, "agents-usage--connections", "en", "dark", ".connection-usage");
   const usage = page.locator(".connection-usage");
@@ -485,6 +516,20 @@ try {
       ready: ".marketplace-connection-page",
       sizes: ["normal", "narrow"],
       all: true,
+    },
+    {
+      name: "all-providers",
+      id: marketplace("connections-all-providers"),
+      ready: ".marketplace-app-row",
+      sizes: ["normal", "narrow"],
+      all: false,
+    },
+    {
+      name: "all-providers-page",
+      id: marketplace("connection-page-all-providers"),
+      ready: ".marketplace-connection-page",
+      sizes: ["normal", "narrow"],
+      all: false,
     },
     {
       name: "paused",
