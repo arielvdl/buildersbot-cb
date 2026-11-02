@@ -691,10 +691,12 @@ How a call runs:
    languages, and send parts in Japanese, Chinese, Korean, Russian and Arabic. A click that asks no card
    passes `clickTargetCheck` too: just before the click, the engine reads the element that the target
    resolved to (its accessible name and its visible text) and stops when either is a send. The click
-   then lands only on a point where the element hit is the target itself or the inside of its own
-   shadow trees (`#ownPointEffect`, `OWN_HIT_FUNCTION`), never on a child of it or on what a slot shows
-   in it: a child can act on its own through a listener that no check sees (a framework that listens
-   at the root). A target that no such point shows is refused. Recipients
+   then lands only on a point where the element hit is the target itself, or an inner part of its own
+   shadow trees when each part up to the target is inert: no control, no send name, and no click
+   listener in the page's world (`#ownPointEffect`, `OWN_HIT_FUNCTION`, `DOMDebugger.getEventListeners`,
+   whose result leaves with the kind of each listener only). It never lands on a child of the target
+   or on what a slot shows in it: a child can act on its own through a listener that no check sees (a
+   framework that listens at the root). A target that no such point shows is refused. Recipients
    come from recipient fields and from chips with an e-mail address. The card needs a snapshot that no action of the tab followed (the host counts
    the actions in the tab's queue); an action during the person's answer voids the card. Where nobody
    answers a card, the call gets `message_send_requires_approval`.

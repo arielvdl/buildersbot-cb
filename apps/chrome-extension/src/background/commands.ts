@@ -27,6 +27,7 @@
 import {
   type CdpCheckContext,
   checkCdpCommand,
+  objectIdContext,
   projectCdpResult,
 } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
 import { ENGINE_FUNCTIONS, ENGINE_GESTURE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
@@ -301,6 +302,7 @@ async function sameOrigin(gate: Gate): Promise<void> {
 async function settle(
   gate: Gate,
   method: string,
+  params: CdpParams,
   sent: Dispatched,
   session: string | undefined,
   read: boolean,
@@ -309,6 +311,12 @@ async function settle(
   if (read) await sameOrigin(gate);
   if (method === "Page.createIsolatedWorld" && isNumber(result.executionContextId))
     rememberContext(gate.tab.tabId, session, result.executionContextId);
+  // A node resolved with no context is an object of the page's own world, a world that a command may
+  // name (as `Runtime.executionContextCreated` lists it): the send gate asks for its listeners there.
+  if (method === "DOM.resolveNode" && params.executionContextId === undefined && isDynamicRecord(result.object)) {
+    const pageWorld = isString(result.object.objectId) ? objectIdContext(result.object.objectId) : null;
+    if (pageWorld !== null) rememberContext(gate.tab.tabId, session, pageWorld);
+  }
   return result;
 }
 
@@ -336,7 +344,7 @@ export function cdpSend(
     );
     if (noOp) return { done: Promise.resolve({ result: {} }) };
     const sent = await dispatch(gate.tab.tabId, method, values, session);
-    return { done: settle(gate, method, sent, session, read).then((result) => ({ result })) };
+    return { done: settle(gate, method, values, sent, session, read).then((result) => ({ result })) };
   });
 }
 
@@ -354,7 +362,7 @@ async function answerDialog(
   const values = paramsOf(params);
   await check(gate, "Page.handleJavaScriptDialog", values, session, "other");
   const sent = await dispatch(gate.tab.tabId, "Page.handleJavaScriptDialog", values, session, true);
-  return { result: await settle(gate, "Page.handleJavaScriptDialog", sent, session, false) };
+  return { result: await settle(gate, "Page.handleJavaScriptDialog", values, sent, session, false) };
 }
 
 type BatchResult = { result?: CdpParams; err?: { code: ChromeBridgeErrorCode; message: string } };
@@ -383,7 +391,9 @@ export function cdpBatch(
           continue;
         }
         const sent = await dispatch(gate.tab.tabId, command.method, values, command.session);
-        pending.push(settle(gate, command.method, sent, command.session, read).then((result) => ({ result }), toErr));
+        pending.push(
+          settle(gate, command.method, values, sent, command.session, read).then((result) => ({ result }), toErr),
+        );
       } catch (error) {
         pending.push(Promise.resolve(toErr(error)));
       }

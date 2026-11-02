@@ -121,6 +121,12 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
   },
   "DOM.scrollIntoViewIfNeeded": { params: { ...nodeTarget, rect } },
 
+  // The send gate's last check of a click: whether an inner part of the target listens for it.
+  "DOMDebugger.getEventListeners": {
+    params: { objectId, depth: { t: "int", min: 0, max: 0 }, pierce: falseOnly },
+    required: ["objectId"],
+  },
+
   "Emulation.setFocusEmulationEnabled": { params: { enabled: bool }, required: ["enabled"] },
   "Emulation.setDeviceMetricsOverride": {
     params: {
@@ -935,6 +941,10 @@ export const CDP_RESULTS: { readonly [method: string]: ResultProjection } = {
   "DOM.getNodeForLocation": (result) => pick(result, ["backendNodeId", "frameId", "nodeId"]),
   "DOM.resolveNode": (result) => ({ object: remoteObject(result.object) }),
   "DOM.scrollIntoViewIfNeeded": emptyResult,
+  // The kind of each listener only: never its function, its source or its script.
+  "DOMDebugger.getEventListeners": (result) => ({
+    listeners: listOf(result.listeners, (entry) => pick(entry, ["type", "useCapture", "passive", "once"])) ?? [],
+  }),
   "Emulation.setFocusEmulationEnabled": emptyResult,
   "Emulation.setDeviceMetricsOverride": emptyResult,
   "Emulation.clearDeviceMetricsOverride": emptyResult,
