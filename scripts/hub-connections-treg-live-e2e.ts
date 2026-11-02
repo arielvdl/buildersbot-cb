@@ -249,6 +249,28 @@ try {
     }
   });
 
+  await step("every provider on: 120 platforms over the wire give the first 40, in the Hub's order", async () => {
+    const groups = ["seo", "enrichment", "reviews", "market", "research", "developer", "community", "commerce"];
+    const all = Array.from({ length: 120 }, (_, index) => ({
+      id: `provider-${String(index).padStart(3, "0")}`,
+      name: `Provider ${index}`,
+      group: groups[index % groups.length] ?? "other",
+      endpoints: 240 - index,
+    }));
+    hub.setPlatforms(all);
+    try {
+      const startedAt = Date.now();
+      const current = await view(true);
+      const ms = Date.now() - startedAt;
+      const catalog = hub.requests.findLast((request) => request.path.endsWith("/proxy/v1/connections"));
+      assert.equal(catalog?.status, 200);
+      assert.deepEqual(current.connections[0]?.platforms, all.slice(0, 40));
+      return { platformsSent: all.length, platformsKept: 40, viewMs: ms };
+    } finally {
+      hub.setPlatforms("derived");
+    }
+  });
+
   await step("an older Hub with no platforms: the connection with none, so no tile", async () => {
     hub.setPlatforms(null);
     try {

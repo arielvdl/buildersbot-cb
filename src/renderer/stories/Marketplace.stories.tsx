@@ -970,6 +970,18 @@ export const ConnectionPagePaused = connectionPage("paused");
  */
 export const ConnectionPageConsent = connectionPage("consent");
 
+/**
+ * Every provider of the catalog is on: 40 platform tiles (the most that the contract keeps), in every
+ * category, and the person's monthly limit in US dollars.
+ */
+export const ConnectionsAllProviders: Story = {
+  args: curatedApps({ connection: "allProviders" }),
+  beforeEach: before({ kind: "signed-out" }),
+};
+
+/** The page with every provider on: thousands of tools and a limit of US$ 20. */
+export const ConnectionPageAllProviders = connectionPage("allProviders");
+
 /** A link to the tool catalog while the person is not signed in to Cultura Builder. */
 export const ConnectionSignedOut: Story = {
   ...at(toolCatalog, curatedApps({ connectionsStatus: "signed_out" })),

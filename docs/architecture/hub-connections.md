@@ -323,7 +323,8 @@ cache, the per-agent switch, the usage capability, the kill switch and a Hub tha
 It writes `.buildersbot-build/hub-connections/usage.json`.
 
 `bun scripts/hub-connections-surfaces-e2e.ts --storybook=<url>` drives the stories of the list (with
-the tiles of the platforms in their categories, and none while the connection is not on or paused),
+the tiles of the platforms in their categories, and none while the connection is not on or paused;
+with every provider on, 40 tiles, a search of them, and a limit in US dollars),
 the page in each state (with "Open the Hub" of the consent state), Usage › Connections and the chat
 lines in a headless browser, in en and pt, dark and light, at 1280 and 390 pixels, and writes
 screenshots and
@@ -336,7 +337,8 @@ chromium-headless-shell` installs one into a folder of your choice.
 
 `bun scripts/hub-connections-treg-live-e2e.ts` checks the sign-in with the fixed client (no
 `/register`), the `platforms` of the catalog through the contract and preload decoders (malformed
-rows dropped, an older Hub, an account without the capability), the cost approval on the Hub (the
+rows dropped, 120 platforms with every provider on give the first 40, an older Hub, an account
+without the capability), the cost approval on the Hub (the
 exact page URL, the status reads, one call after `approved`, nothing for `denied`, `expired`, `used`,
 a Deny on the card, a routine run, and a call that the Hub answers `not_allowed`), and the consent
 page. It writes `.buildersbot-build/hub-connections/treg-live.json`.
