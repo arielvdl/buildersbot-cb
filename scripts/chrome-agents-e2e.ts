@@ -464,7 +464,8 @@ async function main(): Promise<void> {
           );
         case "/compose5":
           // Controls whose shadow root holds the whole surface: an inner "Send" button, an inner part
-          // with a click listener and no attribute (closed root), and inert inner text ("Bold two").
+          // with a click listener and no attribute (closed root), and inert inner text ("Bold two"). A
+          // click lands only where the element hit is exactly the target: all three are refused.
           return html(
             "Compose",
             `<label>To <input aria-label="To" id="to"></label>
@@ -1410,16 +1411,18 @@ async function main(): Promise<void> {
         }
         const page4 = await fresh();
         passes.boldWithChild = (await call(agents.carla, "click", { tabId, target: lineRef(page4, '"Bold"') })).text;
-        // The target's own shadow parts (review of 02/11, lot 6): an inner control or listener refuses.
+        // The target's own shadow parts (review of 02/11, lots 6 and 7): no point of these hosts is the
+        // host itself, so each click is refused, also over inert inner text.
         await call(agents.carla, "navigate", { tabId, url: site("webmail.test", "/compose5") });
-        for (const name of ["Archive five", "Archive six"]) {
+        const shadowRefused: Record<string, string> = {};
+        for (const name of ["Archive five", "Archive six", "Bold two"]) {
           const page5 = await fresh();
-          childSend[name] = (await call(agents.carla, "click", { tabId, target: lineRef(page5, `"${name}"`) })).text;
+          shadowRefused[name] = (
+            await call(agents.carla, "click", { tabId, target: lineRef(page5, `"${name}"`) })
+          ).text;
         }
-        const page5 = await fresh();
-        passes.inertShadowPart = (
-          await call(agents.carla, "click", { tabId, target: lineRef(page5, '"Bold two"') })
-        ).text;
+        for (const [name, text] of Object.entries(shadowRefused))
+          expect(text.includes("nothing was clicked"), `a click over a part of a shadow root ran: ${name}`, text);
         await sleep(500);
         const sentAround = sent.slice(sentBefore);
         // Safe either way: the click is refused, or it lands on the button's own edge, so the child's
@@ -1453,6 +1456,7 @@ async function main(): Promise<void> {
           more,
           archive,
           childSend,
+          shadowRefused,
           passes,
           swapListed: swapLine !== undefined,
           iconButtonListed: iconLine !== undefined,
