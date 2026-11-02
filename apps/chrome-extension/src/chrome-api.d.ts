@@ -4,7 +4,7 @@
  * member here only when the code calls it.
  */
 
-declare const __BB_CHANNEL__: "store" | "dev" | "e2e";
+declare const __BB_CHANNEL__: "store" | "local" | "dev" | "e2e";
 
 declare namespace chrome {
   export interface ChromeEvent<Listener> {

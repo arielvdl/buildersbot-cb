@@ -70,8 +70,44 @@ for bundle in "$APP"/Contents/Frameworks/*.framework "$APP"/Contents/Frameworks/
   sign --entitlements "$INHERIT_ENTITLEMENTS" "$bundle"
 done
 
-print "  main executable and bundle"
+print "  main executable"
 sign --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/Builders Bot"
+
+# The Chrome host for this certificate (channel `local`, docs/architecture/browser.md). The app and the
+# host check each other against it: the host takes only an app with this designated requirement, and
+# the app takes only a host named `app.buildersbot.chrome-host-local` with the same certificate, started
+# by Google Chrome. The host is built here, not by electron-builder, because the requirement names the
+# certificate. A build with no `chrome-peer` addon (from `bun run prepare:chrome-bridge`) gets no host,
+# and the app keeps "Let agents use my Chrome" off.
+PEER="$APP/Contents/Resources/chrome-peer/chrome-peer.node"
+if [[ -f "$PEER" ]]; then
+  print "  Chrome host and chrome-peer addon"
+  sign "$PEER"
+  DESIGNATED="$(codesign -d -r- "$APP/Contents/MacOS/Builders Bot" 2>&1 | sed -n 's/^designated => //p')"
+  CERTIFICATE="$(print -r -- "$DESIGNATED" | sed -nE 's/^identifier "app\.buildersbot\.desktop" and certificate leaf = H"([0-9a-f]{40})"$/\1/p')"
+  if [[ -z "$CERTIFICATE" ]]; then
+    print -u2 "The app's designated requirement does not name one certificate: $DESIGNATED"
+    exit 1
+  fi
+  case "$(lipo -archs "$APP/Contents/MacOS/Builders Bot")" in
+    arm64) ARCH=arm64 ;;
+    x86_64) ARCH=x64 ;;
+    *) print -u2 "The Chrome host is built for one architecture: arm64 or x86_64."; exit 1 ;;
+  esac
+  HOST_BUILD=".buildersbot-build/chrome-host/local/$ARCH"
+  bun scripts/build-chrome-host.ts --channel local --arch "$ARCH" --out "$HOST_BUILD" \
+    --app-requirement "$DESIGNATED" --sign-identity "$IDENTITY" >/dev/null
+  HOST_FOLDER="$APP/Contents/Resources/chrome-host/darwin/$ARCH"
+  mkdir -p "$HOST_FOLDER"
+  cp "$HOST_BUILD/buildersbot-chrome-host" "$HOST_FOLDER/buildersbot-chrome-host"
+  codesign --verify --strict \
+    -R="identifier \"app.buildersbot.chrome-host-local\" and certificate leaf = H\"$CERTIFICATE\"" \
+    "$HOST_FOLDER/buildersbot-chrome-host"
+else
+  print "  no chrome-peer addon: the app gets no Chrome host"
+fi
+
+print "  bundle"
 sign --entitlements "$ENTITLEMENTS" "$APP"
 
 codesign --verify --strict "$APP"

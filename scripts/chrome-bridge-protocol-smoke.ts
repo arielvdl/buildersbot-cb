@@ -21,6 +21,13 @@
  *    profile, a real click on the welcome page and a choice in the app, then messages, load and a restart;
  *    the app takes the host only because Chrome for Testing started it.
  *    Skipped with a reason when the swap is above 6 GB or the disk is below 3 GB.
+ * D. The local channel: an installed app that its owner signed with a certificate of their own
+ *    (`scripts/sign-local-macos.sh`). How the app reads its channel from its own signature, the local
+ *    host as that script builds it (the certificate, the hardened runtime, the one origin), and the
+ *    app's check of a host through the addon with the requirements of an installed app: the host's
+ *    certificate and identifier, and Google Chrome as the process that started it. Stand-ins are
+ *    clones of this Bun, signed for each case. Skipped with a reason when the keychain has no
+ *    "Builder Studio Local Signing" identity (`--local-identity <name>` names another one).
  *
  * Report: `.buildersbot-build/chrome-extension/protocol-smoke.json`. Never the person's Chrome, its
  * profile or its folders; the host socket is in the per-user temporary folder (`bb-e2e`).
@@ -29,7 +36,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
-import { connect } from "node:net";
+import { connect, createServer, type Socket } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Effect, ManagedRuntime, Schema } from "effect";
@@ -57,7 +64,16 @@ import {
   NATIVE_HOST_NAMES,
 } from "../packages/contracts/src/chrome-bridge/protocol";
 import { bridgeSocket } from "../src/main/chrome-bridge/bridge-paths";
-import { loadPeerChecker } from "../src/main/chrome-bridge/bridge-peer";
+import {
+  acceptsPeer,
+  chromeRequirement,
+  designatedRequirement,
+  hostRequirement,
+  LOCAL_HOST_IDENTIFIER,
+  loadPeerChecker,
+  type PeerIdentity,
+  packagedSigning,
+} from "../src/main/chrome-bridge/bridge-peer";
 import { BridgeStateStore, type KeySealer } from "../src/main/chrome-bridge/bridge-state";
 import {
   type ChromeBridgeOptions,
@@ -81,6 +97,9 @@ const REPORT = join(OUT, "protocol-smoke.json");
 const skipChrome = process.argv.includes("--skip-chrome");
 const onlyChrome = process.argv.includes("--only-chrome");
 const headed = process.argv.includes("--headed");
+const localIdentityIndex = process.argv.indexOf("--local-identity");
+const LOCAL_IDENTITY =
+  (localIdentityIndex === -1 ? undefined : process.argv[localIdentityIndex + 1]) ?? "Builder Studio Local Signing";
 
 /** Chrome for Testing, pinned by version and archive hash (the same folder and pin as `chrome-extension-e2e.ts`). */
 const CFT_PIN: { version: string; sha256: Partial<Record<"mac-arm64" | "mac-x64", string>> } = {
@@ -1313,6 +1332,183 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
 }
 
 // -------------------------------------------------------------------------------------------------
+// D. The local channel
+
+/** A clone of this Bun, signed as `identifier` with `identity`, or ad hoc with null: a stand-in process. */
+function signedBun(folder: string, name: string, identifier: string, identity: string | null): string {
+  const copy = join(folder, name);
+  spawnSync("/bin/cp", ["-c", process.execPath, copy], { stdio: "ignore" });
+  const signed = spawnSync(
+    "/usr/bin/codesign",
+    ["--force", "--sign", identity ?? "-", "--identifier", identifier, copy],
+    { encoding: "utf8" },
+  );
+  if (signed.status !== 0) throw new Error(`codesign failed for ${name}: ${signed.stderr.trim()}`);
+  return copy;
+}
+
+const TEAM_DESIGNATED =
+  'designated => identifier "app.buildersbot.desktop" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = ZTRDTUL87R';
+
+async function sectionD(peerAddon: string) {
+  section = "D";
+  const identities = spawnSync("/usr/bin/security", ["find-identity", "-v", "-p", "codesigning"], {
+    encoding: "utf8",
+  }).stdout;
+  if (!identities.includes(`"${LOCAL_IDENTITY}"`)) {
+    check(`local channel section skipped: no "${LOCAL_IDENTITY}" identity in the keychain`, true);
+    measures.localSkipped = LOCAL_IDENTITY;
+    return;
+  }
+  const work = mkdtempSync(join(tmpdir(), "bb-local-channel-"));
+  const children: ReturnType<typeof spawn>[] = [];
+  try {
+    // D1: the channel of an installed app comes from its own designated requirement.
+    const app = signedBun(work, "app", "app.buildersbot.desktop", LOCAL_IDENTITY);
+    const designated = await designatedRequirement(app);
+    const signing = packagedSigning(designated);
+    const certificate = signing?.channel === "local" ? signing.certificate : "";
+    check(
+      "an app signed with the owner's certificate reads as the local channel, pinned to that certificate",
+      /^[0-9a-f]{40}$/u.test(certificate) && designated.includes(`H"${certificate}"`),
+      { designated: designated.trim() },
+    );
+    if (!certificate) return;
+    const adHoc = signedBun(work, "app-ad-hoc", "app.buildersbot.desktop", null);
+    check(
+      "an ad-hoc app, another identifier or another team has no channel, so the bridge stays off",
+      packagedSigning(await designatedRequirement(adHoc)) === null &&
+        packagedSigning(designated.replace("app.buildersbot.desktop", "app.buildersbot.other")) === null &&
+        packagedSigning(TEAM_DESIGNATED.replace("ZTRDTUL87R", "AAAAAAAAAA")) === null,
+    );
+    check("the team's Developer ID reads as the store channel", packagedSigning(TEAM_DESIGNATED)?.channel === "store");
+
+    // D2: the local host, as `scripts/sign-local-macos.sh` builds it.
+    const appRequirement =
+      designated
+        .split("\n")
+        .find((line) => line.startsWith("designated => "))
+        ?.slice(14) ?? "";
+    const host = buildChromeHost({
+      channel: "local",
+      appRequirement,
+      signIdentity: LOCAL_IDENTITY,
+      out: join(work, "host"),
+    });
+    const hostDetails = spawnSync("/usr/bin/codesign", ["-dv", host.binary], { encoding: "utf8" }).stderr;
+    check(
+      "the local host is signed with the same certificate, as the local host identifier, with the hardened runtime",
+      (await designatedRequirement(host.binary)).includes(
+        `designated => identifier "${LOCAL_HOST_IDENTIFIER}" and certificate leaf = H"${certificate}"`,
+      ) &&
+        /flags=0x10000\(runtime\)/u.test(hostDetails) &&
+        host.signature === "certificate",
+      { identifier: host.identifier, signature: host.signature },
+    );
+    const strings = spawnSync("/usr/bin/strings", [host.binary], { encoding: "utf8" }).stdout;
+    check(
+      "the local host names the local extension, its own socket and the app's requirement, and writes no diagnostics",
+      host.origin === `chrome-extension://${EXTENSION_IDS.local}/` &&
+        strings.includes(host.origin) &&
+        strings.includes("b-local.sock") &&
+        strings.includes(appRequirement) &&
+        readFileSync(join(work, "host", "config.swift"), "utf8").includes("static let diagnostics = false"),
+    );
+    const exits = await Promise.all(
+      [`chrome-extension://${EXTENSION_IDS.dev}/`, `chrome-extension://${EXTENSION_IDS.e2e}/`, ""].map(
+        (origin) =>
+          new Promise<number | null>((done) => {
+            const child = spawn(host.binary, [origin], { stdio: "ignore" });
+            child.on("exit", (code) => done(code));
+          }),
+      ),
+    );
+    check(
+      "the local host starts and exits with 2 for any other extension origin",
+      exits.every((code) => code === 2),
+      {
+        exits,
+      },
+    );
+    const refusals = [
+      () => buildChromeHost({ channel: "local", appRequirement, out: join(work, "no-identity") }),
+      () =>
+        buildChromeHost({
+          channel: "local",
+          appRequirement: 'identifier "app.buildersbot.desktop"',
+          signIdentity: LOCAL_IDENTITY,
+          out: join(work, "weak"),
+        }),
+    ].map((build) => {
+      try {
+        build();
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    check(
+      "no local host without the certificate, or with a requirement that names no certificate",
+      refusals.every(Boolean),
+    );
+
+    // D3: the app's check of a host through the addon, with the requirements of an installed local app.
+    const socketPath = join(work, "s.sock");
+    const accepted: Socket[] = [];
+    const server = createServer((socket) => accepted.push(socket));
+    await new Promise<void>((done) => server.listen(socketPath, done));
+    const installed = loadPeerChecker(peerAddon, hostRequirement("local", certificate), chromeRequirement("local"));
+    // The same host requirement, with this process in Chrome's place: the stand-in hosts are its children.
+    const startedHere = loadPeerChecker(
+      peerAddon,
+      hostRequirement("local", certificate),
+      `cdhash H"${codeHash(process.execPath)}"`,
+    );
+    const peerOf = async (binary: string) => {
+      const before = accepted.length;
+      const child = spawn(
+        binary,
+        ["-e", "require('node:net').connect(process.env.BB_SOCKET); setTimeout(() => process.exit(0), 20000)"],
+        { stdio: "ignore", env: { ...process.env, BB_SOCKET: socketPath } },
+      );
+      children.push(child);
+      await until(() => accepted.length > before, 8000, "the stand-in host connection");
+      const socket = accepted[before];
+      if (!socket) throw new Error("no connection");
+      const identities: [PeerIdentity, PeerIdentity] = [installed.check(socket), startedHere.check(socket)];
+      child.kill();
+      socket.destroy();
+      return identities;
+    };
+    const uid = process.getuid?.();
+    const [hostByOther, hostByChrome] = await peerOf(
+      signedBun(work, "host-stand-in", LOCAL_HOST_IDENTIFIER, LOCAL_IDENTITY),
+    );
+    check(
+      "the app takes a host with its own certificate and the host identifier, when Chrome started it",
+      hostByOther.valid === true && acceptsPeer(hostByChrome, uid, startedHere.checksParent),
+      { valid: hostByOther.valid, parent: hostByChrome.parent?.valid },
+    );
+    check(
+      "the installed app refuses that host when a program that is not Google Chrome started it",
+      installed.checksParent && hostByOther.parent?.valid === false && !acceptsPeer(hostByOther, uid, true),
+      { parent: hostByOther.parent },
+    );
+    const [adHocHost] = await peerOf(signedBun(work, "host-ad-hoc", LOCAL_HOST_IDENTIFIER, null));
+    const [appAsHost] = await peerOf(app);
+    check(
+      "the app refuses an ad-hoc host and a binary of the same certificate with another identifier",
+      adHocHost.valid === false && appAsHost.valid === false,
+      { adHoc: adHocHost.valid, otherIdentifier: appAsHost.valid },
+    );
+    await new Promise<void>((done) => server.close(() => done()));
+  } finally {
+    for (const child of children) child.kill();
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
@@ -1325,6 +1521,7 @@ async function main() {
   try {
     if (!onlyChrome) await sectionB(host, peer.addon);
     if (!skipChrome) await sectionC(host, peer.addon);
+    if (!onlyChrome) await sectionD(peer.addon);
   } finally {
     rmSync(socket.folder, { recursive: true, force: true });
   }

@@ -5,6 +5,8 @@
  *   bun scripts/build-chrome-host.ts --channel e2e --app-requirement 'cdhash H"…"'
  *   bun scripts/build-chrome-host.ts --channel dev
  *   bun scripts/build-chrome-host.ts --channel store --sign-identity "Developer ID Application: … (ZTRDTUL87R)"
+ *   bun scripts/build-chrome-host.ts --channel local --sign-identity "Builder Studio Local Signing" \
+ *     --app-requirement 'identifier "app.buildersbot.desktop" and certificate leaf = H"…"'
  *
  * Each channel compiles its own constants into the binary (`config.swift` is written for each build):
  * the one extension origin it accepts, its socket, whether it checks the app's signature, and whether it
@@ -13,6 +15,11 @@
  * - `store`: needs the store extension ID (`EXTENSION_IDS.store`) and a Developer ID identity. It is
  *   signed with the hardened runtime and a timestamp, as `app.buildersbot.chrome-host`, and checks that
  *   the app on the socket is Builders Bot of team ZTRDTUL87R. The app's notarization then covers it.
+ * - `local`: the local extension ID (`EXTENSION_IDS.local`), for an app that its owner signed with their
+ *   own certificate (`scripts/sign-local-macos.sh`, which builds it). `--app-requirement` is the
+ *   designated requirement of that signed app: its identifier and the hash of the certificate. It is
+ *   signed with the same certificate and the hardened runtime, with no timestamp, as
+ *   `app.buildersbot.chrome-host-local`; socket `b-local.sock` in the app's folder; no diagnostics.
  * - `dev`: the development extension ID; ad-hoc signature unless `--sign-identity` is given; no check
  *   of the app's signature (a development app is not signed); socket `b-dev.sock`.
  * - `e2e`: the E2E extension ID; ad-hoc signature; the app requirement comes from `--app-requirement`
@@ -40,6 +47,8 @@ const APP_TEAM = "ZTRDTUL87R";
 const APP_IDENTIFIER = "app.buildersbot.desktop";
 const STORE_APP_REQUIREMENT = `anchor apple generic and certificate leaf[subject.OU] = "${APP_TEAM}" and identifier "${APP_IDENTIFIER}"`;
 export const CHROME_HOST_SIGNING_IDENTIFIER = "app.buildersbot.chrome-host";
+/** What `codesign` makes the designated requirement of an app signed with a certificate of its own. */
+const LOCAL_APP_REQUIREMENT = /^identifier "app\.buildersbot\.desktop" and certificate leaf = H"[0-9a-f]{40}"$/u;
 
 export interface ChromeHostBuild {
   channel: ChromeBridgeChannel;
@@ -47,7 +56,7 @@ export interface ChromeHostBuild {
   binary: string;
   identifier: string;
   cdhash: string;
-  signature: "developer-id" | "ad-hoc";
+  signature: "developer-id" | "certificate" | "ad-hoc";
   appRequirement: string | null;
   origin: string;
   version: string;
@@ -94,10 +103,20 @@ export function buildChromeHost(options: {
     throw new Error(`No extension ID for the ${channel} channel yet: the store ID exists only after the first upload.`);
   if (channel === "store" && !options.signIdentity)
     throw new Error("A store host needs --sign-identity with the Developer ID Application certificate of the team.");
+  if (channel === "local" && !options.signIdentity)
+    throw new Error("A local host needs --sign-identity with the certificate that signs the app.");
   const appRequirement =
-    channel === "store" ? STORE_APP_REQUIREMENT : channel === "e2e" ? (options.appRequirement ?? null) : null;
+    channel === "store"
+      ? STORE_APP_REQUIREMENT
+      : channel === "e2e" || channel === "local"
+        ? (options.appRequirement ?? null)
+        : null;
   if (channel === "e2e" && !appRequirement)
     throw new Error("An E2E host needs --app-requirement: the requirement of the process that plays the app.");
+  if (channel === "local" && !(appRequirement && LOCAL_APP_REQUIREMENT.test(appRequirement)))
+    throw new Error(
+      `A local host needs --app-requirement with the designated requirement of the signed app: identifier "${APP_IDENTIFIER}" and certificate leaf = H"<SHA-1>".`,
+    );
   const version = packageVersion();
   const origin = extensionOrigin(extensionId);
   const folder = resolve(options.out ?? join(ROOT, ".buildersbot-build/chrome-host", channel, arch));
@@ -115,7 +134,7 @@ export function buildChromeHost(options: {
       `  static let socketInTempDir = ${channel === "e2e"}`,
       `  static let tempFolderName = ${swiftString("bb-e2e")}`,
       `  static let appRequirement: String? = ${appRequirement === null ? "nil" : swiftString(appRequirement)}`,
-      `  static let diagnostics = ${channel !== "store"}`,
+      `  static let diagnostics = ${channel === "dev" || channel === "e2e"}`,
       "}",
       "",
     ].join("\n"),
@@ -138,13 +157,14 @@ export function buildChromeHost(options: {
     throw new Error(`The host is not a ${arch} executable: ${kind.trim()}`);
   const identifier =
     channel === "store" ? CHROME_HOST_SIGNING_IDENTIFIER : `${CHROME_HOST_SIGNING_IDENTIFIER}-${channel}`;
+  // Apple's timestamp server is for Developer ID signatures; a certificate of the owner's own gets none.
   const sign = options.signIdentity
     ? [
         "--force",
         "--sign",
         options.signIdentity,
         ...(options.keychain ? ["--keychain", options.keychain] : []),
-        "--timestamp",
+        ...(channel === "store" ? ["--timestamp"] : []),
         "--options",
         "runtime",
         "--identifier",
@@ -160,7 +180,7 @@ export function buildChromeHost(options: {
     binary,
     identifier,
     cdhash: codeHash(binary),
-    signature: options.signIdentity ? "developer-id" : "ad-hoc",
+    signature: !options.signIdentity ? "ad-hoc" : channel === "store" ? "developer-id" : "certificate",
     appRequirement,
     origin,
     version,
@@ -173,8 +193,8 @@ export function buildChromeHost(options: {
 if (import.meta.main) {
   const argv = process.argv.slice(2);
   const channel = option(argv, "--channel");
-  if (channel !== "store" && channel !== "dev" && channel !== "e2e")
-    throw new Error("Usage: bun scripts/build-chrome-host.ts --channel store|dev|e2e [options]");
+  if (channel !== "store" && channel !== "local" && channel !== "dev" && channel !== "e2e")
+    throw new Error("Usage: bun scripts/build-chrome-host.ts --channel store|local|dev|e2e [options]");
   const requirement = option(argv, "--app-requirement");
   const archOption = option(argv, "--arch");
   const build = buildChromeHost({

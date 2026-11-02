@@ -6,7 +6,9 @@
 // - the copy that was installed before goes to the Trash, with the macOS `trash` tool or, when that
 //   tool is missing, with a rename into ~/.Trash;
 // - a dated backup that an earlier version of the script left is listed and kept;
-// - the data folder (~/Library/Application Support/Builders Bot) is not changed.
+// - the data folder (~/Library/Application Support/Builders Bot) is not changed;
+// - a build with no `chrome-peer` addon gets no Chrome host (the protocol smoke, section D, checks the
+//   host that a build with the addon gets).
 //
 // It needs no build, no signing identity and no network. `security`, `codesign`, `osascript` and
 // `trash` are stubs on PATH, so the test never signs, quits or opens the real app and never moves a
@@ -117,6 +119,13 @@ try {
 
   const first = install("build-1", trashTool);
   check("first install exits with 0", first.status === 0, first.stderr.trim() || `status ${first.status}`);
+  // The fake build has no `chrome-peer` addon, as a build made without `prepare:chrome-bridge`.
+  check(
+    "a build with no chrome-peer addon is signed and gets no Chrome host",
+    first.stdout.includes("no chrome-peer addon") &&
+      !existsSync(join(installRoot, APP_NAME, "Contents/Resources/chrome-host")),
+    first.stdout.trim(),
+  );
   check(
     "first install leaves only the new app and the old backup in the install folder",
     JSON.stringify(readdirSync(installRoot).sort()) === JSON.stringify([APP_NAME, OLD_BACKUP]),

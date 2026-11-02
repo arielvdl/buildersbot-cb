@@ -1,12 +1,13 @@
 // Builds the Builders Bot Chrome extension for one channel.
 //
-//   bun scripts/build-chrome-extension.ts [--channel store|dev|e2e] [--out <dir>]
+//   bun scripts/build-chrome-extension.ts [--channel store|local|dev|e2e] [--out <dir>]
 //
 // Output: .buildersbot-build/chrome-extension/<channel>/ (an unpacked extension). The code is bundled
 // with Bun and not minified, so a store reviewer can read it, and it has no runtime dependency. The
 // `_locales` folders are written from the `chromeExtension.*` keys of @openbot/i18n (en, and pt as
-// Chrome's pt_BR). Development and E2E builds carry the public `key` that gives them their fixed ID
-// (contracts `extension-ids.ts`); the store build has no `key`.
+// Chrome's pt_BR). The local, development and E2E builds carry the public `key` that gives them their
+// fixed ID (contracts `extension-ids.ts`); the store build has no `key`. The local build is the one that
+// the owner of a locally signed app loads unpacked, and it keeps the product name.
 
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -30,8 +31,10 @@ const MANIFEST_KEYS = [
   "chromeExtension.command.stopAll",
 ] as const;
 
+/** A name instead of the localized product name, so a test build is not taken for the real one. */
 const CHANNEL_NAMES: Readonly<{ [channel in ChromeBridgeChannel]: string | null }> = {
   store: null,
+  local: null,
   dev: "Builders Bot (Dev)",
   e2e: "Builders Bot (E2E)",
 };
@@ -99,7 +102,8 @@ export async function buildChromeExtension(channel: ChromeBridgeChannel, outDir?
   const finalManifest = {
     ...manifest,
     version,
-    ...(name === null ? {} : { name, key: EXTENSION_PUBLIC_KEYS[channel === "dev" ? "dev" : "e2e"] }),
+    ...(name === null ? {} : { name }),
+    ...(channel === "store" ? {} : { key: EXTENSION_PUBLIC_KEYS[channel] }),
   };
   await writeFile(join(out, "manifest.json"), `${JSON.stringify(finalManifest, null, 2)}\n`);
 

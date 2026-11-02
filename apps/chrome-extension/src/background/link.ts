@@ -278,7 +278,9 @@ async function startHandshake(): Promise<void> {
 /** What the browser says it is. The app shows it as "reported by the extension"; it proves nothing. */
 function browserBrand(): "google-chrome" | "chrome-for-testing" | "chromium" {
   if (__BB_CHANNEL__ === "e2e") return "chrome-for-testing";
-  return /Google Chrome/u.test(navigator.userAgent) || __BB_CHANNEL__ === "store" ? "google-chrome" : "chromium";
+  return /Google Chrome/u.test(navigator.userAgent) || __BB_CHANNEL__ === "store" || __BB_CHANNEL__ === "local"
+    ? "google-chrome"
+    : "chromium";
 }
 
 function chromeVersion(): string {

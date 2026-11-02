@@ -10,12 +10,21 @@ extension yet: `webAccess: "chrome"` still browses as `playwright-legacy`.
 
 ## Build
 
-`bun run chrome-extension:build -- --channel store|dev|e2e` writes an unpacked extension to
+`bun run chrome-extension:build -- --channel store|local|dev|e2e` writes an unpacked extension to
 `.buildersbot-build/chrome-extension/<channel>/`. Bun bundles the code without minifying it, so a store
 reviewer can read it, and the extension has no runtime dependency. The `_locales` folders come from the
 `chromeExtension.*` keys of `@openbot/i18n` (`en`, and `pt` as Chrome's `pt_BR`); a `{name}`
-placeholder becomes Chrome's `$name$`. The dev and E2E builds carry the public `key` of
-`EXTENSION_PUBLIC_KEYS` (`extension-ids.ts`), so they have fixed IDs. The store build has no `key`.
+placeholder becomes Chrome's `$name$`. The local, dev and E2E builds carry the public `key` of
+`EXTENSION_PUBLIC_KEYS` (`extension-ids.ts`), so they have fixed IDs. The store build has no `key`. The
+local build is for an app that its owner signed on their Mac (`bun run package:signed`), and it keeps
+the product name; the dev and E2E builds have "(Dev)" and "(E2E)" in their names.
+
+`bun run chrome-extension:kit` builds, for a manual test in the owner's own Chrome, the dev and local
+extensions into `.buildersbot-build/chrome-extension/dist/` of the main checkout (`extension` and
+`extension-local`, the folders to load with "Load unpacked"), the dev host and the `chrome-peer` addon
+where `bun run dev` reads them, and writes the steps in Portuguese next to that folder
+(`COMO-TESTAR.md`). It checks that each ID from a manifest key is the one that its host accepts. It
+writes nothing into a Chrome folder.
 
 Permissions: `debugger`, `tabs`, `tabGroups`, `nativeMessaging`, `storage`, `alarms`,
 `declarativeNetRequest`. No host permission, no content script, no web-accessible resource, and

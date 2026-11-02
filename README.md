@@ -390,6 +390,8 @@ See [web client delivery](docs/web-client.md) for the release gate and focused c
 | `bun run cua-driver:doctor` | Print, as JSON, which `cua-driver` binary Builders Bot would use for Computer Use, and the driver's own `doctor` report. Read-only, and it starts no daemon. `OPENBOT_CUA_DRIVER_PATH` selects a different binary in a checkout; an installed application runs only the driver it was released with. |
 | `bun run prepare:cua-driver` | Write the pinned Computer Use driver to `build/cua-driver/<platform>/<arch>`, verifying every SHA-256 in `native-runtime.lock.json`. Name another target with `bun scripts/install-cua-driver.ts <platform> <arch>`. Every packaging command runs this first. |
 | `bun run pin:cua-driver <version>` | Print a new `cuaDriver` block for `native-runtime.lock.json` from a published `cua-driver` release. Downloads the release assets of all five targets and hashes each shipped file. |
+| `bun run prepare:chrome-bridge` | Build the `chrome-peer` addon that checks each Chrome host connection into `.buildersbot-build/chrome-peer/<arch>`. Every macOS packaging command runs this first. |
+| `bun run chrome-extension:kit` | Build the extension for `bun run dev` and for a locally signed app, the dev host and the addon, for a test in your own Chrome. Writes the folders to load and the steps (`COMO-TESTAR.md`) to `.buildersbot-build/chrome-extension/` of the main checkout. Writes nothing into Chrome. |
 | `bun run package` | Build an unpacked local application for the architecture of this Mac. |
 | `bun run package:verify` | Build and verify the real app bundle for this Mac, icon, metadata, ASAR, and fuses. |
 | `bun run package:win` | Build an unpacked local Windows x64 application on Windows. |

@@ -8,6 +8,12 @@ import { FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { createBuildersBotLogger } from "@openbot/logging";
 import { isMissingFileError } from "../src/backend/file-errors";
+import {
+  designatedRequirement,
+  hostRequirement,
+  LOCAL_HOST_IDENTIFIER,
+  packagedSigning,
+} from "../src/main/chrome-bridge/bridge-peer";
 import { assertAllowedUpdateFeed, readBuilderIdentity } from "./builders-bot-package";
 import { assertNoBlockedStringsInPackage } from "./telemetry-destinations";
 
@@ -55,6 +61,8 @@ const voiceRuntimePath = resolve(resourcesPath, "voice/runtime");
 const voiceRuntimeFiles = ["sherpa-onnx.node", "libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"];
 const remoteRuntimePath = resolve(resourcesPath, "remote-desktop-runtime/darwin", architecture);
 const cuaDriverPath = resolve(resourcesPath, "cua-driver/darwin", architecture);
+const chromePeerPath = resolve(resourcesPath, "chrome-peer/chrome-peer.node");
+const chromeHostPath = resolve(resourcesPath, "chrome-host/darwin", architecture, "buildersbot-chrome-host");
 // The database host is spawned by path as its own process, so it has to survive the asar unchanged.
 // Packed into app.asar it would still be readable, but `utilityProcess` cannot start it from there.
 const databaseHostPath = resolve(resourcesPath, "app.asar.unpacked/out/main/agent-database-host.js");
@@ -95,6 +103,7 @@ await Promise.all([
   access(resolve(remoteRuntimePath, "SHA256SUMS.txt")),
   access(resolve(cuaDriverPath, "cua-driver")),
   access(resolve(cuaDriverPath, "LICENSE.md")),
+  access(chromePeerPath),
 ]);
 // Only this Mac's driver ships. A `from: build/cua-driver` that forgot the target would put the
 // Windows and Linux builds in every installer.
@@ -189,6 +198,21 @@ if (
   )
 ) {
   throw new Error("The on-demand voice models must not be in the application.");
+}
+
+// The app checks each Chrome host connection with this addon. The host is built for one signing
+// certificate: electron-builder adds none, and `scripts/sign-local-macos.sh` adds the one for the owner's
+// certificate, signed with it as `app.buildersbot.chrome-host-local`.
+const chromePeerArchitecture = run("file", [chromePeerPath]);
+if (!chromePeerArchitecture.includes(machOArchitecture)) {
+  throw new Error(`Expected a ${machOArchitecture} chrome-peer addon: ${chromePeerArchitecture}`);
+}
+const signing = packagedSigning(await designatedRequirement(appPath));
+if (signing?.channel === "local") {
+  run("codesign", ["--verify", "--strict", `-R=${hostRequirement("local", signing.certificate)}`, chromeHostPath]);
+  logger.info(`Chrome host ${LOCAL_HOST_IDENTIFIER} signed with the app's certificate`);
+} else {
+  await assertAbsent(resolve(resourcesPath, "chrome-host"));
 }
 
 for (const name of ["Sunshine.app", "web-server", "streamer"]) {

@@ -595,10 +595,10 @@ card, Settings and `application-services.ts` come with Phase 3.
 
 | Part | Where | What it does |
 | --- | --- | --- |
-| Native host | `native/chrome-host/main.swift`, `scripts/build-chrome-host.ts` | Swift, CoreFoundation and Security only (about 110 KB). Chrome starts it; it copies whole frames between Chrome (stdin and stdout) and the app's socket and reads no message. Each build compiles its channel in: the one extension origin it accepts (`argv[1]`, else exit 2), its socket, and the code requirement of the app. A store build checks the app on the socket (`LOCAL_PEERTOKEN`, team `ZTRDTUL87R`, `app.buildersbot.desktop`) before it passes a byte. It holds at most one frame for each direction and reads one side only when the other side took the last frame. |
+| Native host | `native/chrome-host/main.swift`, `scripts/build-chrome-host.ts` | Swift, CoreFoundation and Security only (about 110 KB). Chrome starts it; it copies whole frames between Chrome (stdin and stdout) and the app's socket and reads no message. Each build compiles its channel in: the one extension origin it accepts (`argv[1]`, else exit 2), its socket, and the code requirement of the app. A store build checks the app on the socket (`LOCAL_PEERTOKEN`, team `ZTRDTUL87R`, `app.buildersbot.desktop`) before it passes a byte; a local build checks it against the designated requirement of the app that the owner signed (its identifier and the hash of the certificate). It holds at most one frame for each direction and reads one side only when the other side took the last frame. |
 | Host frames | `HostFrameGate` (`channel.ts`) | The host sends `hello` once, first, then `status: online` or `offline` when the app connection changes. A frame from the app must start as `{"k":"` or `{"v":1,`, so the app side of the socket cannot write a host frame. |
 | Socket | `bridgeSocket`, `preparePrivateFolder` (`bridge-paths.ts`) | `~/Library/Application Support/Builders Bot/cb/b.sock` (`b-dev.sock` for dev), in a folder of mode 0700; E2E uses `<per-user temporary folder>/bb-e2e/b-e2e.sock`. Both sides compute the path, never from the environment. The host does not connect through a folder that others can open. |
-| Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement, and the code of the process that started the peer against the Chrome requirement: Google's Developer ID `EQHXZ8M8AV` and a `com.google.Chrome` channel identifier in a store build; in E2E, Chrome for Testing pinned by its code hash, because it is signed ad hoc, with no team; none in development. The check is bound to values that the kernel never gives twice, not to a pid: the peer's records must carry the pid version of its audit token, and the process at the parent pid must have the unique id and the pid version that the peer recorded at fork (`proc_pidinfo` flavor 17, `p_orig_ppidversion`), before and after the code check. So a copy of the signed host that another program starts is refused, and so is one whose starter then runs `exec` into Chrome (protocol smoke B9, B10). It proves only that a process that runs Chrome's code started the host, not which extension asked Chrome: a Chrome that someone starts with a profile and an extension of their own passes it. The pairing (the extension's static key, pinned after the person picks the words) stays the main defense. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
+| Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement, and the code of the process that started the peer against the Chrome requirement: Google's Developer ID `EQHXZ8M8AV` and a `com.google.Chrome` channel identifier in a store or local build (a local build checks the host as `app.buildersbot.chrome-host-local` signed with the app's own certificate); in E2E, Chrome for Testing pinned by its code hash, because it is signed ad hoc, with no team; none in development. The check is bound to values that the kernel never gives twice, not to a pid: the peer's records must carry the pid version of its audit token, and the process at the parent pid must have the unique id and the pid version that the peer recorded at fork (`proc_pidinfo` flavor 17, `p_orig_ppidversion`), before and after the code check. So a copy of the signed host that another program starts is refused, and so is one whose starter then runs `exec` into Chrome (protocol smoke B9, B10). It proves only that a process that runs Chrome's code started the host, not which extension asked Chrome: a Chrome that someone starts with a profile and an extension of their own passes it. The pairing (the extension's static key, pinned after the person picks the words) stays the main defense. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
 | Channel | `packages/contracts/src/chrome-bridge/channel.ts` | One WebCrypto implementation for both sides: the handshake with a commitment, three ECDH values, HKDF, key confirmation, the comparison words (BIP-39 Portuguese list, `pairing-words.ts`), and sealed frames with parts. The transcript is the canonical JSON of the decoded messages, because Chrome writes the extension's messages with sorted keys. |
 | App service | `ChromeBridgeService` (`chrome-bridge-service.ts`), `HostConnection` (`host-connection.ts`) | One connection for each Chrome profile, up to 8. The handshake has a 5 s deadline from the accept, and a connection told `busy` closes after 60 s, so idle connections do not keep the places. The pairing rules of DESIGN §3: a window of 2 minutes that the person opens, used once, cancelled by a second candidate; outside it, at most 3 cards an hour and never two at once, else `reject{busy}`; a key that the person just refused gets `busy` for 10 minutes. A connection told `busy` waits idle; opening a window closes it, so its host reconnects and the extension tries again. Requests: at most 64 in flight and 16 for one key (a tab), up to 1024 waiting in order, a deadline from the moment the frames go to the socket. |
 | Sealed state | `BridgeStateStore` (`bridge-state.ts`) | `app-key.bin` (the app key and a state key, sealed by the key store) and `bridge-state-v1.bin` (pins, revocations, refusals; AES-256-GCM). A file that does not open reads as no pairing. |
@@ -624,9 +624,31 @@ runs the channel vectors, the real host between the app service and a stand-in C
 Chrome for Testing with a stub extension and a temporary profile (`--skip-chrome` leaves it out). It
 writes `.buildersbot-build/chrome-extension/protocol-smoke.json`.
 
-Not verified yet: a host signed with the team's Developer ID (`--sign-identity`) and the app's
-packaging of the host and the addon (`electron-builder.yml`); `safeStorage` as the key store (the
-smoke uses a stand-in in its own process); the pairing card in the app.
+### Channels and the app package
+
+| Channel | App | Extension | Host and checks |
+| --- | --- | --- | --- |
+| `store` | Signed with the team's Developer ID | The Chrome Web Store item (no ID yet) | None in the package until the store ID exists: `build-chrome-host.ts` refuses a store host without it. |
+| `local` | Signed by `bun run package:signed` with the owner's certificate (`scripts/sign-local-macos.sh`) | Loaded unpacked, with the `local` key | `sign-local-macos.sh` builds the host with the app's designated requirement compiled in, signs it with the same certificate, the hardened runtime and the identifier `app.buildersbot.chrome-host-local`, and puts it in `Contents/Resources/chrome-host/darwin/<arch>`. The app takes only that host, and only when Google Chrome started it. |
+| `dev` | `bun run dev` | Loaded unpacked, with the `dev` key | The host and the addon in the checkout's `.buildersbot-build`; nothing is signed or checked; the manifest goes into the real Chrome only with `OPENBOT_CHROME_BRIDGE_REAL_CHROME=1`. |
+| `e2e` | The tests | Chrome for Testing | Pinned by code hash. |
+
+An installed app reads its channel from its own designated requirement (`packagedSigning`, from
+`codesign -d -r-` on the bundle), not from a file: the team's Developer ID is `store`, the owner's
+certificate is `local`, pinned to that certificate, and an ad-hoc signature (a plain `bun run package`)
+leaves the bridge off. Every macOS package carries the `chrome-peer` addon (`bun run prepare:chrome-bridge`,
+`electron-builder.yml`), and `scripts/verify-macos-package.ts` checks it, and checks the host of a
+locally signed app against the app's certificate. The protocol smoke (section D) checks the local
+channel with stand-ins signed by the owner's identity, when the keychain has it.
+
+The local channel trusts the owner's certificate, whose private key is in the login keychain of the
+same user. A process of that user that can sign with it can sign a host that the app takes. The
+pairing words stay the main protection, as for a Developer ID that signs on the same Mac.
+
+Not verified yet: a host signed with the team's Developer ID (`--sign-identity`); a full
+`bun run package:signed` with the host, and Google Chrome starting the host of an installed app (the
+tests never open the person's Chrome); `safeStorage` as the key store (the smoke uses a stand-in in
+its own process); the pairing card in the app.
 
 ### The extension
 
@@ -764,7 +786,8 @@ writes `.buildersbot-build/chrome-agents-e2e/report.json`, with the bridge reque
 Not in this release: `upload_files` (upload by content), `submit_secret` and `fill_card` in Chrome
 (`secret.fill`), `request_takeover`, `set_environment`, recording, a name that the person sets for a
 project's group, the per-project switch for scripts, Settings > Connected browsers, the pause of
-Computer Use while the pairing dialog is open, and the app package of the host and the addon.
+Computer Use while the pairing dialog is open, and a host in a Developer ID package (until the store
+item exists).
 
 ## Secure browser authentication
 
