@@ -340,6 +340,11 @@ export class HubConnectionClient {
           undefined,
           HUB_CONNECTIONS_LIMITS.confirmationBytes,
         );
+        // A gateway with the connections off answers its own 404 in plain text, not JSON: no
+        // approval can come. A 404 with a contract body (an unknown id) is an error answer below.
+        if (status === 404 && !decodeHubError(value)) throw new HubRequestFailed("disabled", status);
+        // A 5xx with a contract body is the Hub failing for now: the next read asks again.
+        if (status >= 500) throw new HubRequestFailed("hub_unavailable", status);
         const outcome = this.#outcome(status, value, decodeHubConfirmationStatus);
         // An answer about another confirmation is outside the contract.
         if (outcome.kind === "answer" && outcome.answer.confirmationId !== confirmationId)

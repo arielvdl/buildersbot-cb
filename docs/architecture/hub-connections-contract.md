@@ -498,9 +498,22 @@ Proxy token of the organization of the confirmation. Answer `200`, at most 4 KB:
 ```
 
 `state` is `pending`, `approved`, `denied`, `expired` (after `expiresAt`) or `used` (after the one
-call that the Hub accepted). An unknown id, or an id of another organization or person, gets an
-`{ "error": … }` body (`404 { "error": "not_found" }` in the fake), and the app stops waiting with a
-refusal. The app reads only this route, never a list of confirmations.
+call that the Hub accepted). The Hub answers `200` only when the person and the organization of the
+confirmation are those of the token and the person is still in the organization. The other answers,
+and what the app does:
+
+| Answer | When | The app |
+| --- | --- | --- |
+| `404 { "error": "not_found" }` | An unknown or malformed id, an id of another person or organization, a token with no organization | Stops waiting: refusal, no call |
+| `401 { "error": "unauthorized" }` | The proxy token is bad or expired | Asks for a new proxy token and reads again |
+| `429 { "error": "rate_limited", "scope": "hub", "retryAfter": 60 }` | The Hub's limit: 60 reads per person and minute | Waits `retryAfter` (within the deadline) and reads again |
+| `5xx` | The Hub fails | Reads again until the deadline |
+| `404` in plain text (not JSON) | The gateway has the connections off, so the route does not exist | Stops waiting: refusal, no call |
+
+The approval page redirects to the Hub's own path (`/hub/builder-ai/conexoes/aprovar/<id>`) with
+its sign-in. After `approved`, the call may reuse the `Idempotency-Key` of the first attempt, since a
+pending attempt writes nothing; the app sends a new key. The app reads only this route, never a list
+of confirmations.
 
 ### 6.5 Errors
 

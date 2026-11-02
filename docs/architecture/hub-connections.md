@@ -162,8 +162,9 @@ the app: the Hub no longer trusts an approval that the app declares (contract §
 3. Main reads `GET …/connections/tool-catalog/confirmations/<id>` with the payer's proxy token every
    2 seconds, until a state other than `pending`, the deadline (the Hub's `expiresAt` and at most 5
    minutes) or the end of the turn (the abort signal of the tool request). A read that fails for the
-   network or a 5xx is read again; a sign-out, a refused token or an answer outside the contract ends
-   the wait.
+   network, a 5xx or a refused proxy token (a new token is asked for) is read again; a `429
+   rate_limited` waits its `retryAfter` first. A sign-out, a refused token request, an error answer
+   such as `404 not_found`, and the plain-text 404 of a gateway with the connections off end the wait.
 4. `approved`: the app sends the call once, with the id and `maxCostMicros` equal to the approved
    estimate. `denied` is a refusal with `declined`, `expired` and the deadline are a refusal with
    `expired`, and `used` or a failed wait is a refusal. None of them sends the call.

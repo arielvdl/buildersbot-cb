@@ -118,8 +118,10 @@ const confirmationOf = (url: string) => decodeURIComponent(url.slice(APPROVAL_PA
 function personOnHub(decide: (id: string) => void): void {
   onHubPage = (url) => {
     const id = confirmationOf(url);
+    // With no status read (a gateway that has the connections off), the person never decides.
     void waitFor("a status read of the confirmation", () => hub.confirmationReads.some((read) => read.id === id)).then(
       () => decide(id),
+      () => undefined,
     );
   };
 }
@@ -364,6 +366,37 @@ try {
       return { message: refused.fields.message };
     },
   );
+
+  await step("confirm_cost: the Hub's limit of status reads (429) waits, then one call after approved", async () => {
+    hub.limitConfirmationReads(1, 1);
+    cardPlan.push("accept");
+    personOnHub((id) => hub.decideConfirmation(id, "approved"));
+    const callsBefore = hubCalls().length;
+    const readsBefore = statusReads().length;
+    const [done] = await run([call("market.quote-pro", { body: { symbol: "PETR3" } })]);
+    assert.ok(done?.success, done?.text);
+    const reads = statusReads().slice(readsBefore);
+    assert.equal(reads[0]?.status, 429, "the first status read was not limited");
+    assert.ok(
+      reads.slice(1).some((read) => read.status === 200),
+      "the app did not read again after the limit",
+    );
+    assert.equal(hubCalls().length, callsBefore + 2, "the app did not send the call once after the approval");
+    return { reads: reads.map((read) => read.status) };
+  });
+
+  await step("confirm_cost: a gateway with the connections off (plain-text 404) ends the wait", async () => {
+    hub.setConfirmationRouteOff(true);
+    try {
+      const readsBefore = statusReads().length;
+      const refused = await refusedOnHub("GGBR4", () => undefined, 1);
+      assert.equal(refused.fields.needsPerson, "confirm_cost", refused.text);
+      assert.equal(statusReads().length, readsBefore + 1, "the app read the status again after a plain 404");
+      return { message: refused.fields.message };
+    } finally {
+      hub.setConfirmationRouteOff(false);
+    }
+  });
 
   await step("confirm_cost: Deny on the card opens no page and sends nothing more", async () => {
     cardPlan.push("decline");

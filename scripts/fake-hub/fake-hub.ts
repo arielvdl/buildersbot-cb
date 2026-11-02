@@ -173,6 +173,13 @@ export interface FakeHub {
   sayConfirmationState(id: string, state: string | null): void;
   /** Each read of the status route: the id, the organization of the token and the state that the fake gave. */
   readonly confirmationReads: Array<{ readonly id: string; readonly orgId: string; readonly state: string }>;
+  /**
+   * The next `count` reads of the status route get the Hub's own limit, `429 rate_limited` with
+   * `retryAfter` seconds (60 per person and minute on the Hub).
+   */
+  limitConfirmationReads(count: number, retryAfterSeconds: number): void;
+  /** The gateway has the connections off: the status route answers the framework's plain-text 404. */
+  setConfirmationRouteOff(off: boolean): void;
   close(): Promise<void>;
 }
 
@@ -329,6 +336,11 @@ function parseJson(text: string): HubJson | undefined {
   }
 }
 
+/** A body that the fake sends as plain text, as a framework's own 404 is. */
+class PlainText {
+  constructor(readonly text: string) {}
+}
+
 interface Confirmation {
   readonly orgId: string;
   readonly endpointId: string;
@@ -408,6 +420,9 @@ export async function startFakeHub(): Promise<FakeHub> {
   /** The device codes of the sign-ins that wait, with the client that asked for each. */
   const devices = new Map<string, string>();
   const confirmationReads: Array<{ id: string; orgId: string; state: string }> = [];
+  let limitedReads = 0;
+  let limitRetryAfter = 60;
+  let confirmationRouteOff = false;
   let down: "drop" | "hang" | number | null = null;
   const hanging = new Set<ServerResponse>();
   let ledger = 0;
@@ -896,7 +911,12 @@ export async function startFakeHub(): Promise<FakeHub> {
       ];
     const confirmationPath = CONFIRMATION_PATH.exec(path);
     if (confirmationPath && request.method === "GET") {
-      // The status of a cost approval, for the organization of the token only.
+      if (confirmationRouteOff) return [404, new PlainText("404 Not Found")];
+      if (limitedReads > 0) {
+        limitedReads -= 1;
+        return [429, { error: "rate_limited", scope: "hub", retryAfter: limitRetryAfter }];
+      }
+      // The status of a cost approval, for the person and organization of the token only.
       const id = decodeURIComponent(confirmationPath[1] ?? "");
       const held = confirmations.get(id);
       if (!held || held.orgId !== org.id) return [404, { error: "not_found" }];
@@ -1010,9 +1030,10 @@ export async function startFakeHub(): Promise<FakeHub> {
         { error: "internal_error" },
       ]);
     requests.push({ method: request.method ?? "", path: url.pathname, headers, body: raw, status });
-    const text = body === undefined ? "" : JSON.stringify(body);
+    const plain = body instanceof PlainText;
+    const text = body instanceof PlainText ? body.text : body === undefined ? "" : JSON.stringify(body);
     response.writeHead(status, {
-      ...(text ? { "Content-Type": "application/json" } : {}),
+      ...(text ? { "Content-Type": plain ? "text/plain; charset=UTF-8" : "application/json" } : {}),
       "Content-Length": String(Buffer.byteLength(text)),
       "Cache-Control": "no-store",
     });
@@ -1080,6 +1101,13 @@ export async function startFakeHub(): Promise<FakeHub> {
     expireConfirmation: (id) => {
       const held = confirmations.get(id);
       if (held) held.expiresAt = now() - 1;
+    },
+    limitConfirmationReads: (count, retryAfterSeconds) => {
+      limitedReads = count;
+      limitRetryAfter = retryAfterSeconds;
+    },
+    setConfirmationRouteOff: (off) => {
+      confirmationRouteOff = off;
     },
     sayConfirmationState: (id, state) => {
       const held = confirmations.get(id);

@@ -1388,8 +1388,10 @@ export class HubConnectionTools {
   /**
    * Reads the state of a cost approval every 2 seconds until the person decides on the Hub, the offer
    * ends (`deadline`, and the Hub's own `expiresAt`), or the turn ends (`signal`). A read that fails for
-   * the network or a 5xx is read again; a signed-out session, a refused token or an answer outside the
-   * contract ends the wait as `failed`.
+   * the network, a 5xx or a refused proxy token (a new token is asked for) is read again, and a
+   * `rate_limited` answer waits its `retryAfter` first. A signed-out session, a refused token request,
+   * a gateway with the connections off, and an error answer such as an unknown id end the wait as
+   * `failed`.
    */
   readonly #awaitApproval = Effect.fn("HubConnectionTools.awaitApproval")(function* (
     this: HubConnectionTools,
@@ -1411,8 +1413,16 @@ export class HubConnectionTools {
         if (code === "signed_out" || code === "token_refused" || code === "disabled") return "failed" satisfies Wait;
         continue;
       }
-      if (read.success.kind !== "answer") return "failed" satisfies Wait;
-      const status = read.success.answer;
+      const outcome = read.success;
+      // The Hub's own limit of status reads: wait as it asks, within the deadline, then read again.
+      if (outcome.kind === "error" && outcome.error === "rate_limited") {
+        const wait = Math.min((outcome.retryAfterSeconds ?? 60) * 1000, until - this.#now());
+        if (wait > 0) yield* Effect.sleep(wait);
+        continue;
+      }
+      // An unknown id, an id of another person or organization, or another refusal: no approval can come.
+      if (outcome.kind !== "answer") return "failed" satisfies Wait;
+      const status = outcome.answer;
       if (status.state !== "pending") return status.state satisfies Wait;
       const expires = Date.parse(status.expiresAt);
       if (Number.isFinite(expires)) until = Math.min(until, expires);
