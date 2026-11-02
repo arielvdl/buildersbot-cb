@@ -677,6 +677,19 @@ export class BrowserCdpEngine {
   #highlightSessionId: string | undefined;
   readonly #uploadDocumentIds = new Set<string>();
   readonly #targetSessions = new Map<string, { sessionId: string; url: string }>();
+  /**
+   * The setup that each lease sends (focus emulation, frame auto-attach, environment) holds while the
+   * debugger session lives. A target that keeps its debugger for the lease (a Chrome tab) gets it once
+   * per session, which saves three or four messages on each tool call over the bridge. A real detach
+   * and an environment change send it again. An Electron tab detaches after each lease, so it always
+   * sends it, as before.
+   */
+  #sessionPrepared: { environment: BrowserEnvironment | null; frames: boolean } | null = null;
+
+  /** The page reads that need no I/O: address, title, load state and whether it closed. */
+  get page(): Pick<CdpTarget, "url" | "title" | "isLoading" | "isClosed"> {
+    return this.#target;
+  }
 
   constructor(target: CdpTarget) {
     this.#target = target;
@@ -716,7 +729,12 @@ export class BrowserCdpEngine {
         }
       }
     });
-    target.onDetached(() => this.#clearDebuggerSessions());
+    target.onDetached(() => {
+      this.#sessionPrepared = null;
+      // A target that keeps its debugger for the lease is attached again by the next lease.
+      if (target.retention === "lease") this.#ownsDebugger = false;
+      this.#clearDebuggerSessions();
+    });
   }
 
   readonly snapshot = Effect.fn("BrowserCdp.snapshot")(function* (
@@ -1952,8 +1970,13 @@ export class BrowserCdpEngine {
     this.#releaseIdleDebugger();
   }
 
-  /** The engine sees a dialog only while it stays attached: for each lease, watch, and open dialog. */
+  /**
+   * The engine sees a dialog only while it stays attached: for each lease, watch, and open dialog. A
+   * target that keeps its debugger for the agent's lease (a Chrome tab) is not released here: its
+   * sessions, `Page` and setup stay valid until the real detach, which `onDetached` reports.
+   */
   #releaseIdleDebugger(): void {
+    if (this.#target.retention === "lease") return;
     if (this.#activeLeases === 0 && !this.#retainDebugger && !this.#dialog && this.#dialogWatches.size === 0)
       this.#detachOwnedDebugger();
   }
@@ -1966,8 +1989,9 @@ export class BrowserCdpEngine {
 
   cancelPendingCommands(): boolean {
     // A detach leaves an open dialog to Electron's box, which does not report its answer. The command
-    // waits for the answer.
-    if (!this.#ownsDebugger || this.#dialog) return false;
+    // waits for the answer. A Chrome tab's commands are in the extension, which ends each one at its
+    // own deadline: they drain like an external debugger's.
+    if (this.#target.retention === "lease" || !this.#ownsDebugger || this.#dialog) return false;
     this.#detachOwnedDebugger();
     return true;
   }
@@ -2049,6 +2073,56 @@ export class BrowserCdpEngine {
             }).pipe(Effect.orDie),
           ),
         );
+      }),
+    );
+  });
+
+  /**
+   * An image of the visible page, or of one element, as a JPEG data URL, made by CDP and not by the
+   * host's own capture: a tab of the person's Chrome has none. At most `maxPixels` image pixels, so a
+   * Retina display or a large window costs no more than the Builders Bot browser's capture.
+   */
+  readonly captureImageData = Effect.fn("BrowserCdp.captureImageData")(function* (
+    this: BrowserCdpEngine,
+    target: BrowserTarget | undefined,
+    maxPixels: number,
+    deadline?: number,
+  ): Effect.fn.Return<string, BrowserOperationError> {
+    return yield* this.#leaseEffect((send) =>
+      Effect.gen({ self: this }, function* () {
+        const clip = target ? yield* this.#elementClipEffect(send, target, deadline) : undefined;
+        const metrics = yield* send("Page.getLayoutMetrics", {});
+        const visual = recordValue(metrics.cssVisualViewport);
+        const zoom = clip ? this.#target.zoomFactor() : 1;
+        // Clip values are page coordinates in CSS pixels; the element clip is in view pixels.
+        const region = clip
+          ? {
+              x: clip.x / zoom + numberValue(visual?.pageX),
+              y: clip.y / zoom + numberValue(visual?.pageY),
+              width: clip.width / zoom,
+              height: clip.height / zoom,
+            }
+          : {
+              x: numberValue(visual?.pageX),
+              y: numberValue(visual?.pageY),
+              width: numberValue(visual?.clientWidth),
+              height: numberValue(visual?.clientHeight),
+            };
+        if (region.width < 1 || region.height < 1)
+          return yield* browserFailure(new Error("Browser screenshot is empty."));
+        const cssWidth = numberValue(recordValue(metrics.cssContentSize)?.width);
+        const deviceWidth = numberValue(recordValue(metrics.contentSize)?.width);
+        const pixelRatio = cssWidth > 0 && deviceWidth > 0 ? deviceWidth / cssWidth : 1;
+        const pixels = region.width * region.height * pixelRatio * pixelRatio;
+        const scale = Math.min(1, Math.sqrt(maxPixels / pixels));
+        const result = yield* send("Page.captureScreenshot", {
+          format: "jpeg",
+          quality: 80,
+          clip: { ...region, scale },
+        });
+        const data = stringValue(result.data);
+        if (!data) return yield* browserFailure(new Error("Browser screenshot is empty."));
+        return `data:image/jpeg;base64,${data}`;
       }),
     );
   });
@@ -3199,17 +3273,26 @@ export class BrowserCdpEngine {
         yield* send("Page.enable");
         this.#pageEnabled = true;
       }
-      yield* send("Emulation.setFocusEmulationEnabled", { enabled: true });
-      if (attachFrames) {
-        yield* send("Target.setAutoAttach", {
-          autoAttach: true,
-          waitForDebuggerOnStart: false,
-          flatten: true,
-          filter: [{ type: "iframe", exclude: false }],
-        }).pipe(Effect.ignore);
-      }
       const environment = this.#appliedEnvironment(this.#environment);
-      if (environment) yield* this.#applyEnvironmentEffect(send, environment);
+      const prepared = this.#sessionPrepared;
+      const reuse =
+        this.#target.retention === "lease" &&
+        prepared !== null &&
+        prepared.environment === environment &&
+        (prepared.frames || !attachFrames);
+      if (!reuse) {
+        yield* send("Emulation.setFocusEmulationEnabled", { enabled: true });
+        if (attachFrames) {
+          yield* send("Target.setAutoAttach", {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+            flatten: true,
+            filter: [{ type: "iframe", exclude: false }],
+          }).pipe(Effect.ignore);
+        }
+        if (environment) yield* this.#applyEnvironmentEffect(send, environment);
+        this.#sessionPrepared = { environment, frames: attachFrames || (prepared?.frames ?? false) };
+      }
       return yield* operation(send);
     }).pipe(
       Effect.ensuring(

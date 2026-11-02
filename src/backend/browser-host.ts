@@ -7,9 +7,7 @@ import type {
   AgentBrowserProfile,
   BrowserBounds,
   BrowserControlState,
-  BrowserElement,
   BrowserEnvironment,
-  BrowserImageMode,
   BrowserJsonValue,
   BrowserNavigationDirection,
   BrowserPreview,
@@ -20,7 +18,7 @@ import type {
   BrowserViewTarget,
   BrowserVisibilityInput,
 } from "@openbot/contracts/ipc";
-import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
+import { isNumber, isString } from "@openbot/contracts/runtime-values";
 import {
   type BrowserSignInCookie,
   browserSignInCookieFitsHost,
@@ -56,7 +54,6 @@ import {
   type BrowserScreencastFrame,
   type BrowserUploadAssignment,
   type BrowserViewportInput,
-  type SnapshotReadResult,
 } from "./browser-cdp";
 import { ElectronCdpTarget } from "./browser-cdp-target";
 import { BrowserControlSessions } from "./browser-control-sessions";
@@ -120,7 +117,6 @@ import {
 import {
   type ActionResultReader,
   BrowserDialogTurn,
-  type BrowserFillFieldsResult,
   BrowserToolHold,
   BrowserUserControlHeld,
   boundEngineOperation,
@@ -148,6 +144,7 @@ import {
   browserInputAction,
   browserToolTimeout,
 } from "./browser-tool-actions";
+import { type ClosedTabResult, snapshotImageResult, snapshotTextResult, textResult } from "./browser-tool-results";
 import {
   BROWSER_SCRIPT_DEFAULT_TIMEOUT_MS,
   BROWSER_SCRIPT_MAX_STEPS,
@@ -1832,7 +1829,7 @@ export class BrowserHost {
             return { result, imageUrl };
           }),
         );
-        return this.#snapshotResult(capture.result, mode, capture.imageUrl);
+        return snapshotImageResult(capture.result, mode, capture.imageUrl);
       }),
     navigate: ({ args }, params) =>
       Effect.gen({ self: this }, function* () {
@@ -3136,23 +3133,6 @@ export class BrowserHost {
     }).pipe(Effect.catch(() => Effect.void));
   });
 
-  #snapshotResult(result: SnapshotReadResult, mode: BrowserImageMode, imageUrl: string | null): DynamicToolResult {
-    if (!imageUrl) return snapshotTextResult(result.snapshot);
-    result.snapshot.image = {
-      included: true,
-      reason: mode === "always" ? "requested" : result.imageReason,
-      width: result.snapshot.viewport.width,
-      height: result.snapshot.viewport.height,
-    };
-    return {
-      success: true,
-      contentItems: [
-        { type: "inputText", text: snapshotJson(result.snapshot) },
-        { type: "inputImage", imageUrl },
-      ],
-    };
-  }
-
   #syncAttachedView(): void {
     const tab = this.#activeTabId ? this.#tabs.get(this.#activeTabId) : null;
     const targetWindow = this.#target === "picture-in-picture" ? this.#pictureInPictureWindow : this.#window;
@@ -3521,82 +3501,6 @@ function navigateHistory(contents: WebContents, direction: BrowserNavigationDire
   if (!hasHistoryEntry(contents, offset)) return false;
   contents.navigationHistory.goToOffset(offset);
   return true;
-}
-
-function textResult(value: unknown): DynamicToolResult {
-  return {
-    success: true,
-    contentItems: [{ type: "inputText", text: JSON.stringify(value) }],
-  };
-}
-
-/** An action that closed its tab returns this in place of a snapshot. */
-type ClosedTabResult = { tabId: string; closed: true; openerTabId?: string };
-
-/** A tool result that is a snapshot, or a fill result that carries one. */
-type SnapshotToolPayload =
-  | BrowserSnapshot
-  | ClosedTabResult
-  | DialogTabResult
-  | BrowserFillFieldsResult
-  | (Pick<BrowserCardFillResult, "filled"> &
-      Partial<Pick<BrowserCardFillResult, "unconfirmed">> & {
-        snapshot: BrowserSnapshot | ClosedTabResult | DialogTabResult | null;
-      })
-  | (BrowserScriptResult & { tabId: string; snapshotError?: string; url?: string; snapshot?: BrowserSnapshot });
-
-function snapshotTextResult(value: SnapshotToolPayload): DynamicToolResult {
-  return {
-    success: true,
-    contentItems: [{ type: "inputText", text: snapshotJson(value) }],
-  };
-}
-
-/**
- * The model reads many snapshots in a task, so the model text is compact. Each element is one line,
- * which leaves out the JSON keys and the empty defaults. The history leaves out what the model already
- * knows: network requests that succeeded, and its own actions that succeeded with no detail. The
- * snapshot tool description says so.
- */
-function snapshotJson(value: SnapshotToolPayload): string {
-  return JSON.stringify(value, function (this: unknown, key, field: unknown) {
-    if (!Array.isArray(field) || !isDynamicRecord(this) || !Array.isArray(this.elements)) return field;
-    return key === "elements" ? field.map(elementLine) : field;
-  });
-}
-
-/** Tags that the role already implies. The line names a tag only when it adds to the role. */
-const ROLE_TAGS: Readonly<Record<string, readonly string[]>> = {
-  button: ["button"],
-  link: ["a"],
-  textbox: ["input", "textarea"],
-  searchbox: ["input"],
-  // A native select keeps its tag: only it takes select_option.
-  combobox: ["input"],
-  checkbox: ["input"],
-  radio: ["input"],
-  slider: ["input"],
-  spinbutton: ["input"],
-  option: ["option"],
-  img: ["img"],
-};
-
-/**
- * `ref [role] "name" [<tag>] [value="…"] [description="…"] [state:value…] [bounds=x,y,w,h]
- * [frame=id frameUrl="…"]`. Text values are JSON strings; the other tokens have no spaces.
- */
-function elementLine(element: BrowserElement): string {
-  const tokens = [element.ref];
-  if (element.role) tokens.push(element.role);
-  tokens.push(JSON.stringify(element.name));
-  if (!element.role || !ROLE_TAGS[element.role]?.includes(element.tag)) tokens.push(`<${element.tag}>`);
-  if (element.value !== null) tokens.push(`value=${JSON.stringify(element.value)}`);
-  if (element.description) tokens.push(`description=${JSON.stringify(element.description)}`);
-  tokens.push(...element.states);
-  const { bounds, frame } = element;
-  if (bounds) tokens.push(`bounds=${bounds.x},${bounds.y},${bounds.width},${bounds.height}`);
-  if (frame) tokens.push(`frame=${frame.id}`, `frameUrl=${JSON.stringify(frame.url)}`);
-  return tokens.join(" ");
 }
 
 function uniqueDownloadPath(root: string, name: string, reserved: Set<string>): string {

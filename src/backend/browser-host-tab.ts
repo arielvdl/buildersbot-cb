@@ -109,7 +109,7 @@ export interface BrowserHostTab {
   secret?: { origin: string; submitted: boolean; replaced: boolean; running: boolean } | undefined;
 }
 
-export type KeepQueueBlocked = (work: Effect.Effect<unknown, BrowserOperationError>) => void;
+export type { KeepQueueBlocked } from "./browser-tab-operations";
 
 export function restoreWebContentsFocus(previous: WebContents | null, controlled: WebContents): void {
   const current = webContents.getFocusedWebContents();
