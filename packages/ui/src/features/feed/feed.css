@@ -511,7 +511,11 @@
   white-space: nowrap;
 }
 
-.feed-card-foot .feed-card-action {
+.feed-card-foot .feed-card-action,
+.feed-card-actions .ui-button,
+.feed-card-answer .ui-button,
+.feed-card-confirm .ui-button,
+.feed-bulk .ui-button {
   font-size: var(--openbot-text-sm);
 }
 
@@ -541,6 +545,158 @@
   flex: none;
   color: var(--openbot-text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* The actions on a card: what an approval asks for, the answer of a question, the buttons, the second
+   step of a confirmation, an action that runs, and the notice of an action that main refused. */
+.feed-card-risk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.feed-chip-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  background: var(--openbot-danger-soft);
+  color: var(--openbot-danger-text);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-chip-risk svg {
+  width: 12px;
+  height: 12px;
+}
+
+.feed-card-reason {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-answer,
+.feed-card-choices,
+.feed-card-text,
+.feed-card-actions,
+.feed-card-confirm,
+.feed-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.feed-card-answer {
+  gap: var(--openbot-space-2);
+}
+
+fieldset.feed-card-choices,
+fieldset.feed-card-actions,
+fieldset.feed-bulk {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feed-card-text {
+  flex: 1 1 260px;
+  flex-wrap: nowrap;
+}
+
+.feed-card-text .ui-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-choice-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-card-confirm {
+  flex: 1;
+  padding: var(--openbot-space-1-5) var(--openbot-space-2);
+  border: 1px solid color-mix(in srgb, var(--openbot-warning) 40%, transparent);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-warning-soft);
+}
+
+.feed-card-confirm[data-step="deny"],
+.feed-card-confirm[data-step="stop"] {
+  border-color: color-mix(in srgb, var(--openbot-danger) 40%, transparent);
+  background: var(--openbot-danger-soft);
+}
+
+.feed-card-confirm-hint {
+  flex: 1 1 200px;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.feed-card-notice svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.feed-card-recipient {
+  max-width: 200px;
+}
+
+.feed-card-select {
+  flex: none;
+}
+
+/* The bar of the selection of stopped work and the keys of the page. */
+.feed-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1-5) var(--openbot-space-4);
+  border-bottom: 1px solid var(--feed-edge);
+}
+
+.feed-bulk-count {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feed-shortcuts {
+  margin: 0 0 0 auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
 }
 
 /* The way back to the newest card while the timeline is paused. */

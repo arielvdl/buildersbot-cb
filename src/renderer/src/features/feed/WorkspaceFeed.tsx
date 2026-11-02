@@ -33,7 +33,8 @@ function teamState(agent: OrbitAgent): FeedTeamState {
 /**
  * The feed page of the desktop window. The cards come from main, for every server; the Team list
  * beside them is the Team of the active server, from the same signals as the Team panel, plus every
- * other agent that has a card.
+ * other agent that has a card. An action on a card goes to main with ids only (`feed.act`), and main
+ * calls the operation of the conversation or of the load panel.
  */
 export function WorkspaceFeed() {
   const { t, errorMessage } = useText();
@@ -55,6 +56,13 @@ export function WorkspaceFeed() {
   );
   const open = createFeedOpener();
   return (
-    <FeedPage items={feed.items()} team={team()} loading={feed.state.loading} error={feed.state.error} onOpen={open} />
+    <FeedPage
+      items={feed.items()}
+      team={team()}
+      loading={feed.state.loading}
+      error={feed.state.error}
+      onOpen={open}
+      onAct={(input) => feedPort().act(input)}
+    />
   );
 }

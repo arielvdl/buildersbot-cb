@@ -1,11 +1,13 @@
-import type { FeedItem, FeedItemState } from "@openbot/contracts/ipc";
+import type { FeedActionInput, FeedActionResult, FeedItem, FeedItemState } from "@openbot/contracts/ipc";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, createStore, onSettled, Show } from "solid-js";
+import { FeedBulkBar } from "./FeedBulkBar";
 import { FeedFilters } from "./FeedFilters";
 import type { FeedAvatar } from "./FeedItemCard";
 import { FeedJumpBar } from "./FeedJumpBar";
 import { FeedTeamList } from "./FeedTeamList";
 import { FeedTimeline, type FeedTimelineControl } from "./FeedTimeline";
+import { createFeedActionsController } from "./feed-actions-controller";
 import {
   EMPTY_FEED_FILTERS,
   type FeedFilterState,
@@ -28,14 +30,20 @@ export interface FeedPageProps {
   error: string | null;
   /** Opens the conversation or the channel of a card. */
   onOpen: (item: FeedItem) => void;
+  /**
+   * Sends an action of the person to main: ids only. Absent: the page is read only, as in stage 1.
+   * Main checks each card again and answers which cards it did.
+   */
+  onAct?: ((input: FeedActionInput) => Promise<FeedActionResult>) | undefined;
   /** Starts with these filters. Only a story uses it. */
   initialFilters?: Partial<FeedFilterState> | undefined;
 }
 
 /**
  * The feed page: the Team on the side, and one timeline of every run of every project, the newest at
- * the bottom. A card changes in place as its run goes on. Read only: a card that needs the person
- * opens its conversation, where the person answers.
+ * the bottom. A card changes in place as its run goes on. With `onAct`, the person approves, denies,
+ * answers, stops, resumes and reassigns on the card, also many stopped tasks at once; J and K move
+ * between the cards, and A, N and R act on the focused card.
  */
 export function FeedPage(props: FeedPageProps) {
   const { t } = useText();
@@ -56,6 +64,20 @@ export function FeedPage(props: FeedPageProps) {
   const agents = createMemo(() => feedAgentOptions(props.items));
   const team = createMemo(() => feedTeam(props.team, props.items));
   const avatars = createMemo(() => new Map(props.team.map((member) => [member.key, member])));
+  const cardTitle = (item: FeedItem) =>
+    item.title || t("app.feed.chatWith", { name: item.agentName || t("app.feed.unnamedAgent") });
+  const actions = createFeedActionsController({
+    items: () => props.items,
+    shown: shownItems,
+    act: () => props.onAct,
+    announce: (text) => {
+      // The same text twice is still news for a screen reader.
+      setAnnouncement("");
+      queueMicrotask(() => setAnnouncement(text));
+    },
+    focusCard: (id) => timeline?.focusCard(id),
+    title: cardTitle,
+  });
   const avatar = (item: FeedItem): FeedAvatar => {
     const member = avatars().get(feedAgentKey(item));
     return member
@@ -124,6 +146,23 @@ export function FeedPage(props: FeedPageProps) {
             }
           />
           <FeedJumpBar following={view.following} fresh={view.fresh} counts={counts()} onJump={jump} />
+          <Show when={props.onAct}>
+            <div class="feed-action-bar">
+              <FeedBulkBar
+                selected={actions.bulk.selected()}
+                selectable={actions.bulk.selectable()}
+                candidates={actions.bulk.candidates()}
+                recipient={actions.bulk.recipient()}
+                busy={actions.bulk.busy()}
+                onSelectAll={actions.bulk.selectAll}
+                onClear={actions.bulk.clear}
+                onResume={actions.bulk.resume}
+                onRecipient={actions.bulk.setRecipient}
+                onReassign={actions.bulk.reassign}
+              />
+              <p class="feed-shortcuts">{t("app.feed.shortcuts")}</p>
+            </div>
+          </Show>
           <Show when={props.error}>
             {(error) => (
               <p class="feed-error" role="alert">
@@ -145,6 +184,10 @@ export function FeedPage(props: FeedPageProps) {
               setExpanded(next);
             }}
             onOpen={props.onOpen}
+            controlOf={props.onAct ? actions.controlOf : undefined}
+            selected={actions.selectedIds()}
+            onIntent={props.onAct ? actions.intent : undefined}
+            onShortcut={props.onAct ? actions.shortcut : undefined}
             onFollowChange={(following) =>
               setView((draft) => {
                 draft.following = following;

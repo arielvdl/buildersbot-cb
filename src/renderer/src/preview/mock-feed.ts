@@ -225,12 +225,6 @@ function mockActions(state: FeedItemState, need: FeedNeed | null, stoppedTask: b
  * refuses every action, and a card of a joined server, which offers only "open".
  */
 export function mockFeedActionItems(now = MOCK_FEED_NOW): FeedItem[] {
-  const base = mockFeedItems(6, now).map((item) => ({
-    ...item,
-    state: "done" as const,
-    need: null,
-    actions: mockActions("done", null, false),
-  }));
   const at = (minutes: number) => iso(now - minutes * 60_000);
   const card = (id: string, agentIndex: number, patch: Partial<FeedItem>): FeedItem => {
     const agent = pick(MOCK_FEED_AGENTS, agentIndex);
@@ -273,8 +267,18 @@ export function mockFeedActionItems(now = MOCK_FEED_NOW): FeedItem[] {
       stop: { reason, source: "stopped-work" },
       reassignTo: mockCandidates(MOCK_FEED_AGENTS, pick(MOCK_FEED_AGENTS, agentIndex).id),
     });
+  const ended = (id: string, agentIndex: number, title: string, minutes: number): FeedItem =>
+    card(id, agentIndex, {
+      title,
+      state: "done",
+      startedAt: at(minutes + 6),
+      updatedAt: at(minutes),
+      endedAt: at(minutes),
+    });
   return [
-    ...base,
+    ended("local:t:lider:thread-done-1", 0, "Contrato de eventos remotos v3", 50),
+    ended("local:t:dados:thread-done-2", 11, "Migração do banco para o RDS", 42),
+    ended("local:t:front:thread-done-3", 8, "Página de preços nova", 35),
     stoppedTask(
       "deploy",
       0,

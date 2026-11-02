@@ -5,6 +5,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show
 import { calculateChatScrollMargin, createChatVirtualizer } from "../conversation/createChatVirtualizer";
 import { preferredMessageScrollBehavior } from "../conversation/MessageNavigation";
 import { type FeedAvatar, FeedItemCard } from "./FeedItemCard";
+import type { FeedCardControl, FeedCardIntent } from "./feed-actions-view";
 import type { FeedRow } from "./feed-view";
 
 /** Within this distance of the end, the reader follows the newest card. */
@@ -28,6 +29,10 @@ function estimateRow(row: FeedRow | undefined): number {
   if (!item.lastStep && item.state !== "waiting") size -= ROW_SIZE.line;
   if (item.need || item.stop) size += ROW_SIZE.block;
   if (item.quiet) size += ROW_SIZE.line;
+  // The row of buttons, and the choices and the field of a question.
+  if (item.actions.length > 1) size += ROW_SIZE.block;
+  if (item.need?.form) size += ROW_SIZE.block;
+  if (item.need?.risk || item.need?.access) size += ROW_SIZE.block;
   return size;
 }
 
@@ -36,6 +41,8 @@ export interface FeedTimelineControl {
   /** Scrolls to a row and gives its card the focus. The timeline pauses there. */
   reveal: (index: number) => void;
   followNewest: () => void;
+  /** Gives the focus back to a card, when it is on screen. */
+  focusCard: (id: string) => void;
 }
 
 export interface FeedTimelineProps {
@@ -54,6 +61,14 @@ export interface FeedTimelineProps {
   /** The cards that came while the timeline was paused. */
   onFreshChange: (count: number) => void;
   control: (control: FeedTimelineControl) => void;
+  /** What the person does on each card now. */
+  controlOf?: ((item: FeedItem) => FeedCardControl | undefined) | undefined;
+  /** The stopped cards in the selection. */
+  selected?: ReadonlySet<string> | undefined;
+  /** The actions on the cards. Absent: the cards are read only. */
+  onIntent?: ((item: FeedItem, intent: FeedCardIntent) => void) | undefined;
+  /** A key of a focused card that is not a move: A, N or R. Answers whether the page took it. */
+  onShortcut?: ((item: FeedItem, key: "a" | "n" | "r") => boolean) | undefined;
 }
 
 /**
@@ -159,18 +174,35 @@ export function FeedTimeline(props: FeedTimelineProps) {
     if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: preferredMessageScrollBehavior() });
   };
 
-  props.control({ reveal, followNewest });
+  const focusCard = (id: string) => {
+    const card = scroller?.querySelector<HTMLElement>(`[data-feed-id="${CSS.escape(id)}"]`);
+    card?.focus({ preventScroll: true });
+  };
 
-  /** The arrow keys, Page Up and Page Down, Home and End move between the cards. */
+  props.control({ reveal, followNewest, focusCard });
+
+  /**
+   * On a focused card: the arrow keys, J and K, Page Up and Page Down, Home and End move between the
+   * cards; A, N and R go to the page. A key in a field or a button of the card is not a shortcut.
+   */
   const onCardKey = (event: KeyboardEvent, index: number) => {
     if (event.target !== event.currentTarget) return;
+    // A letter with a modifier belongs to the app or the system.
+    const letter =
+      event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey ? event.key.toLowerCase() : null;
+    if (letter === "a" || letter === "n" || letter === "r") {
+      const row = props.rows[index];
+      if (row?.kind === "item" && props.onShortcut?.(row.item, letter)) event.preventDefault();
+      return;
+    }
     const cards = props.rows
       .map((row, rowIndex) => (row.kind === "item" ? rowIndex : -1))
       .filter((value) => value >= 0);
     const at = cards.indexOf(index);
     let next: number | undefined;
-    if (event.key === "ArrowDown" || event.key === "PageDown") next = cards[at + 1];
-    else if (event.key === "ArrowUp" || event.key === "PageUp") next = cards[at - 1];
+    const key = event.key;
+    if (key === "ArrowDown" || key === "PageDown" || letter === "j") next = cards[at + 1];
+    else if (key === "ArrowUp" || key === "PageUp" || letter === "k") next = cards[at - 1];
     else if (event.key === "Home") next = cards[0];
     else if (event.key === "End") next = cards.at(-1);
     if (next === undefined) return;
@@ -247,6 +279,11 @@ export function FeedTimeline(props: FeedTimelineProps) {
                           onToggleSteps={() => props.onToggleSteps(item().id)}
                           onOpen={() => props.onOpen(item())}
                           onKeyDown={(event) => onCardKey(event, virtualRow.index)}
+                          control={props.controlOf?.(item())}
+                          selected={props.selected?.has(item().id) ?? false}
+                          onIntent={
+                            props.onIntent ? (intent: FeedCardIntent) => props.onIntent?.(item(), intent) : undefined
+                          }
                         />
                       )}
                     </Show>
