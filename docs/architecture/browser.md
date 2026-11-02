@@ -600,7 +600,7 @@ card, Settings and `application-services.ts` come with Phase 3.
 | Socket | `bridgeSocket`, `preparePrivateFolder` (`bridge-paths.ts`) | `~/Library/Application Support/Builders Bot/cb/b.sock` (`b-dev.sock` for dev), in a folder of mode 0700; E2E uses `<per-user temporary folder>/bb-e2e/b-e2e.sock`. Both sides compute the path, never from the environment. The host does not connect through a folder that others can open. |
 | Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
 | Channel | `packages/contracts/src/chrome-bridge/channel.ts` | One WebCrypto implementation for both sides: the handshake with a commitment, three ECDH values, HKDF, key confirmation, the comparison words (BIP-39 Portuguese list, `pairing-words.ts`), and sealed frames with parts. The transcript is the canonical JSON of the decoded messages, because Chrome writes the extension's messages with sorted keys. |
-| App service | `ChromeBridgeService` (`chrome-bridge-service.ts`), `HostConnection` (`host-connection.ts`) | One connection for each Chrome profile, up to 8. The pairing rules of DESIGN §3: a window of 2 minutes that the person opens, used once, cancelled by a second candidate; outside it, at most 3 cards an hour and never two at once, else `reject{busy}`; a key that the person just refused gets `busy` for 10 minutes. A connection told `busy` waits idle; opening a window closes it, so its host reconnects and the extension tries again. Requests: at most 64 in flight and 16 for one key (a tab), up to 1024 waiting in order, a deadline from the moment the frames go to the socket. |
+| App service | `ChromeBridgeService` (`chrome-bridge-service.ts`), `HostConnection` (`host-connection.ts`) | One connection for each Chrome profile, up to 8. The handshake has a 5 s deadline from the accept, and a connection told `busy` closes after 60 s, so idle connections do not keep the places. The pairing rules of DESIGN §3: a window of 2 minutes that the person opens, used once, cancelled by a second candidate; outside it, at most 3 cards an hour and never two at once, else `reject{busy}`; a key that the person just refused gets `busy` for 10 minutes. A connection told `busy` waits idle; opening a window closes it, so its host reconnects and the extension tries again. Requests: at most 64 in flight and 16 for one key (a tab), up to 1024 waiting in order, a deadline from the moment the frames go to the socket. |
 | Sealed state | `BridgeStateStore` (`bridge-state.ts`) | `app-key.bin` (the app key and a state key, sealed by the key store) and `bridge-state-v1.bin` (pins, revocations, refusals; AES-256-GCM). A file that does not open reads as no pairing. |
 | Manifest | `native-host-manifests.ts`, `ChromeBridgeService.connectChrome` | Only the person's "Connect Chrome" writes it, and opens the pairing window; a change to it during the window cancels the window, and a changed manifest is written back at each start. Written whole, mode 0600, never through a link and never with a translocated path. A build that is not packaged never writes into a real browser's folder unless the owner sets `OPENBOT_CHROME_BRIDGE_REAL_CHROME=1`; tests write only into `<test profile>/NativeMessagingHosts`. |
 
@@ -663,25 +663,38 @@ How a call runs:
    channel thread is open while no team member can write in the channels
    (`HostService.channelsHaveRemotePeople`). A message that a team member wrote or edited, a channel
    while the server has a team member, a chat app thread, a routine or an origin that the app cannot
-   prove closes it. The host checks the origin again.
+   prove closes it. An agent turn that a routine started, at any distance, is `routine_agent` and
+   closed too: a message that a routine's turn sends, a run of a routine that an agent or a routine
+   saved (a webhook routine too), and what such a turn sends on ([hub-connections.md](hub-connections.md)).
+   The host checks the origin again.
 2. The Guard checks what the call sends out (`GUARD_TOOL_EGRESS` has an entry for each
    `openbot_chrome` tool) and, after the call, reads the page content before the agent does
    (`GUARD_INBOUND_PATHS["chrome-extension"]`).
 3. `evaluate` and `run_script` are not in the namespace, and a call of them gets `scripts_disabled`:
    an agent's script in a signed-in page can send the page's data out past the Guard (DESIGN §7,
    item 19).
-4. A click, an Enter or a `type` with submit on a mail, chat or social site
-   (`chrome-message-send.ts`) waits for a card with the text and the recipients, read from the
+4. A send on a mail, chat, social, forum or code review site, or in a frame of one
+   (`chrome-message-send.ts`), waits for a card with the text and the recipients, read from the
    agent's last snapshot of the tab (`AttentionRegistry.awaitToolApproval` with `alwaysAsk` and
-   `ownerOnly`): Full access and "Always" never skip it. A click that the host cannot name (a CSS
-   selector or a point) on such a site asks too. Where nobody answers a card, the call gets
-   `message_send_requires_approval`.
-5. The project key and the lease id are HMACs of a secret of this install, sealed by `safeStorage`
+   `ownerOnly`): Full access and "Always" never skip it. A send is a click on any element that the
+   target can resolve to (the engine matches a role or a text by a part of the name) whose name is a
+   send or is empty; a click by selector, point or stale ref; Enter, NumpadEnter or Space; and a
+   `type` with submit or with `\n` or `\r`. Recipients come from recipient fields and from chips with
+   an e-mail address. The card needs a snapshot that no action of the tab followed (the host counts
+   the actions in the tab's queue); an action during the person's answer voids the card. Where nobody
+   answers a card, the call gets `message_send_requires_approval`.
+5. A sensitive site (`sensitiveSiteKind` in `site-floor.ts`: mail, chat, cloud and code consoles,
+   social networks, payment pages, and the person's own network: loopback, private ranges,
+   `localhost`, `.local`) waits for the person's consent card for the project and the origin, before a
+   call reads or acts on it, and again after an action or a navigation that lands on it. The answer
+   holds for the project until the app restarts. Where nobody answers, the call gets
+   `consent_required`.
+6. The project key and the lease id are HMACs of a secret of this install, sealed by `safeStorage`
    (`userData/chrome-bridge/project-secret.sealed`), so the extension never sees an app id, and the
    same agent in the same thread gets the same lease, and so the same tabs, in each turn and after a
    restart. `session.configure` names the projects; `lease.open` is sent again only on a new
    connection or a little before the extension would end the lease for idleness.
-6. `open` uses a blank tab of the agent before it makes a new one. A new tab is made by the
+7. `open` uses a blank tab of the agent before it makes a new one. A new tab is made by the
    extension at `about:blank`, in the background, in the project's group, then navigated.
 
 Limits: 4 tabs for an agent, 12 for a project and 12 in all (`DEFAULT_TAB_LIMITS`), counted by the
@@ -701,6 +714,18 @@ Rules that are easy to break:
   `about:blank`; `navigate` waits for a load that began after its own mark (`statusMark`).
 - Chrome reports no title change for a page that the back-forward cache gives back: after back and
   forward, the host reads the title once from `Page.getNavigationHistory`.
+- A connection keeps going when an answer comes after the app's deadline: the app keeps the ids of
+  requests that timed out for 5 minutes (at most 1024) and drops their answers. The extension's own
+  deadline starts later than the app's, so a late answer is normal for a stuck page.
+- When the keys of a connection are due for renewal (24 h), no new request starts; the connection
+  closes when the requests in flight end, and `ChromeBridgeService` sends the held requests on the next
+  connection of the profile (10 s at most).
+- A `ready` with a tab that is not in `attached` (the worker restarted) makes the engine set up the
+  next debugger session of that tab again (`receiveDetached`).
+- A lease follows the Chrome profile that agents use now: a new install id gives a new lease record.
+- The app watches the Native Messaging manifest for the life of the bridge and writes it back when
+  another process changes it; turning "My Chrome" off removes it (packaged builds, or the owner's
+  opt-in).
 - The extension sends `ready` right after its person chose the words, before the app pins its key.
   `HostConnection` keeps that report and gives it on after `pair.done`.
 - `Network.*` leaves the extension only inside a navigation batch; the Chrome host navigates with
