@@ -1,7 +1,7 @@
 import type { AgentModelId, AgentProviderId } from "@openbot/contracts/ipc";
 import { Button, ErrorReference, IconButton, X } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, createUniqueId, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onSettled, Show, untrack } from "solid-js";
 import { listenForEscape } from "./onboarding-escape";
 import { FREE_PROVIDER } from "./onboarding-provider-rows";
 import { createSetupProviders, SetupProviderPicker, type SetupProviderProps } from "./SetupProviderPicker";
@@ -43,6 +43,24 @@ export function ServerOnboarding(props: ServerOnboardingProps) {
   const next = createSetupNext(providers);
   const reasonId = createUniqueId();
   const freeOffered = () => providers.rows().listed.some((option) => option.id === FREE_PROVIDER);
+  /** The Builders CLI downloads once when it is the choice and the host does not have it, as on first run. */
+  let freeDownloadRequested = false;
+
+  createEffect(
+    () => {
+      const free = providers.options().find((option) => option.id === FREE_PROVIDER);
+      return (
+        providers.selectedProvider() === FREE_PROVIDER &&
+        free?.state === "not-installed" &&
+        free.runtimeStatus?.phase === "not-downloaded"
+      );
+    },
+    (missing) => {
+      if (!missing || freeDownloadRequested || !props.setup.onDownloadProvider) return;
+      freeDownloadRequested = true;
+      untrack(() => void Promise.resolve(props.setup.onDownloadProvider?.(FREE_PROVIDER)).catch(() => undefined));
+    },
+  );
 
   // The sign-in dialog, the add server dialog and a row menu close on Escape themselves.
   onSettled(() => listenForEscape(() => props.onClose));
