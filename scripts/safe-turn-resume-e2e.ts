@@ -16,7 +16,8 @@
 //   c2. The same with a stand-in that calls the assign again: the app answers "already done" and runs no
 //       second assign. One subtask, one result message.
 //   d. An outside MCP post that started and has no result: no second turn. The task stops with "this may
-//      already be done: MCP slack.post_message" and no provider text.
+//      already be done: MCP slack.post_message" and no provider text, and the load panel says "Needs you".
+//      When the person resumes it, the new turn reads the note of the stopped turn.
 //   d2. The same with "resume also with an uncertain outside action" on: it continues, and the note marks
 //      the post as uncertain with the order to check it first.
 //   x1-x3. Outside commands that hide in a short flag group (`curl -sXPOST`), in an exit code (a push that
@@ -646,11 +647,11 @@ try {
   await runCase("d", "an outside post with no result: no second turn, the person decides", async (facts) => {
     const agent = await createAgent("Posts");
     const channelId = await createChannel("posts", [agent]);
-    script("d", [
-      { do: "read" },
-      { do: "started", server: "slack", tool: "post_message" },
-      { do: "fail", message: OVERLOADED },
-    ]);
+    script(
+      "d",
+      [{ do: "read" }, { do: "started", server: "slack", tool: "post_message" }, { do: "fail", message: OVERLOADED }],
+      [],
+    );
     await send(channelId, agent, `case:d ${SECRET}`);
     const task = await waitFor("the task to stop", () => settled(taskOf(channelId, "case:d")));
     await new Promise((done) => setTimeout(done, 2_500));
@@ -667,6 +668,18 @@ try {
     const plan = planOf(task.id);
     facts.plan = JSON.stringify(plan);
     assert.equal(plan?.state, "needs-you", "The load panel leaves it to the person: no resume, no other agent.");
+    // The person checks and resumes: the new turn reads what the stopped turn did.
+    await runCauseEffect(
+      app.service.channels.command(
+        { type: "resume", operationId: randomUUID(), channelId, taskId: task.id, recipientAgentId: null },
+        actor,
+      ),
+    );
+    await waitFor("the resumed turn to end", () => ends("d").length >= 2);
+    const note = turns("d")[1]?.note ?? "";
+    facts.personNote = note;
+    assert.ok(note.includes("the person resumed the task"), "The resumed turn reads the note of the stopped turn.");
+    assert.ok(note.includes("MCP slack.post_message"), "The note names the step that may already have happened.");
   });
 
   await runCase("d2", "with the uncertain option on, it continues and checks first", async (facts) => {

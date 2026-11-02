@@ -32,6 +32,7 @@ import {
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { isFixedSourceText, matchingSourceKeys, sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Fiber, Result, Schema, Scope } from "effect";
+import type { TurnResumeMarker } from "./agent/turn-resume";
 import { CHANNEL_CONTEXT_SPILL, HISTORY_PAGE_LIMIT, historyLine, readPage } from "./channel-context-spill";
 import { type ChannelOperationError, channelFailure, channelResult, channelSync } from "./channel-effects";
 import {
@@ -2432,6 +2433,23 @@ export class ChannelService {
     this.publish(assignment.channelId);
     return true;
   });
+
+  /**
+   * The note of a turn that a brief provider failure stopped for the person ("this may already be done"),
+   * for the next delivery of the same task after the person resumed or reassigned it: the last earlier
+   * assignment of the task keeps it on its delivery (`TurnResumeMarker.forPerson`). Null for any other
+   * delivery.
+   */
+  carriedTurnResume(deliveryId: string): TurnResumeMarker | null {
+    const assignment = this.store.assignmentForDelivery(deliveryId);
+    if (!assignment) return null;
+    const earlier = this.store
+      .assignments(assignment.channelId)
+      .filter((item) => item.taskId === assignment.taskId && item.id !== assignment.id && item.deliveryId);
+    const last = earlier.at(-1);
+    const marker = last?.deliveryId ? this.mailbox.getDelivery(last.deliveryId)?.turnResume : undefined;
+    return marker?.forPerson ? marker : null;
+  }
 
   /**
    * Whether `holdForStartRetry` would hold this delivery now: it has an active assignment with no

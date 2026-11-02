@@ -321,8 +321,10 @@ The journal fails closed, and the shell reader is a strict allowlist (`command-e
 is `read` or `local` only when each part of it is in the tables: a known program, a known subcommand,
 and each flag a known flag of that program, with literal words. A word is literal only when the
 shell keeps it as written: no variable, substitution, arithmetic or `$'…'`, and in its unquoted parts
-no brace expansion (`-{d,X}` becomes `-d -X`), no glob (`*` can match a file named `-d`), no tilde at
-its start and no history `!`. Anything else is `external`: a program, a subcommand, a flag, a wrapper
+no `{` (brace expansion: `-{d,X}` becomes `-d -X`, and `{--pre=x,{y}}` becomes `--pre=x {y}`), no glob
+(`*` can match a file named `-d`), no tilde at its start and no history `!`. An unquoted `(` right
+after a word character fails the whole command: it is an extended glob (`!(cat)` can match a file
+named `--pre=x`) or a function. Anything else is `external`: a program, a subcommand, a flag, a wrapper
 (`env`, `sudo`, `exec`, `nice`, `xargs`), a variable set before a program (other than `LANG`, `TZ`, `TERM`, `CI` and similar), a
 redirection to a variable or to `/dev/tcp`/`/dev/udp` (read from the parsed words, not only the text),
 `>(…)`, and any shell construct other than a list, a pipe, `if`, `while` and `{ }`. The tables are maps,
@@ -369,7 +371,10 @@ failed channel turn that is not a usage limit or a refused session). In order:
    it to another agent (`needsPerson` in `src/main/auto-recovery.ts`), so the load panel shows "Needs
    you". With "Continue also when an outside action is uncertain" on (Settings › Agents › Retries and
    backup model, `StartRetrySettings.resumeUncertainActions`, off by default), the turn continues and
-   the note marks those steps with the order to check them with a read-only step first.
+   the note marks those steps with the order to check them with a read-only step first. The delivery
+   keeps what the turn did (`TurnResumeMarker.forPerson`), so when the person resumes or reassigns the
+   task, its next turn reads the same note, with the person's resume in its first line
+   (`ChannelService.carriedTurnResume`). The repeat guard of the tool router does not apply then.
 3. The task must still be the one that ran (`ChannelService.mayHoldForStartRetry`): a person's Stop or
    a change ends it as before.
 4. The first continuation of a failure takes one resume of the task from the ledger that "Resume by

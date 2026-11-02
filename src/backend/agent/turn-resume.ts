@@ -110,6 +110,11 @@ export interface TurnResumeMarker {
   /** The reads of the failed turns, which are safe to run again. */
   reads: number;
   doneCalls: ResumeDoneCall[];
+  /**
+   * The turn stopped for the person, because an outside step may already have happened. When the
+   * person resumes the task, its next turn reads the note too (`ChannelService.carriedTurnResume`).
+   */
+  forPerson?: true;
 }
 
 const EFFECT_LIMIT = 24;
@@ -156,7 +161,8 @@ export function isTurnResumeMarker(value: unknown): value is TurnResumeMarker {
     isCount(value.reads, 100_000) &&
     Array.isArray(value.doneCalls) &&
     value.doneCalls.length <= DONE_CALL_LIMIT &&
-    value.doneCalls.every((call) => isDynamicRecord(call) && isString(call.tool) && isString(call.digest))
+    value.doneCalls.every((call) => isDynamicRecord(call) && isString(call.tool) && isString(call.digest)) &&
+    (value.forPerson === undefined || value.forPerson === true)
   );
 }
 
@@ -175,7 +181,13 @@ export type TurnResumePlan =
   /** Continue: the steps that the note lists, and the own calls that the repeat guard knows. */
   | { kind: "resume"; effects: ResumeEffect[]; reads: number; doneCalls: ResumeDoneCall[]; uncertain: number }
   /** Stop for the person: these outside steps may already have happened. */
-  | { kind: "ask"; uncertain: ResumeEffect[] };
+  | {
+      kind: "ask";
+      uncertain: ResumeEffect[];
+      effects: ResumeEffect[];
+      reads: number;
+      doneCalls: ResumeDoneCall[];
+    };
 
 function resumeEffect(effect: Pick<TurnEffect, "label" | "reach" | "state" | "detail" | "check">): ResumeEffect {
   return {
@@ -215,22 +227,18 @@ export function planTurnResume(input: {
   for (const call of input.ownCalls)
     steps.push({ label: call.tool, reach: "external", state: call.state === "done" ? "done" : "uncertain" });
   const uncertain = steps.filter((step) => step.reach === "external" && step.state === "uncertain");
-  if (uncertain.length > 0 && !input.resumeUncertain) return { kind: "ask", uncertain };
-  return {
-    kind: "resume",
-    effects: steps,
-    reads,
-    doneCalls: input.ownCalls.flatMap((call) =>
-      call.state === "done" ? [{ tool: call.tool, digest: call.digest }] : [],
-    ),
-    uncertain: uncertain.length,
-  };
+  const doneCalls = input.ownCalls.flatMap((call) =>
+    call.state === "done" ? [{ tool: call.tool, digest: call.digest }] : [],
+  );
+  if (uncertain.length > 0 && !input.resumeUncertain)
+    return { kind: "ask", uncertain, effects: steps, reads, doneCalls };
+  return { kind: "resume", effects: steps, reads, doneCalls, uncertain: uncertain.length };
 }
 
 /** The next marker of a delivery after one more failure, merged with what the earlier failures did. */
 export function nextTurnResumeMarker(input: {
   previous: TurnResumeMarker | undefined;
-  plan: Extract<TurnResumePlan, { kind: "resume" }>;
+  plan: Pick<TurnResumePlan, "effects" | "reads" | "doneCalls">;
   turnId: string;
   cause: CauseCode;
   delays: readonly number[];
@@ -280,7 +288,9 @@ export function turnResumeNote(marker: TurnResumeMarker): string {
   const uncertain = marker.effects.filter((effect) => effect.state === "uncertain");
   return [
     TURN_RESUME_NOTE_START,
-    `The provider failed in the middle of this task (${marker.cause}), and Builders Bot continues it in the same session (try ${marker.attempt} of ${marker.max}). This is the same task, not a new request.`,
+    marker.forPerson
+      ? `The provider failed in the middle of this task (${marker.cause}). The person was told that an outside step may already have happened, and the person resumed the task. This is the same task, not a new request.`
+      : `The provider failed in the middle of this task (${marker.cause}), and Builders Bot continues it in the same session (try ${marker.attempt} of ${marker.max}). This is the same task, not a new request.`,
     "Check the current state before any outside action, such as a message, a post, a push, a pull request or a payment. Do not repeat anything that the list below says is done. Continue only with what is still missing. When the task is already complete, give its result.",
     ...(done.length > 0 ? ["Done before the failure, with a result:", ...done.map(line)] : []),
     ...(marker.reads > 0 ? [`Reads before the failure: ${marker.reads}. They are safe to run again.`] : []),

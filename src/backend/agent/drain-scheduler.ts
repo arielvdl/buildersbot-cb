@@ -1191,7 +1191,9 @@ export class DrainScheduler {
         const continued = new Set<string>();
         return combinedPromptInput(
           batch.map((item) => {
-            const { resumeAfterUsageLimit, turnResume, ...rest } = item;
+            const { resumeAfterUsageLimit, turnResume: own, ...rest } = item;
+            // A task that the person resumed after "this may already be done" reads what its stopped turn did.
+            const turnResume = own ?? this.#channels?.carriedTurnResume(item.delivery.id) ?? undefined;
             const repeated = resumeAfterUsageLimit !== undefined && continued.has(resumeAfterUsageLimit.turnId);
             if (resumeAfterUsageLimit) continued.add(resumeAfterUsageLimit.turnId);
             // The same for the note of a safe resume: one note for the failed turn.
@@ -1797,6 +1799,25 @@ export class DrainScheduler {
           ...facts,
           uncertain: plan.uncertain.length,
         });
+        // What the turn did stays with the delivery, so a resume by the person reads it in its note.
+        const { marker } = nextTurnResumeMarker({
+          previous,
+          plan,
+          turnId: input.turnId,
+          cause: failure.cause,
+          delays: options.delaysSeconds,
+          now,
+          random: 0,
+        });
+        for (const { delivery } of input.deliveries)
+          yield* this.#mailbox
+            .recordTurnResume(delivery.id, {
+              ...marker,
+              attempt: previous?.attempt ?? 0,
+              nextAt: null,
+              forPerson: true,
+            })
+            .pipe(Effect.catch(() => Effect.void));
         return { ask: sourceText("error.backend.channelTaskMayBeDone", { actions: uncertainActions(plan.uncertain) }) };
       }
       // Each delivery must stay with its task: a person who stopped or changed the task ends it as before.

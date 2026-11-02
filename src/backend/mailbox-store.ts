@@ -2727,6 +2727,22 @@ export class MailboxStore {
     }
   }, Effect.uninterruptible).bind(this);
 
+  /**
+   * Keeps what a turn of this delivery did when a brief provider failure stopped it for the person
+   * (`TurnResumeMarker.forPerson`). The turn then ends as before; a resume of the task reads the note.
+   */
+  recordTurnResume = Effect.fn("MailboxStore.recordTurnResume")(function* (
+    this: MailboxStore,
+    deliveryId: string,
+    marker: TurnResumeMarker,
+  ): Effect.fn.Return<void, StoredStateFailure> {
+    try {
+      yield* this.#updateDeliveryEffect(deliveryId, ["starting", "running"], { turnResume: marker });
+    } catch (cause) {
+      return yield* new StoredStateFailure({ cause });
+    }
+  }, Effect.uninterruptible).bind(this);
+
   /** Ends the start retry of a queued delivery, so it starts at once, such as when the person sends it again. */
   clearStartRetry(deliveryId: string): void {
     const delivery = this.#state.deliveries.find((candidate) => candidate.id === deliveryId);

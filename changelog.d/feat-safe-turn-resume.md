@@ -6,6 +6,7 @@
   when nothing that the turn did can happen twice: before it continues, the app reads each step of
   the turn (reads, file changes, posts, pushes, messages) and tells the agent what is already done.
   When a post, a push or another outside action may already have happened, the task waits for you
-  and says which action to check. The switch is off by default, and the app then works as before.
+  and says which action to check. When you resume it, the agent gets the same list of what is done
+  and what may already have happened. The switch is off by default, and the app then works as before.
 - Settings > Agents > Retries and backup model has the option "Continue also when an outside action
   is uncertain". It is off by default.
