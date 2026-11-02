@@ -390,7 +390,7 @@ async function main(): Promise<void> {
 
     const sqlPath = join(staging, "seed.sql");
     await writeFile(sqlPath, seedSql(records));
-    await runWrangler(["d1", "execute", "openbot-auth", "--local", "--file", sqlPath, "--yes"]);
+    await runWrangler(["d1", "execute", "buildersbot-auth", "--local", "--file", sqlPath, "--yes"]);
     process.stdout.write(
       `Seeded ${records.length} approved marketplace skills across ${Object.keys(creators).length} creators.\n`,
     );

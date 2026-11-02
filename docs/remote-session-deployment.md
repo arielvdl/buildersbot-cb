@@ -23,7 +23,7 @@ To repeat the read-only checks, run from this repository:
 ssh sui-alexandria 'docker inspect openbot-remote-remote-api-1 --format "{{.Image}} {{.Created}}"'
 ssh sui-alexandria 'docker exec openbot-remote-remote-api-1 sha256sum /app/remote/api/src/signal-service.ts'
 bunx wrangler deployments list --cwd apps/auth-api --json
-bunx wrangler d1 execute openbot-auth --cwd apps/auth-api --remote \
+bunx wrangler d1 execute buildersbot-auth --cwd apps/auth-api --remote \
   --command "SELECT name, applied_at FROM d1_migrations WHERE name = '0018_remote_device_sessions.sql'" --json
 ```
 
