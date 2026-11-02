@@ -6,9 +6,13 @@
  * 2. the handle exists, and its lease is open;
  * 3. Chrome says, now, that the tab is in the project's registered group (or is a satellite of one);
  * 4. the main frame is not on the floor; a child session is a registered frame and not on the floor;
- * 5. the method and each parameter pass the closed allowlist of `cdp-allowlist.ts`;
+ * 5. the method and each parameter pass the closed allowlist of `cdp-allowlist.ts`; page code runs
+ *    only as an engine function of `cdp-functions.ts` (by digest), because the person cannot turn on
+ *    the agent's own scripts in this build;
  * 6. a click over a frame on the floor is refused;
  * 7. reads that can show a secret run the secret check first.
+ *
+ * Results leave reduced to the closed fields of `projectCdpResult`.
  *
  * The commands of one tab keep their order: each one passes the gate and reaches Chrome before the next
  * one starts its gate. They do not wait for each other's result, so a tab still has up to
@@ -20,8 +24,12 @@
  * page of a discarded tab.
  */
 
-import { type CdpCheckContext, checkCdpCommand } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
-import { ENGINE_GESTURE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
+import {
+  type CdpCheckContext,
+  checkCdpCommand,
+  projectCdpResult,
+} from "@openbot/contracts/chrome-bridge/cdp-allowlist";
+import { ENGINE_FUNCTIONS, ENGINE_GESTURE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
 import { BRIDGE_LIMITS, type ChromeBridgeErrorCode } from "@openbot/contracts/chrome-bridge/protocol";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import {
@@ -35,6 +43,7 @@ import {
   internalCommand,
   openFrameSessions,
   rememberContext,
+  reserveContext,
 } from "./debugger";
 import { floorDecision } from "./floor";
 import { audit, emit } from "./outbox";
@@ -137,31 +146,51 @@ async function sha256Hex(text: string): Promise<string> {
   return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-const READS = new Set(["Page.captureScreenshot", "Accessibility.getFullAXTree", "Accessibility.getPartialAXTree"]);
+/** Reads: they keep the last clean secret check of the tab, because they cannot change the page. */
+const READS = new Set([
+  "Page.captureScreenshot",
+  "Accessibility.getFullAXTree",
+  "Accessibility.getPartialAXTree",
+  "DOM.describeNode",
+  "DOM.getDocument",
+  "Runtime.getProperties",
+]);
 const CLICKS = new Set(["mousePressed", "mouseReleased"]);
+
+/**
+ * Whether the agent's own scripts may run in this project. The popup has no switch for them yet, and
+ * the app alone cannot turn them on, so they never run in this build.
+ */
+const scriptsOn = (_project: Project): boolean => false;
 const fileChooserTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
-/** Checks one command with the context of its call. It throws the denial; it returns whether to skip it. */
+/**
+ * Checks one command with the context of its call. It throws the denial; it returns whether to skip it,
+ * and whether it is a read, whose result is dropped when the page changes origin meanwhile.
+ */
 async function check(
   gate: Gate,
   method: string,
   params: CdpParams,
   session: string | undefined,
   operation: CdpCheckContext["operation"],
-): Promise<{ noOp: boolean }> {
+): Promise<{ noOp: boolean; read: boolean }> {
   const { tab } = gate;
   if (session !== undefined && frameTargets(tab.tabId).get(session)?.blocked === true) {
     audit.denied += 1;
     throw new BridgeError("site_blocked", "the frame is a site that agents may not use");
   }
   const declaration = params.functionDeclaration;
+  const functionDigest = isString(declaration) ? await sha256Hex(declaration) : undefined;
   const context: CdpCheckContext = {
     operation,
     agentTab: tab.createdBy !== "person",
-    contexts: contextsOf(tab.tabId),
+    contexts: contextsOf(tab.tabId, session),
     childSessions: openFrameSessions(tab.tabId),
-    functionDigest: params.userGesture === true && isString(declaration) ? await sha256Hex(declaration) : undefined,
+    functionDigest,
+    engineFunctions: ENGINE_FUNCTIONS,
     gestureFunctions: ENGINE_GESTURE_FUNCTIONS,
+    scripts: scriptsOn(gate.project),
     floor: { added: state.policyAdd, unlocked: state.unlocks.get(tab.projectKey) ?? [] },
     raiseTabs: false,
   };
@@ -173,37 +202,22 @@ async function check(
   if (method === "Page.navigate" && isString(params.url)) takeNavigation(tab.projectKey, params.url);
   if (decision.historyFloorCheck && isNumber(params.entryId)) await checkHistoryEntry(tab, params.entryId);
   // Only a read keeps the last clean secret check of the tab: any other command can change the page.
-  if (!READS.has(method)) pageMayChange(tab.tabId);
-  if (decision.secretCheck && (await secretPresent(tab.tabId))) {
+  // An engine function with no gesture only reads; one with a gesture acts (a click, a focus).
+  const engineRead =
+    method === "Runtime.callFunctionOn" &&
+    params.userGesture !== true &&
+    functionDigest !== undefined &&
+    ENGINE_FUNCTIONS.has(functionDigest);
+  const read = READS.has(method) || engineRead;
+  if (!read) pageMayChange(tab.tabId);
+  if (decision.secretCheck !== "none" && (await secretPresent(tab.tabId, decision.secretCheck === "strict"))) {
     emit("tab.secret-present", { handle: tab.handle });
     throw new BridgeError("secret_present", "the page holds a secret that was not typed by secret.fill");
-  }
-  if (method === "Input.dispatchKeyEvent" && isPasteKey(params)) {
-    audit.denied += 1;
-    throw new BridgeError("param_denied", "a paste key would hand the page the person's clipboard");
   }
   if (method === "Input.dispatchMouseEvent" && isString(params.type) && CLICKS.has(params.type))
     await checkClickTarget(tab.tabId, params.x, params.y);
   if (method === "Page.setInterceptFileChooserDialog") boundFileChooser(tab.tabId, params.enabled === true);
-  return { noOp: decision.noOp };
-}
-
-const CONTROL = 2;
-const META = 4;
-const SHIFT = 8;
-
-/**
- * Ctrl+V, Cmd+V and Shift+Insert paste the person's clipboard into the page, like the `paste` command
- * that the allowlist already refuses. The engine types text with `Input.insertText`, never with these.
- */
-function isPasteKey(params: CdpParams): boolean {
-  const modifiers = isNumber(params.modifiers) ? params.modifiers : 0;
-  const key = isString(params.key) ? params.key.toLowerCase() : "";
-  const code = isString(params.code) ? params.code : "";
-  const virtual = isNumber(params.windowsVirtualKeyCode) ? params.windowsVirtualKeyCode : 0;
-  const isV = key === "v" || code === "KeyV" || virtual === 86;
-  const isInsert = key === "insert" || code === "Insert" || virtual === 45;
-  return ((modifiers & (CONTROL | META)) !== 0 && isV) || ((modifiers & SHIFT) !== 0 && isInsert);
+  return { noOp: decision.noOp, read };
 }
 
 async function checkHistoryEntry(tab: AgentTab, entryId: number): Promise<void> {
@@ -257,59 +271,20 @@ function boundFileChooser(tabId: number, enabled: boolean): void {
 
 const paramsOf = (value: unknown): CdpParams => (isDynamicRecord(value) ? value : {});
 
-const stripFragment = (url: unknown): string => {
-  if (!isString(url)) return "";
-  const hash = url.indexOf("#");
-  return hash === -1 ? url : url.slice(0, hash);
-};
-
-/** DOM nodes name their document's URL; a fragment there can hold a token too. */
-function nodeWithoutFragments(node: CdpParams, depth = 0): CdpParams {
-  const out: { [key: string]: unknown } = { ...node };
-  if (isString(node.documentURL)) out.documentURL = stripFragment(node.documentURL);
-  if (isString(node.baseURL)) out.baseURL = stripFragment(node.baseURL);
-  if (depth > 64) return out;
-  if (isDynamicRecord(node.contentDocument))
-    out.contentDocument = nodeWithoutFragments(node.contentDocument, depth + 1);
-  if (Array.isArray(node.children))
-    out.children = node.children.map((child) => nodeWithoutFragments(paramsOf(child), depth + 1));
-  return out;
-}
-
-function frameTreeWithoutFragments(tree: CdpParams): CdpParams {
-  const frame = isDynamicRecord(tree.frame) ? { ...tree.frame, url: stripFragment(tree.frame.url) } : tree.frame;
-  if (!Array.isArray(tree.childFrames)) return { ...tree, frame };
-  return { ...tree, frame, childFrames: tree.childFrames.map((child) => frameTreeWithoutFragments(paramsOf(child))) };
-}
-
 /**
- * Results that name URLs leave without fragments (a fragment can hold a token), and history entries of
- * floor sites leave without their URL and title.
+ * The result reduced to the closed fields of `projectCdpResult`: URLs without fragments (a fragment can
+ * hold a token), and frames of the floor without their URL.
  */
 function projectResult(method: string, result: CdpParams, projectKey: string): CdpParams {
-  if ((method === "DOM.getDocument" || method === "DOM.describeNode") && isDynamicRecord(result.root ?? result.node)) {
-    const key = method === "DOM.getDocument" ? "root" : "node";
-    return { ...result, [key]: nodeWithoutFragments(paramsOf(result[key])) };
-  }
-  if (method === "Page.getFrameTree")
-    return { ...result, frameTree: frameTreeWithoutFragments(paramsOf(result.frameTree)) };
-  if (method === "Page.getNavigationHistory" && Array.isArray(result.entries)) {
-    const entries = result.entries.map((entry) => {
-      if (!isDynamicRecord(entry)) return entry;
-      const url = stripFragment(entry.url);
-      if (url !== "" && url !== "about:blank" && floorDecision(url, projectKey).blocked)
-        return { ...entry, url: "about:blank", userTypedURL: "about:blank", title: "" };
-      return { ...entry, url, userTypedURL: stripFragment(entry.userTypedURL) };
-    });
-    return { ...result, entries };
-  }
   if (
     method === "Page.captureScreenshot" &&
     isString(result.data) &&
     (result.data.length * 3) / 4 > BRIDGE_LIMITS.maxScreenshotBytes
   )
     throw new BridgeError("cdp_error", "the screenshot is larger than 8 MB");
-  return result;
+  return projectCdpResult(method, result, {
+    onFloor: (url) => url !== "about:blank" && floorDecision(url, projectKey, true).blocked,
+  });
 }
 
 /** A read whose page changed origin while it ran is dropped: it may hold the new site's content. */
@@ -321,11 +296,17 @@ async function sameOrigin(gate: Gate): Promise<void> {
   if (now !== gate.origin) throw new BridgeError("cdp_error", "origin_changed: the page changed during the read");
 }
 
-async function settle(gate: Gate, method: string, sent: Dispatched): Promise<CdpParams> {
+async function settle(
+  gate: Gate,
+  method: string,
+  sent: Dispatched,
+  session: string | undefined,
+  read: boolean,
+): Promise<CdpParams> {
   const result = projectResult(method, await sent.done, gate.tab.projectKey);
-  if (READS.has(method)) await sameOrigin(gate);
+  if (read) await sameOrigin(gate);
   if (method === "Page.createIsolatedWorld" && isNumber(result.executionContextId))
-    rememberContext(gate.tab.tabId, result.executionContextId);
+    rememberContext(gate.tab.tabId, session, result.executionContextId);
   return result;
 }
 
@@ -343,7 +324,7 @@ export function cdpSend(
   return sequenced(tab.tabId, async () => {
     const gate = await authorize(handle);
     const values = paramsOf(params);
-    const { noOp } = await check(
+    const { noOp, read } = await check(
       gate,
       method,
       values,
@@ -352,7 +333,7 @@ export function cdpSend(
     );
     if (noOp) return { done: Promise.resolve({ result: {} }) };
     const sent = await dispatch(gate.tab.tabId, method, values, session);
-    return { done: settle(gate, method, sent).then((result) => ({ result })) };
+    return { done: settle(gate, method, sent, session, read).then((result) => ({ result })) };
   });
 }
 
@@ -369,7 +350,7 @@ async function answerDialog(
   const values = paramsOf(params);
   await check(gate, "Page.handleJavaScriptDialog", values, session, "other");
   const sent = await dispatch(gate.tab.tabId, "Page.handleJavaScriptDialog", values, session, true);
-  return { result: await settle(gate, "Page.handleJavaScriptDialog", sent) };
+  return { result: await settle(gate, "Page.handleJavaScriptDialog", sent, session, false) };
 }
 
 type BatchResult = { result?: CdpParams; err?: { code: ChromeBridgeErrorCode; message: string } };
@@ -391,13 +372,13 @@ export function cdpBatch(
     for (const command of commands) {
       const values = paramsOf(command.params);
       try {
-        const { noOp } = await check(gate, command.method, values, command.session, operation);
+        const { noOp, read } = await check(gate, command.method, values, command.session, operation);
         if (noOp) {
           pending.push(Promise.resolve({ result: {} }));
           continue;
         }
         const sent = await dispatch(gate.tab.tabId, command.method, values, command.session);
-        pending.push(settle(gate, command.method, sent).then((result) => ({ result }), toErr));
+        pending.push(settle(gate, command.method, sent, command.session, read).then((result) => ({ result }), toErr));
       } catch (error) {
         pending.push(Promise.resolve(toErr(error)));
       }
@@ -428,7 +409,10 @@ export function runScript(
   return sequenced(tab.tabId, async () => {
     if (session !== undefined) throw new BridgeError("param_denied", "scripts run in the main frame only");
     const gate = await authorize(handle);
-    if (await secretPresent(gate.tab.tabId)) {
+    if (!scriptsOn(gate.project)) throw new BridgeError("scripts_disabled", "the person has not turned on scripts");
+    pageMayChange(gate.tab.tabId);
+    // A script can read any field, also one that `secret.fill` typed: no exemption.
+    if (await secretPresent(gate.tab.tabId, true)) {
       emit("tab.secret-present", { handle });
       throw new BridgeError("secret_present", "the page holds a secret that was not typed by secret.fill");
     }
@@ -443,6 +427,7 @@ export function runScript(
       });
       contextId = isNumber(created.executionContextId) ? created.executionContextId : undefined;
       if (contextId === undefined) throw new BridgeError("cdp_error", "no isolated world for the script");
+      reserveContext(gate.tab.tabId, undefined, contextId);
     }
     const argumentList = Array.isArray(args) ? args : [args];
     const expression = `(${source})(...${JSON.stringify(argumentList)})`;

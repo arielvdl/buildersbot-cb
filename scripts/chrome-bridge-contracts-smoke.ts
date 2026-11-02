@@ -14,11 +14,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   CDP_ALLOWLIST,
+  CDP_RESULTS,
   type CdpCheckContext,
   checkCdpCommand,
+  ENGINE_WORLD_NAME,
   projectCdpEvent,
+  projectCdpResult,
 } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
-import { ENGINE_GESTURE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
+import { ENGINE_FUNCTIONS, ENGINE_GESTURE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
 import {
   groupColorForHash,
   groupColorForHex,
@@ -277,12 +280,17 @@ check("a full 512 KiB part stays under Chrome's 1 MB limit after encoding", fram
 // The CDP allowlist
 
 const engineDigest = [...ENGINE_GESTURE_FUNCTIONS][0] ?? "";
+const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+/** An object of context 5, in V8's form `<isolate>.<context>.<object>`. */
+const OBJECT = "-4242.5.1";
 const context: CdpCheckContext = {
   operation: "other",
   agentTab: true,
   contexts: new Set([5]),
   childSessions: new Set(["CHILD"]),
+  engineFunctions: ENGINE_FUNCTIONS,
   gestureFunctions: ENGINE_GESTURE_FUNCTIONS,
+  scripts: false,
   floor: {},
 };
 const decision = (method: string, params: unknown, extra: Partial<CdpCheckContext> = {}, session?: string) =>
@@ -320,22 +328,146 @@ check(
   ) === "param_denied",
 );
 check(
-  "a user gesture for a function outside the engine table is denied",
+  "a user gesture for a function outside the engine table is denied, also with scripts on",
   code(
     decision(
       "Runtime.callFunctionOn",
-      { functionDeclaration: "function() { fetch('https://evil.test') }", objectId: "1", userGesture: true },
-      { functionDigest: createHash("sha256").update("function() { fetch('https://evil.test') }").digest("hex") },
+      { functionDeclaration: "function() { fetch('https://evil.test') }", objectId: OBJECT, userGesture: true },
+      { functionDigest: sha256("function() { fetch('https://evil.test') }"), scripts: true },
     ),
   ) === "param_denied",
 );
+// Security review of 02/11, item 1: page code is an engine function, unless the person turned scripts on.
+const foreign = "function() { return document.cookie; }";
+check(
+  "a function outside the engine table is refused while scripts are off",
+  code(
+    decision(
+      "Runtime.callFunctionOn",
+      { functionDeclaration: foreign, objectId: OBJECT },
+      { functionDigest: sha256(foreign) },
+    ),
+  ) === "scripts_disabled",
+);
+check(
+  "a function with no digest is refused while scripts are off",
+  code(decision("Runtime.callFunctionOn", { functionDeclaration: foreign, objectId: OBJECT })) === "scripts_disabled",
+);
+const readyState = "function() { return document.readyState !== 'loading'; }";
+const engineCall = decision(
+  "Runtime.callFunctionOn",
+  { functionDeclaration: readyState, executionContextId: 5, arguments: [], returnByValue: true },
+  { functionDigest: sha256(readyState) },
+);
+check(
+  "an engine function runs, after the strict secret check",
+  ENGINE_FUNCTIONS.has(sha256(readyState)) && engineCall.ok && engineCall.secretCheck === "strict",
+  engineCall,
+);
+check(
+  "the agent's own expression is refused while scripts are off",
+  code(decision("Runtime.evaluate", { expression: "document.cookie", returnByValue: true })) === "scripts_disabled",
+);
+check(
+  "an engine expression is refused too: the engine runs no Runtime.evaluate",
+  code(decision("Runtime.evaluate", { expression: "document.readyState !== 'loading'", contextId: 5 })) ===
+    "scripts_disabled",
+);
+const withScripts = decision("Runtime.evaluate", { expression: "document.title" }, { scripts: true });
+check(
+  "with scripts on, the agent's own expression runs after the strict secret check",
+  withScripts.ok && withScripts.secretCheck === "strict",
+  withScripts,
+);
+// Item 6: an object id is checked as a context id is, so a made-up id cannot reach the guard world.
+check(
+  "an object id of a context that the tab may not name is denied",
+  code(decision("Runtime.getProperties", { objectId: "-4242.6.1" })) === "param_denied",
+);
+check(
+  "an object id in another form is denied",
+  code(decision("DOM.describeNode", { objectId: '{"injectedScriptId":5,"id":1}' })) === "param_denied",
+);
+check(
+  "an argument object of a context that the tab may not name is denied",
+  code(
+    decision(
+      "Runtime.callFunctionOn",
+      { functionDeclaration: readyState, objectId: OBJECT, arguments: [{ objectId: "-4242.6.2" }] },
+      { functionDigest: sha256(readyState) },
+    ),
+  ) === "param_denied",
+);
+for (const method of ["Runtime.getProperties", "DOM.describeNode", "DOM.getDocument"]) {
+  const read = decision(method, method === "DOM.getDocument" ? {} : { objectId: OBJECT });
+  check(`${method} runs the strict secret check`, read.ok && read.secretCheck === "strict", read);
+}
+for (const method of ["Page.captureScreenshot", "Accessibility.getFullAXTree"]) {
+  const read = decision(method, {});
+  check(`${method} runs the masked secret check`, read.ok && read.secretCheck === "masked", read);
+}
+// Item 6: the agent makes only the engine's world, never one of the extension's.
+for (const worldName of ["builders-bot-guard", "builders-bot-agent", "", "other"])
+  check(
+    `an isolated world named "${worldName}" is denied`,
+    code(decision("Page.createIsolatedWorld", { frameId: "F", worldName })) === "param_denied",
+  );
+check(
+  "an isolated world with no name is denied",
+  code(decision("Page.createIsolatedWorld", { frameId: "F" })) === "param_denied",
+);
+check(
+  "the engine's world is allowed",
+  code(decision("Page.createIsolatedWorld", { frameId: "F", worldName: ENGINE_WORLD_NAME })) === "ok",
+);
+// Item 2: the tab's history is not a command.
+check("Page.getNavigationHistory is denied", code(decision("Page.getNavigationHistory", {})) === "method_denied");
+// Item 3: copy, cut and paste keys, in every spelling.
+/** A key event as `Input.dispatchKeyEvent` takes it. */
+interface KeyEvent {
+  readonly type: string;
+  readonly key?: string;
+  readonly code?: string;
+  readonly text?: string;
+  readonly modifiers?: number;
+  readonly windowsVirtualKeyCode?: number;
+  readonly nativeVirtualKeyCode?: number;
+}
+const clipboardKeys: { readonly [name: string]: KeyEvent } = {
+  ctrlV: { type: "keyDown", key: "v", modifiers: 2 },
+  cmdV: { type: "rawKeyDown", code: "KeyV", modifiers: 4 },
+  cmdVByWindowsCode: { type: "rawKeyDown", windowsVirtualKeyCode: 86, modifiers: 4 },
+  cmdVByMacCode: { type: "rawKeyDown", nativeVirtualKeyCode: 9, modifiers: 4 },
+  cmdVByText: { type: "rawKeyDown", text: "v", modifiers: 4 },
+  ctrlC: { type: "keyDown", key: "c", code: "KeyC", modifiers: 2 },
+  cmdC: { type: "rawKeyDown", key: "C", modifiers: 4 },
+  cmdX: { type: "rawKeyDown", key: "x", modifiers: 4 },
+  ctrlXByCode: { type: "rawKeyDown", windowsVirtualKeyCode: 88, modifiers: 2 },
+  ctrlInsert: { type: "rawKeyDown", key: "Insert", modifiers: 2 },
+  shiftInsert: { type: "rawKeyDown", code: "Insert", modifiers: 8 },
+  shiftInsertByCode: { type: "rawKeyDown", windowsVirtualKeyCode: 45, modifiers: 8 },
+  shiftDelete: { type: "rawKeyDown", key: "Delete", modifiers: 8 },
+  pasteKey: { type: "rawKeyDown", key: "Paste" },
+  copyKey: { type: "rawKeyDown", code: "Copy" },
+  ctrlVControlCharacter: { type: "char", text: String.fromCharCode(0x16) },
+};
+for (const [name, params] of Object.entries(clipboardKeys))
+  check(`the clipboard key ${name} is denied`, code(decision("Input.dispatchKeyEvent", params)) === "param_denied");
+for (const [name, params] of Object.entries({
+  letterV: { type: "keyDown", key: "v", code: "KeyV", text: "v" },
+  shiftV: { type: "rawKeyDown", key: "V", code: "KeyV", modifiers: 8 },
+  ctrlA: { type: "rawKeyDown", key: "a", code: "KeyA", modifiers: 2 },
+  delete: { type: "rawKeyDown", key: "Delete", code: "Delete", windowsVirtualKeyCode: 46 },
+  enter: { type: "char", key: "Enter", text: "\r" },
+}))
+  check(`the engine's key ${name} is allowed`, code(decision("Input.dispatchKeyEvent", params)) === "ok");
 check(
   "a user gesture for an engine function is allowed",
   ENGINE_GESTURE_FUNCTIONS.size > 0 &&
     code(
       decision(
         "Runtime.callFunctionOn",
-        { functionDeclaration: "x", objectId: "1", userGesture: true },
+        { functionDeclaration: "x", objectId: OBJECT, userGesture: true },
         { functionDigest: engineDigest },
       ),
     ) === "ok",
@@ -345,8 +477,18 @@ check(
   code(decision("Runtime.evaluate", { expression: "1", userGesture: true })) === "param_denied",
 );
 check(
-  "an evaluate in a context the tab never reported is denied",
-  code(decision("Runtime.evaluate", { expression: "1", contextId: 9 })) === "param_denied",
+  "an evaluate in a context the tab never reported is denied, also with scripts on",
+  code(decision("Runtime.evaluate", { expression: "1", contextId: 9 }, { scripts: true })) === "param_denied",
+);
+check(
+  "an engine function in a context the tab never reported is denied",
+  code(
+    decision(
+      "Runtime.callFunctionOn",
+      { functionDeclaration: readyState, executionContextId: 9 },
+      { functionDigest: sha256(readyState) },
+    ),
+  ) === "param_denied",
 );
 check(
   "the command line API is denied",
@@ -420,7 +562,7 @@ check(
   history.ok && history.historyFloorCheck,
 );
 const screenshot = decision("Page.captureScreenshot", { format: "png" });
-check("a screenshot asks for the secret check", screenshot.ok && screenshot.secretCheck);
+check("a screenshot asks for the secret check", screenshot.ok && screenshot.secretCheck !== "none");
 const front = decision("Page.bringToFront", {});
 check("bringToFront is a no-op unless the person allowed it", front.ok && front.noOp);
 
@@ -433,8 +575,9 @@ const ELECTRON_ONLY = new Set([
   "Page.screencastFrameAck",
 ]);
 const engineMethods = new Set<string>();
+// The Chrome host sends commands of its own through the same target (`chrome-tabs-host.ts`).
 for (const file of (await readdir(join(ROOT, "src/backend"))).filter(
-  (name) => /^browser-.*\.ts$/u.test(name) && !name.endsWith(".test.ts"),
+  (name) => /^(browser|chrome)-.*\.ts$/u.test(name) && !name.endsWith(".test.ts"),
 )) {
   const source = await readFile(join(ROOT, "src/backend", file), "utf8");
   for (const match of source.matchAll(/(?:send|sendCommand)\(\s*"([A-Z][A-Za-z]+\.[a-z][A-Za-z]+)"/gu))
@@ -485,6 +628,119 @@ check(
   "a console event keeps only primitive arguments",
   JSON.stringify(consoleEvent) === JSON.stringify({ level: "log", text: "token" }),
   consoleEvent,
+);
+
+// Item 2: results leave with closed fields, without fragments, and without floor frames.
+const noFloor = { onFloor: (url: string) => siteFloorDecision(url, { subframe: true }).blocked };
+const missingResults = Object.keys(CDP_ALLOWLIST).filter((method) => !Object.hasOwn(CDP_RESULTS, method));
+check("every allowed method has a closed result projection", missingResults.length === 0, missingResults);
+const tree = projectCdpResult(
+  "Page.getFrameTree",
+  {
+    frameTree: {
+      frame: {
+        id: "M",
+        loaderId: "L",
+        url: "https://app.example/cb?x=1#access_token=secret",
+        urlFragment: "#access_token=secret",
+        unreachableUrl: "https://app.example/#t",
+        securityOrigin: "https://app.example",
+        mimeType: "text/html",
+        adFrameStatus: { adFrameType: "none" },
+      },
+      childFrames: [
+        {
+          frame: {
+            id: "B",
+            parentId: "M",
+            url: "https://www.itau.com.br/login#x",
+            securityOrigin: "https://www.itau.com.br",
+            name: "bank",
+          },
+        },
+      ],
+    },
+  },
+  noFloor,
+);
+check(
+  "a frame tree keeps only its closed fields, with no fragment, and a floor frame hidden",
+  JSON.stringify(tree) ===
+    JSON.stringify({
+      frameTree: {
+        frame: {
+          id: "M",
+          loaderId: "L",
+          securityOrigin: "https://app.example",
+          mimeType: "text/html",
+          url: "https://app.example/cb?x=1",
+        },
+        childFrames: [{ frame: { id: "B", parentId: "M", name: "", securityOrigin: "null", url: "about:blank" } }],
+      },
+    }),
+  tree,
+);
+const documentResult = projectCdpResult(
+  "DOM.getDocument",
+  {
+    root: {
+      nodeId: 1,
+      backendNodeId: 2,
+      nodeType: 9,
+      nodeName: "#document",
+      documentURL: "https://app.example/#token",
+      baseURL: "https://app.example/#token",
+      futureField: "x",
+      children: [
+        {
+          nodeId: 3,
+          nodeName: "IFRAME",
+          contentDocument: { nodeId: 4, documentURL: "https://frame.example/#t", nodeName: "#document" },
+        },
+      ],
+      shadowRoots: [{ nodeId: 5, nodeName: "#document-fragment", shadowRootType: "open" }],
+    },
+  },
+  noFloor,
+);
+const documentText = JSON.stringify(documentResult);
+check(
+  "a DOM tree keeps its closed fields and loses every fragment",
+  !documentText.includes("#t") && !documentText.includes("futureField") && documentText.includes("shadowRootType"),
+  documentResult,
+);
+const targetInfo = projectCdpResult(
+  "Target.getTargetInfo",
+  { targetInfo: { targetId: "T", type: "page", url: "https://app.example/#token", title: "App", extra: 1 } },
+  noFloor,
+);
+check(
+  "the target info loses its fragment and the fields it does not name",
+  JSON.stringify(targetInfo) ===
+    JSON.stringify({ targetInfo: { targetId: "T", type: "page", title: "App", url: "https://app.example/" } }),
+  targetInfo,
+);
+const thrown = projectCdpResult(
+  "Runtime.callFunctionOn",
+  {
+    result: { type: "object", subtype: "error", description: "Error", objectId: "9", preview: { properties: [] } },
+    exceptionDetails: {
+      text: "Uncaught",
+      url: "https://app.example/#token",
+      stackTrace: { callFrames: [] },
+      lineNumber: 1,
+    },
+  },
+  noFloor,
+);
+check(
+  "a call result keeps its remote object and loses the script URL and stack of an exception",
+  !JSON.stringify(thrown).includes("#token") && !JSON.stringify(thrown).includes("preview"),
+  thrown,
+);
+check(
+  "a method outside the list gives an empty result",
+  JSON.stringify(projectCdpResult("Network.getAllCookies", { cookies: [{ value: "x" }] }, noFloor)) === "{}",
 );
 
 // ---------------------------------------------------------------------------------------------------

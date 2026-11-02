@@ -10,7 +10,7 @@
  * leave reduced to the closed fields of `projectCdpEvent`; no `Network.*` event ever leaves.
  */
 
-import { projectCdpEvent } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
+import { ENGINE_WORLD_NAME, projectCdpEvent } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
 import { BRIDGE_LIMITS, TAB_TIMING } from "@openbot/contracts/chrome-bridge/protocol";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { floorDecision } from "./floor";
@@ -35,8 +35,15 @@ interface TabDebugger {
   idle: Array<() => void>;
   /** Child sessions of frames of another process, by session id. */
   frames: Map<string, FrameTarget>;
-  /** Execution contexts that the tab reported, for the context checks of the allowlist. */
-  contexts: Set<number>;
+  /**
+   * The execution contexts that a command may name, by session (`MAIN` for the tab itself): the page's
+   * own worlds and the engine's world. Context ids are counted per renderer process, so the same id
+   * names another context in another session. Worlds of the extension's own (the secret check) and of
+   * other extensions are never here.
+   */
+  contexts: Map<string, Set<number>>;
+  /** Contexts of the extension's own worlds, by session: never named by a command. */
+  reserved: Map<string, Set<number>>;
   inFlight: number;
   lastReattachAt: number;
   console: { second: number; count: number };
@@ -62,7 +69,8 @@ function record(tabId: number): TabDebugger {
       attaching: null,
       idle: [],
       frames: new Map(),
-      contexts: new Set(),
+      contexts: new Map(),
+      reserved: new Map(),
       inFlight: 0,
       lastReattachAt: 0,
       console: { second: 0, count: 0 },
@@ -80,16 +88,42 @@ export function frameTargets(tabId: number): ReadonlyMap<string, FrameTarget> {
   return tabs.get(tabId)?.frames ?? new Map();
 }
 
-export function contextsOf(tabId: number): ReadonlySet<number> {
-  return tabs.get(tabId)?.contexts ?? new Set();
+/** The key of the tab's own session in the context maps. */
+const MAIN = "";
+const sessionKey = (session: string | undefined): string => session ?? MAIN;
+
+function contextSet(map: Map<string, Set<number>>, session: string | undefined): Set<number> {
+  const key = sessionKey(session);
+  let set = map.get(key);
+  if (!set) {
+    set = new Set();
+    map.set(key, set);
+  }
+  return set;
+}
+
+/** The contexts that a command of this session may name. */
+export function contextsOf(tabId: number, session: string | undefined): ReadonlySet<number> {
+  return tabs.get(tabId)?.contexts.get(sessionKey(session)) ?? new Set();
 }
 
 /**
  * A world that a checked `Page.createIsolatedWorld` made in the tab. Chrome reports a new context only
- * to a session with `Runtime` on, and the engine does not turn it on; the answer names the context.
+ * to a session with `Runtime` on, and the engine does not turn it on; the answer names the context. A
+ * context of the extension's own worlds is never taken.
  */
-export function rememberContext(tabId: number, contextId: number): void {
-  tabs.get(tabId)?.contexts.add(contextId);
+export function rememberContext(tabId: number, session: string | undefined, contextId: number): void {
+  const entry = tabs.get(tabId);
+  if (!entry || entry.reserved.get(sessionKey(session))?.has(contextId)) return;
+  contextSet(entry.contexts, session).add(contextId);
+}
+
+/** A context of the extension's own world (the secret check, an agent script): no command names it. */
+export function reserveContext(tabId: number, session: string | undefined, contextId: number): void {
+  const entry = tabs.get(tabId);
+  if (!entry) return;
+  contextSet(entry.reserved, session).add(contextId);
+  entry.contexts.get(sessionKey(session))?.delete(contextId);
 }
 
 /** Child sessions that a command may name: registered and not on the floor. */
@@ -132,6 +166,7 @@ export function ensureAttached(tab: AgentTab): Promise<void> {
     entry.attached = true;
     entry.frames.clear();
     entry.contexts.clear();
+    entry.reserved.clear();
     state.attachedTabIds.add(tab.tabId);
     persist();
     // Frames of another origin become targets of their own; the floor check needs to see each one.
@@ -326,6 +361,11 @@ export function onDebuggerEvent(
     const frame = isDynamicRecord(params.frame) ? params.frame : {};
     if (frame.parentId === undefined && isString(frame.url) && mainFrameOnFloor(tab, frame.url)) return;
   }
+  // A new document in the top frame of a session: the contexts of the last one are gone.
+  if (method === "Page.frameNavigated" && isDynamicRecord(params.frame) && params.frame.parentId === undefined) {
+    entry.contexts.delete(sessionKey(session));
+    entry.reserved.delete(sessionKey(session));
+  }
   switch (method) {
     case "Target.attachedToTarget":
     case "Target.targetInfoChanged": {
@@ -338,6 +378,8 @@ export function onDebuggerEvent(
     }
     case "Target.detachedFromTarget": {
       if (isString(params.sessionId)) {
+        entry.contexts.delete(params.sessionId);
+        entry.reserved.delete(params.sessionId);
         const frame = entry.frames.get(params.sessionId);
         // A blocked frame stays listed, so its session id is refused if the app still names it.
         if (frame && !frame.blocked) entry.frames.delete(params.sessionId);
@@ -347,14 +389,22 @@ export function onDebuggerEvent(
     }
     case "Runtime.executionContextCreated": {
       const context = isDynamicRecord(params.context) ? params.context : {};
-      if (isNumber(context.id)) entry.contexts.add(context.id);
+      const aux = isDynamicRecord(context.auxData) ? context.auxData : {};
+      // Only the page's own worlds and the engine's world: not the secret check's, not the content
+      // scripts of another extension (a password manager's world is one of them).
+      const pageWorld = aux.isDefault === true || aux.type === "default";
+      if (!isNumber(context.id) || !(pageWorld || context.name === ENGINE_WORLD_NAME)) return;
+      if (entry.reserved.get(sessionKey(session))?.has(context.id)) return;
+      contextSet(entry.contexts, session).add(context.id);
       break;
     }
     case "Runtime.executionContextDestroyed":
-      if (isNumber(params.executionContextId)) entry.contexts.delete(params.executionContextId);
+      if (isNumber(params.executionContextId))
+        entry.contexts.get(sessionKey(session))?.delete(params.executionContextId);
       break;
     case "Runtime.executionContextsCleared":
-      if (session === undefined) entry.contexts.clear();
+      entry.contexts.delete(sessionKey(session));
+      entry.reserved.delete(sessionKey(session));
       break;
     case "Inspector.targetCrashed":
       emit("tab.updated", { handle: tab.handle, status: "unloaded" });

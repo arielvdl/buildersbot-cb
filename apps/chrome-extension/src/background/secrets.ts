@@ -3,10 +3,16 @@
  *
  * The check runs in an isolated world of the extension's own, in every frame of the tab: the frames of
  * the main session and the frames of each child session (a frame of another site, such as the card
- * fields of a payment provider). It looks for a password, one-time code or card field whose value was
- * not typed by `secret.fill`. Chrome's password manager and autofill fill such fields, and a screenshot,
- * an accessibility tree or an agent script would then carry the value. The check reads the value but
- * never sends it anywhere.
+ * fields of a payment provider). It looks, also inside open shadow roots, for a password, one-time code
+ * or card field with a value. Chrome's password manager and autofill fill such fields, and a
+ * screenshot, an accessibility tree or a read of the page would then carry the value. The check reads
+ * the value but never sends it anywhere.
+ *
+ * - A field that `secret.fill` typed does not count only for a read that shows it masked (a screenshot,
+ *   the accessibility tree), and only while it is still the password field that it was. Any other read
+ *   (page code, the DOM) is strict: every secret counts.
+ * - No command of the agents can reach the guard world: its name is not one that a command may give,
+ *   and its contexts are never ones that a command may name (`reserveContext`).
  *
  * - The world is made again for each check (`Page.createIsolatedWorld` gives the same world of a frame
  *   back), never taken from a cache: a context id names another document after a navigation.
@@ -18,25 +24,62 @@
  * tab runs in between. The text never comes back in a result, an event, an error or a log.
  */
 
-import { isBoolean, isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
-import { frameTargets, internalCommand, whenIdle } from "./debugger";
+import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
+import { frameTargets, internalCommand, reserveContext, whenIdle } from "./debugger";
 import { BridgeError, originOf } from "./util";
 
 const GUARD_WORLD = "builders-bot-guard";
 const CLEAN_FOR_MS = 1_000;
 
-/** When each tab was last found with no secret, until a command that can change the page. */
-const cleanAt = new Map<number, number>();
+/**
+ * What the last check of each tab found, until a command that can change the page: 0 no secret, 1 only
+ * passwords that `secret.fill` typed, still in their password fields.
+ */
+const cleanAt = new Map<number, { at: number; level: 0 | 1 }>();
 
 const SECRET_FIELDS =
   'input[type="password" i],input[autocomplete~="one-time-code" i],input[autocomplete^="cc-" i],input[autocomplete*=" cc-" i]';
+/** The fields that `secret.fill` typed, with what they were then: element to "type|autocomplete". */
+const FILLED = "__bbFilledFields";
+/** Elements past which the walk for open shadow roots stops. */
+const MAX_WALK = 50_000;
 
+/**
+ * 2 when a frame holds a secret, 1 when it holds only passwords that `secret.fill` typed and that are
+ * still password fields as they were, 0 when it holds neither. A typed field that changed (its type,
+ * its autocomplete, or no longer a secret field) is a secret: a screenshot would show its value.
+ */
 const CHECK = `(() => {
-  const filled = globalThis.__bbFilled;
-  for (const field of document.querySelectorAll(${JSON.stringify(SECRET_FIELDS)})) {
-    if (field.value !== "" && !(filled && filled.has(field))) return true;
+  const fields = ${JSON.stringify(SECRET_FIELDS)};
+  const filled = globalThis[${JSON.stringify(FILLED)}];
+  const signature = (field) => String(field.type) + "|" + String(field.getAttribute("autocomplete") ?? "");
+  const masked = (field) => {
+    const kept = filled instanceof Map ? filled.get(field) : undefined;
+    return kept !== undefined && kept === signature(field) && field.type === "password";
+  };
+  let level = 0;
+  const roots = [document];
+  let walked = 0;
+  for (let index = 0; index < roots.length; index += 1) {
+    const root = roots[index];
+    for (const field of root.querySelectorAll(fields)) {
+      if (field.value === "" && (field.getAttribute("value") ?? "") === "") continue;
+      if (!masked(field)) return 2;
+      level = 1;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let node = walker.nextNode(); node && walked < ${MAX_WALK}; node = walker.nextNode()) {
+      walked += 1;
+      if (node.shadowRoot) roots.push(node.shadowRoot);
+    }
   }
-  return false;
+  if (filled instanceof Map)
+    for (const field of filled.keys()) {
+      if (!field.isConnected || field.value === "") continue;
+      if (!field.matches(fields) || !masked(field)) return 2;
+      level = 1;
+    }
+  return level;
 })()`;
 
 /** The ids of every frame in a session's frame tree. */
@@ -53,7 +96,7 @@ function frameIds(tree: unknown): string[] {
   return ids;
 }
 
-/** The guard world of one frame, made now. */
+/** The guard world of one frame, made now. No command of the agents may name its context. */
 async function guardWorld(tabId: number, frameId: string, session: string | undefined): Promise<number> {
   const world = await internalCommand(
     tabId,
@@ -62,16 +105,14 @@ async function guardWorld(tabId: number, frameId: string, session: string | unde
     session,
   );
   if (!isNumber(world.executionContextId)) throw new BridgeError("cdp_error", "no isolated world");
+  reserveContext(tabId, session, world.executionContextId);
   return world.executionContextId;
 }
 
-/** Whether a frame of this session holds a secret. `remote` frames have a session of their own. */
-async function sessionHasSecret(
-  tabId: number,
-  session: string | undefined,
-  remote: ReadonlySet<string>,
-): Promise<boolean> {
+/** The highest level of `CHECK` in the frames of this session. `remote` frames have a session of their own. */
+async function sessionLevel(tabId: number, session: string | undefined, remote: ReadonlySet<string>): Promise<number> {
   const tree = await internalCommand(tabId, "Page.getFrameTree", {}, session);
+  let level = 0;
   for (const frameId of frameIds(tree.frameTree)) {
     if (remote.has(frameId)) continue;
     const contextId = await guardWorld(tabId, frameId, session);
@@ -82,34 +123,39 @@ async function sessionHasSecret(
       session,
     );
     const result = isDynamicRecord(answer.result) ? answer.result : {};
-    // Fail closed: an answer that is not `false` counts as a secret.
-    if (!(isBoolean(result.value) && result.value === false)) return true;
+    // Fail closed: an answer that is not 0 or 1 counts as a secret.
+    const found = result.value === 0 || result.value === 1 ? result.value : 2;
+    if (found === 2) return 2;
+    level = Math.max(level, found);
   }
-  return false;
+  return level;
 }
 
-/** Whether any frame of the tab holds a secret that `secret.fill` did not type. */
-export async function secretPresent(tabId: number): Promise<boolean> {
+/**
+ * Whether any frame of the tab holds a secret. `strict` counts the fields that `secret.fill` typed too;
+ * otherwise a password that it typed, still in its password field, does not count.
+ */
+export async function secretPresent(tabId: number, strict: boolean): Promise<boolean> {
   const clean = cleanAt.get(tabId);
-  if (clean !== undefined && Date.now() - clean < CLEAN_FOR_MS) return false;
+  if (clean !== undefined && Date.now() - clean.at < CLEAN_FOR_MS && (clean.level === 0 || !strict)) return false;
   const children = [...frameTargets(tabId)];
   // A frame of another process is listed in the main tree too; its own session checks it.
   const remote = new Set(children.map(([, frame]) => frame.targetId));
-  let present: boolean;
+  let level: number;
   try {
-    present = await sessionHasSecret(tabId, undefined, remote);
+    level = await sessionLevel(tabId, undefined, remote);
     for (const [sessionId, frame] of children) {
-      if (present) break;
+      if (level === 2) break;
       if (frame.blocked) continue;
-      present = await sessionHasSecret(tabId, sessionId, new Set());
+      level = Math.max(level, await sessionLevel(tabId, sessionId, new Set()));
     }
   } catch {
     // A frame that the check could not reach can hold a secret.
-    present = true;
+    level = 2;
   }
-  if (present) cleanAt.delete(tabId);
-  else cleanAt.set(tabId, Date.now());
-  return present;
+  if (level === 0 || level === 1) cleanAt.set(tabId, { at: Date.now(), level });
+  else cleanAt.delete(tabId);
+  return level === 2 || (strict && level === 1);
 }
 
 /** A command that can change the page ends the clean result of the tab. */
@@ -121,9 +167,18 @@ export function forgetSecrets(tabId: number): void {
   cleanAt.delete(tabId);
 }
 
-const IS_FOCUSED_FIELD =
-  "function () { return this.isConnected && this === document.activeElement && this.tagName !== 'IFRAME'; }";
-const REMEMBER_FILLED = "function () { (globalThis.__bbFilled ||= new WeakSet()).add(this); return true; }";
+/** The node is a secret field of this document, and it holds focus: the text goes nowhere else. */
+const IS_FOCUSED_FIELD = `function () {
+  return this instanceof HTMLInputElement && this.matches(${JSON.stringify(SECRET_FIELDS)}) &&
+    this.isConnected && this === document.activeElement;
+}`;
+/** Remembers the field and what it was, so a change of its type makes its value a secret again. */
+const REMEMBER_FILLED = `function () {
+  const filled = globalThis[${JSON.stringify(FILLED)}] instanceof Map ? globalThis[${JSON.stringify(FILLED)}] : new Map();
+  globalThis[${JSON.stringify(FILLED)}] = filled;
+  filled.set(this, String(this.type) + "|" + String(this.getAttribute("autocomplete") ?? ""));
+  return true;
+}`;
 
 /** The guard world of the main frame, made now. */
 async function mainGuardWorld(tabId: number): Promise<number> {
@@ -158,7 +213,8 @@ export async function fillSecret(tabId: number, expectOrigin: string, nodeId: nu
       returnByValue: true,
     });
     const result = isDynamicRecord(focused.result) ? focused.result : {};
-    if (result.value !== true) throw new BridgeError("out_of_scope", "the focus is not on the expected field");
+    if (result.value !== true)
+      throw new BridgeError("out_of_scope", "the focus is not on a password, code or card field that was expected");
     const after = await chrome.tabs.get(tabId);
     if (originOf(after.url) !== expectOrigin)
       throw new BridgeError("out_of_scope", "the page is not the expected site");

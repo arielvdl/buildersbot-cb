@@ -7,8 +7,10 @@
  *
  * The list comes from the methods that `src/backend/browser-*.ts` sends today, less what an extension
  * cannot do (`Target.attachToTarget`, `DOM.setFileInputFiles`) and what reads data the agent must not
- * get (cookies, storage, network bodies, the clipboard). Events leave the extension reduced to the
- * fields here; no `Network.*` event leaves it, because those carry cookie values, `HttpOnly` ones too.
+ * get (cookies, storage, network bodies, the clipboard, the tab's history). Page code runs only as an
+ * engine function of `cdp-functions.ts` (by digest), unless the person turned on the agent's own
+ * scripts. Events and results leave the extension reduced to the fields here; no `Network.*` event
+ * leaves it, because those carry cookie values, `HttpOnly` ones too.
  */
 
 import { type DynamicRecord, isBoolean, isDynamicRecord, isNumber, isString } from "../runtime-values";
@@ -37,8 +39,22 @@ export type CdpCondition =
   | "upload"
   /** Only in a tab that an agent created, not in a tab of the person. */
   | "agent-tab"
-  /** The extension runs its secret check before the command and refuses with `secret_present`. */
+  /**
+   * The extension runs its secret check before the command and refuses with `secret_present`. A field
+   * that `secret.fill` typed counts too, unless the read shows it masked (`secret-masked`).
+   */
   | "secret-check"
+  /**
+   * The read shows a password field only as dots (a screenshot, the accessibility tree), so a password
+   * that `secret.fill` typed, in a field that is still a password field, does not count.
+   */
+  | "secret-masked"
+  /**
+   * Page code. It runs only when its declaration is an engine function of `cdp-functions.ts` (by
+   * SHA-256), or when the person turned on the agent's own scripts for the project. `Runtime.evaluate`
+   * has no engine function: the engine runs its code through `Runtime.callFunctionOn`.
+   */
+  | "scripts"
   /**
    * The extension checks the floor on the URL of the history entry before the command. A page from
    * the back-forward cache loads with no request, so the `declarativeNetRequest` rule cannot stop it.
@@ -72,22 +88,29 @@ const rect: CdpParamRule = {
 };
 const empty = { params: {} } as const;
 
+/** The isolated world of the browser engine, the only world that a command may make. */
+export const ENGINE_WORLD_NAME = "openbot-browser-automation";
+
 export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
   "Accessibility.enable": empty,
   "Accessibility.getFullAXTree": {
     params: { depth: { t: "int", min: -1, max: 1000 }, frameId },
-    when: ["secret-check"],
+    when: ["secret-check", "secret-masked"],
   },
   "Accessibility.getPartialAXTree": {
     params: { ...nodeTarget, fetchRelatives: bool },
-    when: ["secret-check"],
+    when: ["secret-check", "secret-masked"],
   },
 
   "DOM.enable": { params: { includeWhitespace: { t: "str", max: 8, oneOf: ["none", "all"] } } },
-  "DOM.describeNode": { params: { ...nodeTarget, depth: { t: "int", min: -1, max: 64 }, pierce: bool } },
+  // Attributes can hold a value that the server wrote into a secret field.
+  "DOM.describeNode": {
+    params: { ...nodeTarget, depth: { t: "int", min: -1, max: 64 }, pierce: bool },
+    when: ["secret-check"],
+  },
   "DOM.focus": { params: nodeTarget },
   "DOM.getBoxModel": { params: nodeTarget },
-  "DOM.getDocument": { params: { depth: { t: "int", min: -1, max: 64 }, pierce: bool } },
+  "DOM.getDocument": { params: { depth: { t: "int", min: -1, max: 64 }, pierce: bool }, when: ["secret-check"] },
   "DOM.getFrameOwner": { params: { frameId }, required: ["frameId"] },
   "DOM.getNodeForLocation": {
     params: { x: pixels, y: pixels, includeUserAgentShadowDOM: bool, ignorePointerEventsNone: bool },
@@ -163,6 +186,7 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
       commands: { t: "arr", max: 1, item: { t: "str", max: 16, oneOf: ["selectAll"] } },
     },
     required: ["type"],
+    // The keys of copy, cut and paste are refused in `checkCdpCommand`, see `isClipboardKey`.
   },
   "Input.insertText": { params: { text: { t: "str", max: 64 * 1024 } }, required: ["text"] },
   "Input.dispatchDragEvent": {
@@ -227,7 +251,6 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
   "Page.navigate": { params: { url: { t: "str", max: 8192 } }, required: ["url"] },
   "Page.reload": { params: { ignoreCache: bool } },
   "Page.stopLoading": empty,
-  "Page.getNavigationHistory": empty,
   "Page.navigateToHistoryEntry": {
     params: { entryId: { t: "int", min: 0, max: 2 ** 31 - 1 } },
     required: ["entryId"],
@@ -238,9 +261,10 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
     params: { accept: bool, promptText: { t: "str", max: 2048 } },
     required: ["accept"],
   },
+  // Only the engine's world: the extension's own worlds (the secret check) have names of their own.
   "Page.createIsolatedWorld": {
-    params: { frameId, worldName: { t: "str", max: 64 }, grantUniveralAccess: falseOnly },
-    required: ["frameId"],
+    params: { frameId, worldName: { t: "str", max: 64, oneOf: [ENGINE_WORLD_NAME] }, grantUniveralAccess: falseOnly },
+    required: ["frameId", "worldName"],
   },
   "Page.setInterceptFileChooserDialog": { params: { enabled: bool }, required: ["enabled"], when: ["upload"] },
   "Page.captureScreenshot": {
@@ -262,7 +286,7 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
       captureBeyondViewport: falseOnly,
       optimizeForSpeed: bool,
     },
-    when: ["secret-check"],
+    when: ["secret-check", "secret-masked"],
   },
   "Page.setWebLifecycleState": { params: { state: { t: "str", max: 8, oneOf: ["active"] } }, required: ["state"] },
   "Page.bringToFront": { params: {}, when: ["no-op"] },
@@ -283,6 +307,7 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
       includeCommandLineAPI: falseOnly,
     },
     required: ["expression"],
+    when: ["scripts", "secret-check"],
   },
   "Runtime.callFunctionOn": {
     params: {
@@ -302,10 +327,12 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
       userGesture: bool,
     },
     required: ["functionDeclaration"],
+    when: ["scripts", "secret-check"],
   },
   "Runtime.getProperties": {
     params: { objectId, ownProperties: bool, accessorPropertiesOnly: bool, nonIndexedPropertiesOnly: bool },
     required: ["objectId"],
+    when: ["secret-check"],
   },
   "Runtime.releaseObject": { params: { objectId }, required: ["objectId"] },
 
@@ -333,13 +360,16 @@ export const CDP_ALLOWLIST: Readonly<Record<string, CdpMethodRule>> = {
 
 export type CdpDenial = {
   readonly ok: false;
-  readonly code: "method_denied" | "param_denied" | "site_blocked" | "out_of_scope";
+  readonly code: "method_denied" | "param_denied" | "site_blocked" | "out_of_scope" | "scripts_disabled";
   readonly reason: string;
 };
 export type CdpAllowed = {
   readonly ok: true;
-  /** Run the secret check before the command. */
-  readonly secretCheck: boolean;
+  /**
+   * The secret check before the command: "strict" counts every secret, "masked" lets a password that
+   * `secret.fill` typed pass, because the read shows it only as dots.
+   */
+  readonly secretCheck: "none" | "strict" | "masked";
   /** Check the floor on the URL of the history entry before the command. */
   readonly historyFloorCheck: boolean;
   /** Answer success and send nothing. */
@@ -350,7 +380,10 @@ export type CdpAllowed = {
 export interface CdpCheckContext {
   readonly operation: "navigate" | "upload" | "other";
   readonly agentTab: boolean;
-  /** The execution contexts that the tab reported, from `Runtime.executionContextCreated`. */
+  /**
+   * The execution contexts of the command's session that a command may name: the page's worlds and the
+   * engine's world, never the extension's own worlds (the secret check). An object id names one too.
+   */
   readonly contexts: ReadonlySet<number>;
   /** The child sessions of the tab that the extension registered, less the blocked ones. */
   readonly childSessions: ReadonlySet<string>;
@@ -359,8 +392,12 @@ export interface CdpCheckContext {
    * computes it (WebCrypto in the extension, `node:crypto` in the app); this file holds no crypto.
    */
   readonly functionDigest?: string;
+  /** Digests of every engine function (`cdp-functions.ts`). */
+  readonly engineFunctions: ReadonlySet<string>;
   /** Digests of the engine functions that may run with a user gesture (`cdp-functions.ts`). */
   readonly gestureFunctions: ReadonlySet<string>;
+  /** The person turned on the agent's own scripts for this project. */
+  readonly scripts: boolean;
   readonly floor: FloorOptions;
   /** The person allowed agents to bring tabs to the front. */
   readonly raiseTabs?: boolean;
@@ -424,6 +461,69 @@ function checkFields(
 const denied = (code: CdpDenial["code"], reason: string): CdpDenial => ({ ok: false, code, reason });
 
 /**
+ * The execution context of a remote object id, which V8 writes as `<isolate>.<context>.<object>`; null
+ * for an id in another form. An id is easy to make up: its context is checked as a context id is.
+ */
+export function objectIdContext(objectId: string): number | null {
+  const match = /^-?\d{1,20}\.(\d{1,10})\.\d{1,10}$/u.exec(objectId);
+  return match?.[1] === undefined ? null : Number(match[1]);
+}
+
+/** The object ids of a command: its own, and those of the arguments of a function call. */
+function objectIdsOf(values: DynamicRecord): string[] {
+  const ids = isString(values.objectId) ? [values.objectId] : [];
+  if (Array.isArray(values.arguments))
+    for (const argument of values.arguments)
+      if (isDynamicRecord(argument) && isString(argument.objectId)) ids.push(argument.objectId);
+  return ids;
+}
+
+const CONTROL = 2;
+const META = 4;
+const SHIFT = 8;
+/** The letters of copy, cut and paste: `key`, `code`, Windows key code, macOS key code. */
+const CLIPBOARD_LETTERS: readonly { key: string; code: string; windows: number; mac: number }[] = [
+  { key: "c", code: "KeyC", windows: 67, mac: 8 },
+  { key: "v", code: "KeyV", windows: 86, mac: 9 },
+  { key: "x", code: "KeyX", windows: 88, mac: 7 },
+];
+/** The keys that are copy, cut or paste by themselves, as some keyboards have them. */
+const CLIPBOARD_KEYS = new Set(["copy", "cut", "paste"]);
+
+/**
+ * Whether a key event can reach the person's clipboard: Ctrl or Cmd with C, V or X; Insert with Ctrl
+ * or Shift and Delete with Shift (copy, paste and cut on Windows and Linux); and the Copy, Cut and
+ * Paste keys. Each key is known by `key`, `code` and both key codes, so another spelling of the same
+ * key does not pass. The engine types with `Input.insertText` and pastes with a page event, never
+ * with these keys.
+ */
+export function isClipboardKey(params: DynamicRecord): boolean {
+  const modifiers = isNumber(params.modifiers) ? params.modifiers : 0;
+  const key = isString(params.key) ? params.key.toLowerCase() : "";
+  const code = isString(params.code) ? params.code.toLowerCase() : "";
+  const windows = isNumber(params.windowsVirtualKeyCode) ? params.windowsVirtualKeyCode : -1;
+  const mac = isNumber(params.nativeVirtualKeyCode) ? params.nativeVirtualKeyCode : -1;
+  const texts = [params.text, params.unmodifiedText].filter(isString).map((text) => text.toLowerCase());
+  if (CLIPBOARD_KEYS.has(key) || CLIPBOARD_KEYS.has(code)) return true;
+  const command = (modifiers & (CONTROL | META)) !== 0;
+  const letter = CLIPBOARD_LETTERS.some(
+    (entry) =>
+      key === entry.key ||
+      code === entry.code.toLowerCase() ||
+      windows === entry.windows ||
+      mac === entry.mac ||
+      texts.includes(entry.key),
+  );
+  if (command && letter) return true;
+  // Ctrl+V types the control character U+0016 on some layouts; C and X are U+0003 and U+0018.
+  if (texts.some((text) => ["\u0003", "\u0016", "\u0018"].includes(text))) return true;
+  const insert = key === "insert" || code === "insert" || windows === 45 || mac === 114;
+  const del = key === "delete" || code === "delete" || windows === 46 || mac === 117;
+  if (insert && (modifiers & (CONTROL | SHIFT)) !== 0) return true;
+  return del && (modifiers & SHIFT) !== 0;
+}
+
+/**
  * The decision for one CDP command: the method, every parameter, and the conditions of its context.
  * `session` is the child session it targets, or undefined for the tab itself.
  */
@@ -447,6 +547,22 @@ export function checkCdpCommand(
     return denied("method_denied", `${method} is allowed only during an upload`);
   if (when.includes("agent-tab") && !context.agentTab)
     return denied("method_denied", `${method} is allowed only in a tab an agent opened`);
+  if (
+    when.includes("scripts") &&
+    !context.scripts &&
+    !(
+      method === "Runtime.callFunctionOn" &&
+      context.functionDigest !== undefined &&
+      context.engineFunctions.has(context.functionDigest)
+    )
+  )
+    return denied("scripts_disabled", `${method} runs only the engine's own functions while scripts are off`);
+
+  for (const objectId of objectIdsOf(values)) {
+    const objectContext = objectIdContext(objectId);
+    if (objectContext === null || !context.contexts.has(objectContext))
+      return denied("param_denied", "an object id names an object outside the contexts of this tab");
+  }
 
   switch (method) {
     case "Page.navigate": {
@@ -475,10 +591,14 @@ export function checkCdpCommand(
       if (!isString(values.sessionId) || !context.childSessions.has(values.sessionId))
         return denied("out_of_scope", "params.sessionId is not a frame of this tab");
       break;
+    case "Input.dispatchKeyEvent":
+      if (isClipboardKey(values))
+        return denied("param_denied", "a copy, cut or paste key would reach the person's clipboard");
+      break;
   }
   return {
     ok: true,
-    secretCheck: when.includes("secret-check"),
+    secretCheck: !when.includes("secret-check") ? "none" : when.includes("secret-masked") ? "masked" : "strict",
     historyFloorCheck: when.includes("history-floor"),
     noOp: when.includes("no-op") && context.raiseTabs !== true,
   };
@@ -645,4 +765,246 @@ export const CDP_EVENTS: { readonly [method: string]: EventProjection } = {
 export function projectCdpEvent(method: string, params: unknown): CdpEventFields | null {
   const projection = Object.hasOwn(CDP_EVENTS, method) ? CDP_EVENTS[method] : undefined;
   return projection ? projection(isDynamicRecord(params) ? params : {}) : null;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Results
+
+/** What a result projection needs from the caller. */
+export interface CdpResultContext {
+  /** Whether the URL of a frame is a site of the floor. Its URL and origin leave hidden. */
+  readonly onFloor: (url: string) => boolean;
+}
+
+type ResultProjection = (result: DynamicRecord, context: CdpResultContext) => DynamicRecord;
+
+/** The fields of `value` that this list names, as they are. */
+const pick = (value: unknown, fields: readonly string[]): { [field: string]: unknown } => {
+  const out: { [field: string]: unknown } = {};
+  if (!isDynamicRecord(value)) return out;
+  for (const field of fields) if (Object.hasOwn(value, field) && value[field] !== undefined) out[field] = value[field];
+  return out;
+};
+const withoutFragment = (url: string): string => {
+  const hash = url.indexOf("#");
+  return hash === -1 ? url : url.slice(0, hash);
+};
+/** A list of the projected entries, or nothing when the value is not a list. */
+const listOf = <T>(value: unknown, project: (entry: unknown) => T): T[] | undefined =>
+  Array.isArray(value) ? value.map(project) : undefined;
+const setDefined = (out: { [field: string]: unknown }, field: string, value: unknown): void => {
+  if (value !== undefined) out[field] = value;
+};
+
+const REMOTE_OBJECT_FIELDS = [
+  "type",
+  "subtype",
+  "className",
+  "value",
+  "unserializableValue",
+  "description",
+  "objectId",
+] as const;
+const remoteObject = (value: unknown) => pick(value, REMOTE_OBJECT_FIELDS);
+/** An exception, without the URL and the stack of the script that threw. */
+const exceptionDetails = (value: unknown) => {
+  const out = pick(value, ["exceptionId", "text", "lineNumber", "columnNumber", "executionContextId"]);
+  if (isDynamicRecord(value) && value.exception !== undefined) out.exception = remoteObject(value.exception);
+  return out;
+};
+const evaluation: ResultProjection = (result) => {
+  const out: { [field: string]: unknown } = { result: remoteObject(result.result) };
+  if (result.exceptionDetails !== undefined) out.exceptionDetails = exceptionDetails(result.exceptionDetails);
+  return out;
+};
+
+const NODE_FIELDS = [
+  "nodeId",
+  "parentId",
+  "backendNodeId",
+  "nodeType",
+  "nodeName",
+  "localName",
+  "nodeValue",
+  "childNodeCount",
+  "attributes",
+  "publicId",
+  "systemId",
+  "internalSubset",
+  "xmlVersion",
+  "name",
+  "value",
+  "pseudoType",
+  "pseudoIdentifier",
+  "shadowRootType",
+  "frameId",
+  "isSVG",
+  "compatibilityMode",
+  "isScrollable",
+] as const;
+const backendNode = (value: unknown) => pick(value, ["nodeType", "nodeName", "backendNodeId"]);
+/** A DOM node and the nodes in it, with the closed fields and no URL fragment. */
+function domNode(value: unknown, depth = 0): { [field: string]: unknown } {
+  const out = pick(value, NODE_FIELDS);
+  if (!isDynamicRecord(value)) return out;
+  if (isString(value.documentURL)) out.documentURL = withoutFragment(value.documentURL);
+  if (isString(value.baseURL)) out.baseURL = withoutFragment(value.baseURL);
+  if (depth >= 256) return out;
+  const nested = (entry: unknown) => domNode(entry, depth + 1);
+  setDefined(out, "children", listOf(value.children, nested));
+  setDefined(out, "shadowRoots", listOf(value.shadowRoots, nested));
+  setDefined(out, "pseudoElements", listOf(value.pseudoElements, nested));
+  setDefined(out, "distributedNodes", listOf(value.distributedNodes, backendNode));
+  if (value.contentDocument !== undefined) out.contentDocument = nested(value.contentDocument);
+  if (value.templateContent !== undefined) out.templateContent = nested(value.templateContent);
+  if (value.importedDocument !== undefined) out.importedDocument = nested(value.importedDocument);
+  if (value.assignedSlot !== undefined) out.assignedSlot = backendNode(value.assignedSlot);
+  return out;
+}
+
+/** A frame tree with the closed fields, no URL fragment, and frames of the floor hidden. */
+function frameTree(value: unknown, context: CdpResultContext, depth = 0): { [field: string]: unknown } {
+  const tree = isDynamicRecord(value) ? value : {};
+  const source = isDynamicRecord(tree.frame) ? tree.frame : {};
+  const frame = pick(source, ["id", "parentId", "loaderId", "name", "securityOrigin", "mimeType"]);
+  const url = isString(source.url) ? withoutFragment(source.url) : "";
+  frame.url = url;
+  if (url !== "" && context.onFloor(url)) {
+    frame.url = "about:blank";
+    frame.securityOrigin = "null";
+    frame.name = "";
+  }
+  const out: { [field: string]: unknown } = { frame };
+  if (depth < 64)
+    setDefined(
+      out,
+      "childFrames",
+      listOf(tree.childFrames, (entry) => frameTree(entry, context, depth + 1)),
+    );
+  return out;
+}
+
+const AX_NODE_FIELDS = [
+  "nodeId",
+  "ignored",
+  "ignoredReasons",
+  "role",
+  "chromeRole",
+  "name",
+  "description",
+  "value",
+  "properties",
+  "parentId",
+  "childIds",
+  "backendDOMNodeId",
+  "frameId",
+] as const;
+/** An accessibility node. The document's own node names the page URL, which loses its fragment. */
+function axNode(value: unknown): { [field: string]: unknown } {
+  const out = pick(value, AX_NODE_FIELDS);
+  const role = isDynamicRecord(out.role) ? out.role.value : undefined;
+  if ((role === "RootWebArea" || role === "WebArea") && Array.isArray(out.properties))
+    out.properties = out.properties.map((property) => {
+      if (!isDynamicRecord(property) || property.name !== "url" || !isDynamicRecord(property.value)) return property;
+      const url = property.value.value;
+      return isString(url) ? { ...property, value: { ...property.value, value: withoutFragment(url) } } : property;
+    });
+  return out;
+}
+
+const emptyResult: ResultProjection = () => ({});
+const axTree: ResultProjection = (result) => ({ nodes: listOf(result.nodes, axNode) ?? [] });
+
+/**
+ * The fields of each result that may leave the extension, for every method of `CDP_ALLOWLIST`. A field
+ * that a projection does not name stays in the extension, so a CDP release that adds a field adds
+ * nothing here.
+ */
+export const CDP_RESULTS: { readonly [method: string]: ResultProjection } = {
+  "Accessibility.enable": emptyResult,
+  "Accessibility.getFullAXTree": axTree,
+  "Accessibility.getPartialAXTree": axTree,
+  "DOM.enable": emptyResult,
+  "DOM.describeNode": (result) => ({ node: domNode(result.node) }),
+  "DOM.focus": emptyResult,
+  "DOM.getBoxModel": (result) => ({
+    model: pick(result.model, ["content", "padding", "border", "margin", "width", "height", "shapeOutside"]),
+  }),
+  "DOM.getDocument": (result) => ({ root: domNode(result.root) }),
+  "DOM.getFrameOwner": (result) => pick(result, ["backendNodeId", "nodeId"]),
+  "DOM.getNodeForLocation": (result) => pick(result, ["backendNodeId", "frameId", "nodeId"]),
+  "DOM.resolveNode": (result) => ({ object: remoteObject(result.object) }),
+  "DOM.scrollIntoViewIfNeeded": emptyResult,
+  "Emulation.setFocusEmulationEnabled": emptyResult,
+  "Emulation.setDeviceMetricsOverride": emptyResult,
+  "Emulation.clearDeviceMetricsOverride": emptyResult,
+  "Emulation.setEmulatedMedia": emptyResult,
+  "Input.dispatchMouseEvent": emptyResult,
+  "Input.dispatchKeyEvent": emptyResult,
+  "Input.insertText": emptyResult,
+  "Input.dispatchDragEvent": emptyResult,
+  "Input.setInterceptDrags": emptyResult,
+  "Log.enable": emptyResult,
+  "Log.disable": emptyResult,
+  "Network.enable": emptyResult,
+  "Network.disable": emptyResult,
+  "Network.setCacheDisabled": emptyResult,
+  "Overlay.enable": emptyResult,
+  "Overlay.highlightNode": emptyResult,
+  "Overlay.hideHighlight": emptyResult,
+  "Page.enable": emptyResult,
+  "Page.disable": emptyResult,
+  "Page.getFrameTree": (result, context) => ({ frameTree: frameTree(result.frameTree, context) }),
+  "Page.getLayoutMetrics": (result) =>
+    pick(result, [
+      "layoutViewport",
+      "visualViewport",
+      "contentSize",
+      "cssLayoutViewport",
+      "cssVisualViewport",
+      "cssContentSize",
+    ]),
+  "Page.navigate": (result) => pick(result, ["frameId", "loaderId", "errorText", "isDownload"]),
+  "Page.reload": emptyResult,
+  "Page.stopLoading": emptyResult,
+  "Page.navigateToHistoryEntry": emptyResult,
+  "Page.setLifecycleEventsEnabled": emptyResult,
+  "Page.handleJavaScriptDialog": emptyResult,
+  "Page.createIsolatedWorld": (result) => pick(result, ["executionContextId"]),
+  "Page.setInterceptFileChooserDialog": emptyResult,
+  "Page.captureScreenshot": (result) => pick(result, ["data"]),
+  "Page.setWebLifecycleState": emptyResult,
+  "Page.bringToFront": emptyResult,
+  "Runtime.enable": emptyResult,
+  "Runtime.evaluate": evaluation,
+  "Runtime.callFunctionOn": evaluation,
+  "Runtime.getProperties": (result) => {
+    const descriptor = (entry: unknown) => {
+      const out = pick(entry, ["name", "writable", "configurable", "enumerable", "wasThrown", "isOwn"]);
+      if (!isDynamicRecord(entry)) return out;
+      for (const field of ["value", "get", "set", "symbol"])
+        if (entry[field] !== undefined) out[field] = remoteObject(entry[field]);
+      return out;
+    };
+    const out: { [field: string]: unknown } = { result: listOf(result.result, descriptor) ?? [] };
+    setDefined(out, "internalProperties", listOf(result.internalProperties, descriptor));
+    setDefined(out, "privateProperties", listOf(result.privateProperties, descriptor));
+    if (result.exceptionDetails !== undefined) out.exceptionDetails = exceptionDetails(result.exceptionDetails);
+    return out;
+  },
+  "Runtime.releaseObject": emptyResult,
+  "Target.setAutoAttach": emptyResult,
+  "Target.detachFromTarget": emptyResult,
+  "Target.getTargetInfo": (result) => {
+    const source = isDynamicRecord(result.targetInfo) ? result.targetInfo : {};
+    const info = pick(source, ["targetId", "type", "title", "attached", "openerId", "canAccessOpener", "subtype"]);
+    if (isString(source.url)) info.url = withoutFragment(source.url);
+    return { targetInfo: info };
+  },
+};
+
+/** The result as it may leave the extension: only the fields of `CDP_RESULTS`, and `{}` for no method. */
+export function projectCdpResult(method: string, result: unknown, context: CdpResultContext): DynamicRecord {
+  const projection = Object.hasOwn(CDP_RESULTS, method) ? CDP_RESULTS[method] : undefined;
+  return projection ? projection(isDynamicRecord(result) ? result : {}, context) : {};
 }

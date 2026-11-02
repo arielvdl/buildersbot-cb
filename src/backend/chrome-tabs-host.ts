@@ -640,18 +640,17 @@ export class ChromeTabsHost {
     for (const handle of kept.handles) {
       if (this.#byHandle.has(handle)) continue;
       const tab = this.#register(lease, handle, null);
-      // The page of a tab taken back is unknown here until Chrome reports it: read it once.
+      // The page of a tab taken back is unknown here until Chrome reports it: read it once, from the
+      // tab's target (the tab's history is not a command in the person's Chrome).
       void Effect.runPromise(
-        Effect.tryPromise(() => tab.target.sendCommand("Page.getNavigationHistory", {})).pipe(
-          Effect.tap((history) =>
+        Effect.tryPromise(() => tab.target.sendCommand("Target.getTargetInfo", {})).pipe(
+          Effect.tap((target) =>
             Effect.sync(() => {
-              if (!isDynamicRecord(history) || !Array.isArray(history.entries)) return;
-              const index = typeof history.currentIndex === "number" ? history.currentIndex : -1;
-              const entry = history.entries[index];
-              if (isDynamicRecord(entry))
+              const info = isDynamicRecord(target) && isDynamicRecord(target.targetInfo) ? target.targetInfo : null;
+              if (info)
                 tab.target.receiveTabState({
-                  ...(isString(entry.url) ? { url: entry.url } : {}),
-                  ...(isString(entry.title) ? { title: entry.title } : {}),
+                  ...(isString(info.url) ? { url: info.url } : {}),
+                  ...(isString(info.title) ? { title: info.title } : {}),
                   status: "complete",
                 });
             }),
@@ -953,17 +952,15 @@ export class ChromeTabsHost {
           yield* current.target
             .waitForLoadAfter(mark, Math.min(5_000, Math.max(1, deadline - Date.now())))
             .pipe(Effect.ignore);
-          // Chrome reports no new title for a page that the back-forward cache gives back: read it once.
+          // Chrome reports no new title for a page that the back-forward cache gives back: read it once,
+          // from the tab's target. The tab's history is not a command in the person's Chrome.
           if (direction !== "reload") {
-            const history = yield* Effect.tryPromise({
-              try: () => current.target.sendCommand("Page.getNavigationHistory", {}),
+            const target = yield* Effect.tryPromise({
+              try: () => current.target.sendCommand("Target.getTargetInfo", {}),
               catch: browserFailure,
             }).pipe(Effect.orElseSucceed(() => null));
-            const entries = isDynamicRecord(history) && Array.isArray(history.entries) ? history.entries : [];
-            const index =
-              isDynamicRecord(history) && typeof history.currentIndex === "number" ? history.currentIndex : -1;
-            const entry = entries[index];
-            if (isDynamicRecord(entry) && isString(entry.title)) current.target.receiveTabState({ title: entry.title });
+            const info = isDynamicRecord(target) && isDynamicRecord(target.targetInfo) ? target.targetInfo : null;
+            if (info && isString(info.title)) current.target.receiveTabState({ title: info.title });
           }
         }),
       readResult,

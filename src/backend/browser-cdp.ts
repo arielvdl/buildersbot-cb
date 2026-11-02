@@ -60,7 +60,9 @@ import {
   axValue,
   type CdpResult,
   clamp,
+  callInContext,
   exceptionDescription,
+  DOCUMENT_READY_FUNCTION,
   frameAutomationContextId,
   frameIds,
   isFiniteNumber,
@@ -189,9 +191,9 @@ const FOCUSED_SELECTION = `
  * The frame element that holds focus when this world cannot look inside it, or null when the focus
  * is in reach. A same-origin frame is walked into by `FOCUSED_SELECTION` itself.
  */
-const FOCUSED_FRAME_SCRIPT = `(() => {${FOCUSED_SELECTION}
+const FOCUSED_FRAME_SCRIPT = `function() {${FOCUSED_SELECTION}
   return active?.tagName === "IFRAME" || active?.tagName === "FRAME" ? active : null;
-})()`;
+}`;
 
 /** Frames inside frames. Past this the focus is treated as in the last frame reached. */
 const MAX_FOCUSED_FRAME_DEPTH = 8;
@@ -1779,13 +1781,12 @@ export class BrowserCdpEngine {
         for (const capture of this.#snapshotTargets(Number.POSITIVE_INFINITY)) {
           if (ids.size === this.#uploadDocumentIds.size) break;
           const contextId = yield* automationContextId(send, capture.sessionId);
-          const result = yield* send(
-            "Runtime.evaluate",
-            {
-              expression: documentIdsExpression([...this.#uploadDocumentIds]),
-              contextId,
-              returnByValue: true,
-            },
+          const result = yield* callInContext(
+            send,
+            contextId,
+            DOCUMENT_IDS_FUNCTION,
+            [DOCUMENT_ID_PROPERTY, [...this.#uploadDocumentIds], MAX_SNAPSHOT_SCANNED_NODES],
+            { returnByValue: true },
             capture.sessionId,
           );
           const exception = recordValue(result.exceptionDetails);
@@ -2051,11 +2052,13 @@ export class BrowserCdpEngine {
           // including scrollbars: layoutViewport.clientWidth would shrink it and
           // can dispose a responsive page's OAuth callback during preview capture.
           const contextId = yield* automationContextId(send);
-          const result = yield* send("Runtime.evaluate", {
-            expression: "({ width: innerWidth, height: innerHeight, scale: devicePixelRatio })",
+          const result = yield* callInContext(
+            send,
             contextId,
-            returnByValue: true,
-          });
+            "function() { return { width: innerWidth, height: innerHeight, scale: devicePixelRatio }; }",
+            [],
+            { returnByValue: true },
+          );
           const viewport = recordValue(recordValue(result.result)?.value);
           yield* send("Emulation.setDeviceMetricsOverride", {
             width: numberValue(viewport?.width),
@@ -2278,13 +2281,12 @@ export class BrowserCdpEngine {
           // host's clipboard.
           if (input.type === "paste") {
             const world = yield* this.#focusedWorld(send);
-            const result = yield* send(
-              "Runtime.evaluate",
-              {
-                expression: `(${PASTE_EVENT_SCRIPT})(${JSON.stringify(input.text)})`,
-                contextId: world.contextId,
-                returnByValue: true,
-              },
+            const result = yield* callInContext(
+              send,
+              world.contextId,
+              PASTE_EVENT_SCRIPT,
+              [input.text],
+              { returnByValue: true },
               world.sessionId,
             );
             if (recordValue(result.result)?.value !== false) yield* send("Input.insertText", { text: input.text });
@@ -2292,13 +2294,12 @@ export class BrowserCdpEngine {
           }
           if (input.type === "cut") {
             const world = yield* this.#focusedWorld(send);
-            yield* send(
-              "Runtime.evaluate",
-              {
-                expression: `(${CUT_SCRIPT})(${JSON.stringify(input.text)})`,
-                contextId: world.contextId,
-                returnByValue: true,
-              },
+            yield* callInContext(
+              send,
+              world.contextId,
+              CUT_SCRIPT,
+              [input.text],
+              { returnByValue: true },
               world.sessionId,
             );
             return;
@@ -2376,9 +2377,12 @@ export class BrowserCdpEngine {
     return yield* this.#leaseEffect((send) =>
       Effect.gen({ self: this }, function* () {
         const world = yield* this.#focusedWorld(send);
-        const result = yield* send(
-          "Runtime.evaluate",
-          { expression: `(${SELECTION_TEXT_SCRIPT})(${max})`, contextId: world.contextId, returnByValue: true },
+        const result = yield* callInContext(
+          send,
+          world.contextId,
+          SELECTION_TEXT_SCRIPT,
+          [max],
+          { returnByValue: true },
           world.sessionId,
         );
         // Null is a selection longer than `max`, which is not sent.
@@ -2398,9 +2402,12 @@ export class BrowserCdpEngine {
     let sessionId: string | undefined;
     let contextId = yield* automationContextId(send);
     for (let depth = 0; depth < MAX_FOCUSED_FRAME_DEPTH; depth += 1) {
-      const probe = yield* send(
-        "Runtime.evaluate",
-        { expression: FOCUSED_FRAME_SCRIPT, contextId, returnByValue: false },
+      const probe = yield* callInContext(
+        send,
+        contextId,
+        FOCUSED_FRAME_SCRIPT,
+        [],
+        { returnByValue: false },
         sessionId,
       );
       const objectId = stringValue(recordValue(probe.result)?.objectId);
@@ -2570,9 +2577,7 @@ export class BrowserCdpEngine {
             if (condition.state === "load") matched &&= !this.#target.isLoading();
             if (condition.state === "domcontentloaded") {
               const contextId = yield* automationContextId(send);
-              const result = yield* send("Runtime.evaluate", {
-                expression: "document.readyState !== 'loading'",
-                contextId,
+              const result = yield* callInContext(send, contextId, DOCUMENT_READY_FUNCTION, [], {
                 returnByValue: true,
               });
               matched &&= recordValue(result.result)?.value === true;
@@ -3459,10 +3464,11 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
     captures.map((capture) =>
       Effect.gen(function* () {
         const contextId = yield* automationContextId(send, capture.sessionId);
-        return yield* send(
-          "Runtime.evaluate",
-          {
-            expression: `new Promise(resolve => {
+        return yield* callInContext(
+          send,
+          contextId,
+          `function(quietMs, maxNodes, deadlineMs) {
+      return new Promise(resolve => {
       let quietTimer;
       let deadlineTimer;
       let completed = false;
@@ -3479,13 +3485,13 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
       const changed = () => {
         discoverRoots();
         clearTimeout(quietTimer);
-        quietTimer = setTimeout(() => done(true), ${DOM_QUIET_MS});
+        quietTimer = setTimeout(() => done(true), quietMs);
       };
       const discoverRoots = () => {
         const pending = [document];
         let discovered = false;
         let scanned = 0;
-        while (pending.length && scanned < ${MAX_SNAPSHOT_SCANNED_NODES}) {
+        while (pending.length && scanned < maxNodes) {
           const root = pending.shift();
           if (!root) continue;
           if (!observedRoots.has(root)) {
@@ -3497,7 +3503,7 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
           }
           const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
           let node;
-          while ((node = walker.nextNode()) && scanned < ${MAX_SNAPSHOT_SCANNED_NODES}) {
+          while ((node = walker.nextNode()) && scanned < maxNodes) {
             scanned++;
             if (node.shadowRoot) pending.push(node.shadowRoot);
             if (node.localName === 'iframe' || node.localName === 'frame') {
@@ -3507,16 +3513,15 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
         }
         if (discovered) {
           clearTimeout(quietTimer);
-          quietTimer = setTimeout(() => done(true), ${DOM_QUIET_MS});
+          quietTimer = setTimeout(() => done(true), quietMs);
         }
       };
       discoverRoots();
-      deadlineTimer = setTimeout(() => done(false), ${deadlineMs});
-    })`,
-            contextId,
-            awaitPromise: true,
-            returnByValue: true,
-          },
+      deadlineTimer = setTimeout(() => done(false), deadlineMs);
+    });
+    }`,
+          [DOM_QUIET_MS, MAX_SNAPSHOT_SCANNED_NODES, deadlineMs],
+          { awaitPromise: true, returnByValue: true },
           capture.sessionId,
         );
       }).pipe(
@@ -3571,10 +3576,9 @@ function documentIdFunctionDeclaration(): string {
   }`;
 }
 
-function documentIdsExpression(documentIds: string[]): string {
-  return `(() => {
-    const key = ${JSON.stringify(DOCUMENT_ID_PROPERTY)};
-    const wanted = new Set(${JSON.stringify(documentIds)});
+/** Which of the wanted document ids the page still holds. Runs in the automation world. */
+const DOCUMENT_IDS_FUNCTION = `function(key, wantedIds, maxNodes) {
+    const wanted = new Set(wantedIds);
     const pending = [document];
     const seen = new Set();
     const ids = [];
@@ -3583,7 +3587,7 @@ function documentIdsExpression(documentIds: string[]): string {
     // be assigned to an input in an iframe nested inside a shadow root, and \`querySelectorAll\` stops
     // at the shadow boundary. A document this misses looks closed to the caller, which frees the
     // staged files the still-open input is holding.
-    while (pending.length && scanned < ${MAX_SNAPSHOT_SCANNED_NODES} && wanted.size > 0) {
+    while (pending.length && scanned < maxNodes && wanted.size > 0) {
       const root = pending.shift();
       if (!root || seen.has(root)) continue;
       seen.add(root);
@@ -3594,7 +3598,7 @@ function documentIdsExpression(documentIds: string[]): string {
       }
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
       let node;
-      while ((node = walker.nextNode()) && scanned < ${MAX_SNAPSHOT_SCANNED_NODES}) {
+      while ((node = walker.nextNode()) && scanned < maxNodes) {
         scanned++;
         if (node.shadowRoot) pending.push(node.shadowRoot);
         if (node.localName === 'iframe' || node.localName === 'frame') {
@@ -3604,6 +3608,5 @@ function documentIdsExpression(documentIds: string[]): string {
     }
     // Completeness is what the caller needs and cannot infer: an id absent from a truncated scan was
     // never looked for, while an id absent from an exhaustive one is genuinely gone.
-    return { ids, complete: wanted.size === 0 || scanned < ${MAX_SNAPSHOT_SCANNED_NODES} };
-  })()`;
-}
+    return { ids, complete: wanted.size === 0 || scanned < maxNodes };
+  }`;

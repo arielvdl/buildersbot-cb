@@ -15,7 +15,10 @@
 // Cases: pairing by the choice of words; the group named after the project (and a person's group of
 // the same name left alone); no focus taken; the same tab across turns; closed method, parameter and
 // event lists; the site floor (gate, page navigation, redirect, frame, app blocks) with a control host;
-// a tab closed by the person and a crashed tab; Stop all and Resume from the popup; N agents at once
+// a tab closed by the person and a crashed tab; the secret check; the security review of 02/11 (page
+// code only as engine functions, the guard world, clipboard keys, closed results, `secret.fill` only into
+// a secret field, a typed field that changes its type, a password in a shadow root); Stop all and
+// Resume from the popup; N agents at once
 // (latency, throughput, memory); the worker idle with the port open; and a reconnect after Chrome stops
 // the worker, by a browser event and by the watchdog alarm.
 //
@@ -35,6 +38,7 @@ import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
+import { ENGINE_FUNCTIONS } from "@openbot/contracts/chrome-bridge/cdp-functions";
 import {
   AppHandshake,
   type Established,
@@ -728,6 +732,15 @@ async function main(): Promise<void> {
           return page(`<p>shop</p><iframe src="http://control.test:${port}/pw"></iframe>`);
         case "/plain-frame":
           return page(`<p>shop</p><iframe src="http://control.test:${port}/page?frame=1"></iframe>`);
+        case "/secure":
+          return page(
+            `<input type="password" id="pw" autocomplete="current-password"><input id="plain" aria-label="Name"><p>secure page</p>`,
+          );
+        case "/shadow-pw":
+          // A password inside an open shadow root, as a web component login form holds it.
+          return page(
+            `<div id="host"></div><script>const root = document.getElementById("host").attachShadow({ mode: "open" }); root.innerHTML = '<input type="password">'; root.querySelector("input").value = "s3cret-shadow"</script>`,
+          );
         case "/same-site-frames":
           return page(
             `<input type="password" id="p"><script>document.getElementById("p").value = "s3cret-e2e"</script>` +
@@ -855,6 +868,57 @@ async function main(): Promise<void> {
     let inspector = await attach(inspectorTarget);
     const inspect = (code: string) => evaluate(inspector, `(async () => { ${code} })()`);
     await sleep(300);
+
+    // Page code reaches a tab only as an engine function, whose digest is in `cdp-functions.ts`. These
+    // are the engine's own declarations (`src/backend/browser-cdp-values.ts`), and the run checks that
+    // the table holds them.
+    const READY = "function() { return document.readyState !== 'loading'; }";
+    const ENGINE_WORLD = "openbot-browser-automation";
+    const resultOf = (answer: DynamicRecord): DynamicRecord => (isDynamicRecord(answer.result) ? answer.result : {});
+    /** A command that reaches the tab and changes nothing. */
+    const probe = (handle: string) => app.request("cdp.send", { handle, method: "Target.getTargetInfo", params: {} });
+    /** The tab's address and title, from Chrome. */
+    const tabInfo = async (handle: string) => {
+      const info = resultOf(await probe(handle)).targetInfo;
+      const record = isDynamicRecord(info) ? info : {};
+      return { url: isString(record.url) ? record.url : "", title: isString(record.title) ? record.title : "" };
+    };
+    /** The engine's world in the top frame of the tab, as `automationContextId` makes it. */
+    const engineWorld = async (handle: string): Promise<number> => {
+      const tree = resultOf(await app.request("cdp.send", { handle, method: "Page.getFrameTree", params: {} }));
+      const frame =
+        isDynamicRecord(tree.frameTree) && isDynamicRecord(tree.frameTree.frame) ? tree.frameTree.frame : {};
+      const world = resultOf(
+        await app.request("cdp.send", {
+          handle,
+          method: "Page.createIsolatedWorld",
+          params: { frameId: String(frame.id), worldName: ENGINE_WORLD },
+        }),
+      );
+      if (!isNumber(world.executionContextId)) throw new Failed("no engine world");
+      return world.executionContextId;
+    };
+    /** The engine's `READY` function in a context of the tab: whether the document has parsed. */
+    const engineReady = async (handle: string, contextId: number): Promise<boolean> => {
+      const answer = resultOf(
+        await app.request("cdp.send", {
+          handle,
+          method: "Runtime.callFunctionOn",
+          params: { functionDeclaration: READY, executionContextId: contextId, arguments: [], returnByValue: true },
+        }),
+      );
+      return isDynamicRecord(answer.result) && answer.result.value === true;
+    };
+    /**
+     * The page itself runs a script, outside the gate (a page that navigates or changes a field by
+     * itself). The extension page sends it on the extension's own debugger session of that tab.
+     */
+    const pageRuns = (urlPart: string, expression: string) =>
+      inspect(`
+        const [tab] = (await chrome.tabs.query({})).filter((t) => (t.url ?? "").includes(${JSON.stringify(urlPart)}));
+        if (!tab) throw new Error("no tab for ${urlPart}");
+        const answer = await chrome.debugger.sendCommand({ tabId: tab.id }, "Runtime.evaluate", { expression: ${JSON.stringify(expression)}, returnByValue: true });
+        return { value: answer?.result?.value ?? null };`);
 
     const project = { a: opaque(), b: opaque(), c: opaque() };
     const lease = { one: opaque(), two: opaque(), three: opaque(), four: opaque() };
@@ -1028,11 +1092,7 @@ async function main(): Promise<void> {
       const groupBefore = await inspect(
         `return { id: (await chrome.tabGroups.query({})).find((g) => g.title === "Projeto Alfa" && g.color === "green")?.id ?? null };`,
       );
-      const first = await app.request("cdp.send", {
-        handle: h1,
-        method: "Runtime.evaluate",
-        params: { expression: "document.title", returnByValue: true },
-      });
+      const first = await tabInfo(h1);
       const since = performance.now();
       await app.request("lease.close", { leaseId: lease.one });
       await app.waitEvent("tab.detached", (body) => body.handle === h1 && body.reason === "lease_end", 5_000, since);
@@ -1043,20 +1103,15 @@ async function main(): Promise<void> {
         initials: "A1",
       });
       const startedTurn = performance.now();
-      const second = await app.request("cdp.send", {
-        handle: h1,
-        method: "Runtime.evaluate",
-        params: { expression: "location.pathname + location.search", returnByValue: true },
-      });
+      const secondInfo = await tabInfo(h1);
       const firstCommandMs = Math.round(performance.now() - startedTurn);
+      const secondUrl = new URL(secondInfo.url);
+      const second = secondUrl.pathname + secondUrl.search;
+      const warmWorld = await engineWorld(h1);
       const warm: number[] = [];
       for (let index = 0; index < 20; index += 1) {
         const at = performance.now();
-        await app.request("cdp.send", {
-          handle: h1,
-          method: "Runtime.evaluate",
-          params: { expression: "1+1", returnByValue: true },
-        });
+        await engineReady(h1, warmWorld);
         warm.push(performance.now() - at);
       }
       const detachesWithinTurn = app.events.filter(
@@ -1066,18 +1121,16 @@ async function main(): Promise<void> {
       const groupAfter = await inspect(
         `return { id: (await chrome.tabGroups.query({})).find((g) => g.title === "Projeto Alfa" && g.color === "green")?.id ?? null };`,
       );
-      const value = (answer: DynamicRecord) =>
-        isDynamicRecord(answer.result) && isDynamicRecord(answer.result.result) ? answer.result.result.value : null;
       expect(tabsBefore.count === tabsAfter.count, "a turn made a new tab", { tabsBefore, tabsAfter });
       expect(isNumber(groupBefore.id) && groupBefore.id === groupAfter.id, "the group changed between turns", {
         groupBefore,
         groupAfter,
       });
-      expect(value(second) === "/page?i=1", "the next turn did not reach the same page", value(second));
+      expect(second === "/page?i=1", "the next turn did not reach the same page", second);
       expect(detachesWithinTurn === 0, "the debugger left the tab inside a turn");
       return {
-        firstTitle: value(first),
-        secondTurnPage: value(second),
+        firstTitle: first.title,
+        secondTurnPage: second,
         firstCommandOfTurnMs: firstCommandMs,
         warmCommandMs: stats(warm),
         tabsBefore,
@@ -1263,15 +1316,9 @@ async function main(): Promise<void> {
         });
         await sleep(800);
         const since = performance.now();
-        await app.request("cdp.send", {
-          handle: h1,
-          method: "Runtime.evaluate",
-          params: { expression: `location.href = ${JSON.stringify(`${bank}/by-page`)}; 1`, returnByValue: true },
-        });
+        await pageRuns("/bank-frame", `location.href = ${JSON.stringify(`${bank}/by-page`)}; 1`);
         const blocked = await app.waitEvent("tab.blocked", (body) => body.handle === h1, 5_000, since);
-        const afterBlock = await denied(
-          app.request("cdp.send", { handle: h1, method: "Runtime.evaluate", params: { expression: "1" } }),
-        );
+        const afterBlock = await denied(probe(h1));
         // The way out of quarantine: back in history, or, when Chrome has no entry to go back to (its
         // history intervention skips an entry left without a user gesture), close and open a new tab.
         const back = await denied(app.request("tab.history", { handle: h1, action: "back" }));
@@ -1283,13 +1330,7 @@ async function main(): Promise<void> {
           handles.push(h1);
         }
         await sleep(800);
-        const afterBack = await denied(
-          app.request("cdp.send", {
-            handle: h1,
-            method: "Runtime.evaluate",
-            params: { expression: "1", returnByValue: true },
-          }),
-        );
+        const afterBack = await denied(probe(h1));
         const appBlockedByPage = hits.filter((hit) => hit.host.startsWith("blocked-by-app.test")).length;
         const rules = await inspect(
           `return { rules: (await chrome.declarativeNetRequest.getSessionRules()).map((r) => ({ id: r.id, action: r.action.type, tabs: r.condition.tabIds?.length ?? 0, domains: r.condition.requestDomains?.length ?? 0 })) };`,
@@ -1428,11 +1469,9 @@ async function main(): Promise<void> {
         `const [tab] = (await chrome.tabs.query({})).filter((t) => (t.url ?? "").includes("page?i=2")); await chrome.tabs.remove(tab.id); return { id: tab.id };`,
       );
       const removed = await app.waitEvent("tab.removed", (body) => body.handle === second, 5_000, since);
-      const afterClose = await denied(
-        app.request("cdp.send", { handle: second, method: "Runtime.evaluate", params: { expression: "1" } }),
-      );
+      const afterClose = await denied(probe(second));
       const third = String((await app.request("tab.create", { leaseId: lease.one, url: `${base}/page?i=3` })).handle);
-      await app.request("cdp.send", { handle: third, method: "Runtime.evaluate", params: { expression: "1" } });
+      await probe(third);
       const crashTarget = await waitFor(
         () => [...targets.entries()].find(([, info]) => info.type === "page" && info.url.includes("page?i=3"))?.[0],
         5_000,
@@ -1550,6 +1589,197 @@ async function main(): Promise<void> {
       },
     );
 
+    await testCase(
+      "security review 02/11: engine code only, the guard world, clipboard keys, closed results, secret.fill",
+      async () => {
+        await app.request("lease.open", {
+          leaseId: lease.one,
+          projectKey: project.a,
+          agentLabel: "Agente Um",
+          initials: "A1",
+        });
+        const tab = String(
+          (await app.request("tab.create", { leaseId: lease.one, url: `${base}/secure#access_token=frag-secret` }))
+            .handle,
+        );
+        await sleep(600);
+        const send = (method: string, params: DynamicRecord = {}) =>
+          app.request("cdp.send", { handle: tab, method, params });
+        const digest = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+        const found: { [key: string]: unknown } = {};
+        // 1. Page code: only the engine's own functions, by digest. The agent's own code waits for scripts.
+        found.readyIsEngine = ENGINE_FUNCTIONS.has(digest(READY));
+        found.ownExpression = await denied(
+          send("Runtime.evaluate", { expression: "document.title", returnByValue: true }),
+        );
+        const world = await engineWorld(tab);
+        found.ownFunction = await denied(
+          send("Runtime.callFunctionOn", {
+            functionDeclaration: "function() { return document.cookie; }",
+            executionContextId: world,
+            returnByValue: true,
+          }),
+        );
+        found.engineFunction = await engineReady(tab, world).catch((error: unknown) =>
+          error instanceof AppError ? error.code : "error",
+        );
+        // 6. The guard world: no command makes it, and no event names its context.
+        await send("Page.captureScreenshot", { format: "jpeg", quality: 10 });
+        found.guardWorld = await denied(
+          send("Page.createIsolatedWorld", { frameId: String(world), worldName: "builders-bot-guard" }),
+        );
+        const tree = resultOf(await send("Page.getFrameTree"));
+        const mainFrame =
+          isDynamicRecord(tree.frameTree) && isDynamicRecord(tree.frameTree.frame) ? tree.frameTree.frame : {};
+        found.guardWorldInFrame = await denied(
+          send("Page.createIsolatedWorld", { frameId: String(mainFrame.id), worldName: "builders-bot-guard" }),
+        );
+        found.agentWorld = await denied(
+          send("Page.createIsolatedWorld", { frameId: String(mainFrame.id), worldName: "builders-bot-agent" }),
+        );
+        const enabledSince = performance.now();
+        await send("Runtime.enable");
+        await sleep(300);
+        const contexts = app.events
+          .filter((event) => event.at >= enabledSince && event.op === "cdp.event" && event.body.handle === tab)
+          .filter((event) => event.body.method === "Runtime.executionContextCreated")
+          .map((event) => (isDynamicRecord(event.body.params) ? event.body.params.context : null))
+          .filter(isDynamicRecord);
+        // The page's world and the engine's world only: the guard world of the screenshot is not listed.
+        found.contextsListed = contexts.length;
+        found.isolatedContextsListed = contexts.filter(
+          (context) => !(isDynamicRecord(context.auxData) && context.auxData.isDefault === true),
+        ).length;
+        // 3. Copy, cut and paste keys, in each spelling.
+        const keys: Record<string, DynamicRecord> = {
+          cmdC: { type: "rawKeyDown", key: "c", code: "KeyC", modifiers: 4 },
+          ctrlX: { type: "rawKeyDown", windowsVirtualKeyCode: 88, modifiers: 2 },
+          cmdVByMacCode: { type: "rawKeyDown", nativeVirtualKeyCode: 9, modifiers: 4 },
+          shiftInsert: { type: "rawKeyDown", code: "Insert", modifiers: 8 },
+          ctrlInsert: { type: "rawKeyDown", key: "Insert", modifiers: 2 },
+          pasteKey: { type: "rawKeyDown", key: "Paste" },
+        };
+        const keyResults: { [key: string]: string } = {};
+        for (const [name, params] of Object.entries(keys))
+          keyResults[name] = await denied(send("Input.dispatchKeyEvent", params));
+        found.keys = keyResults;
+        // 6. A made-up object id: V8 writes `<isolate>.<context>.<object>`, and a context next to the
+        // engine's is likely the guard world's. Only an object of a context that the tab may name passes.
+        const documentNode = resultOf(await send("DOM.getDocument", { depth: 0 })).root;
+        const resolved = resultOf(
+          await send("DOM.resolveNode", {
+            backendNodeId:
+              isDynamicRecord(documentNode) && isNumber(documentNode.backendNodeId) ? documentNode.backendNodeId : 0,
+            executionContextId: world,
+          }),
+        );
+        const realObject =
+          isDynamicRecord(resolved.object) && isString(resolved.object.objectId) ? resolved.object.objectId : "";
+        const objectParts = /^(-?\d+)\.(\d+)\.(\d+)$/u.exec(realObject);
+        found.objectIdForm = objectParts !== null && Number(objectParts[2]) === world;
+        found.realObject = await denied(send("Runtime.getProperties", { objectId: realObject, ownProperties: true }));
+        const forged: string[] = [];
+        const listed = new Set([world, ...contexts.map((context) => context.id).filter(isNumber)]);
+        for (let context = 1; context <= world + 4; context += 1)
+          if (!listed.has(context))
+            forged.push(await denied(send("Runtime.getProperties", { objectId: `${objectParts?.[1]}.${context}.1` })));
+        found.forgedObjects = [...new Set(forged)];
+        // 2. Results: no history, no fragment, closed fields.
+        found.history = await denied(send("Page.getNavigationHistory"));
+        const frameText = JSON.stringify(tree);
+        found.frameTreeFragment = frameText.includes("frag-secret") || frameText.includes("urlFragment");
+        found.targetInfoFragment = JSON.stringify(await probe(tab)).includes("frag-secret");
+        found.axFragment = JSON.stringify(await send("Accessibility.getFullAXTree")).includes("frag-secret");
+        // 5. `secret.fill` types only into a secret field that holds focus.
+        const documentRoot = resultOf(await send("DOM.getDocument", { depth: -1 })).root;
+        /** The node id of the element with this id attribute, from the DOM tree. */
+        const nodeIdOf = (id: string): number => {
+          const pending: unknown[] = [documentRoot];
+          while (pending.length > 0) {
+            const node = pending.pop();
+            if (!isDynamicRecord(node)) continue;
+            const attributes = Array.isArray(node.attributes) ? node.attributes : [];
+            for (let index = 0; index + 1 < attributes.length; index += 2)
+              if (attributes[index] === "id" && attributes[index + 1] === id && isNumber(node.nodeId))
+                return node.nodeId;
+            if (Array.isArray(node.children)) pending.push(...node.children);
+            if (node.contentDocument !== undefined) pending.push(node.contentDocument);
+          }
+          return 0;
+        };
+        found.fieldNodes = { plain: nodeIdOf("plain"), pw: nodeIdOf("pw") };
+        const origin = new URL(base).origin;
+        found.fillPlain = await denied(
+          app.request("secret.fill", {
+            handle: tab,
+            expectOrigin: origin,
+            nodeId: nodeIdOf("plain"),
+            text: "not-here",
+          }),
+        );
+        found.plainValue = (await pageRuns("/secure", `document.getElementById("plain").value`)).value;
+        found.fillPassword = await denied(
+          app.request("secret.fill", {
+            handle: tab,
+            expectOrigin: origin,
+            nodeId: nodeIdOf("pw"),
+            text: "typed-secret",
+          }),
+        );
+        // 4. A password that `secret.fill` typed: a masked read passes, a read of page values does not.
+        found.screenshotAfterFill = await denied(send("Page.captureScreenshot", { format: "jpeg", quality: 10 }));
+        found.engineReadAfterFill = await denied(
+          send("Runtime.callFunctionOn", {
+            functionDeclaration: READY,
+            executionContextId: await engineWorld(tab),
+            returnByValue: true,
+          }),
+        );
+        found.domReadAfterFill = await denied(send("DOM.getDocument", { depth: 1 }));
+        // 5. The page turns the typed field into a text field: a screenshot would show the value.
+        await pageRuns("/secure", `document.getElementById("pw").type = "text"; 1`);
+        // A change that the page makes by itself is seen once the last clean result (1 s) ends.
+        await sleep(1_200);
+        found.screenshotAfterTypeChange = await denied(send("Page.captureScreenshot", { format: "jpeg", quality: 10 }));
+        // A password in an open shadow root counts too.
+        await send("Page.navigate", { url: `${base}/shadow-pw` });
+        await sleep(1_000);
+        found.shadowPassword = await denied(send("Page.captureScreenshot", { format: "jpeg", quality: 10 }));
+        await app.request("tab.close", { handle: tab });
+        const expected: DynamicRecord = {
+          readyIsEngine: true,
+          ownExpression: "scripts_disabled",
+          ownFunction: "scripts_disabled",
+          engineFunction: true,
+          guardWorld: "param_denied",
+          guardWorldInFrame: "param_denied",
+          agentWorld: "param_denied",
+          isolatedContextsListed: 1,
+          objectIdForm: true,
+          realObject: "allowed",
+          forgedObjects: ["param_denied"],
+          keys: Object.fromEntries(Object.keys(keys).map((name) => [name, "param_denied"])),
+          history: "method_denied",
+          frameTreeFragment: false,
+          targetInfoFragment: false,
+          axFragment: false,
+          fillPlain: "out_of_scope",
+          plainValue: "",
+          fillPassword: "allowed",
+          screenshotAfterFill: "allowed",
+          engineReadAfterFill: "secret_present",
+          domReadAfterFill: "secret_present",
+          screenshotAfterTypeChange: "secret_present",
+          shadowPassword: "secret_present",
+        };
+        const differs = Object.entries(expected).filter(
+          ([key, value]) => JSON.stringify(found[key]) !== JSON.stringify(value),
+        );
+        expect(differs.length === 0, "a security check differs", { differs: Object.fromEntries(differs), found });
+        return found;
+      },
+    );
+
     await testCase("discard: a tab that Chrome discarded loads again before the next command reads it", async () => {
       await app.request("lease.open", {
         leaseId: lease.one,
@@ -1560,11 +1790,7 @@ async function main(): Promise<void> {
       const discardTab = String(
         (await app.request("tab.create", { leaseId: lease.one, url: `${base}/discard-me` })).handle,
       );
-      await app.request("cdp.send", {
-        handle: discardTab,
-        method: "Runtime.evaluate",
-        params: { expression: "1", returnByValue: true },
-      });
+      await probe(discardTab);
       // The end of the turn: the debugger leaves the tab, which can then be discarded.
       await app.request("lease.close", { leaseId: lease.one });
       await sleep(300);
@@ -1581,13 +1807,14 @@ async function main(): Promise<void> {
         agentLabel: "Agente Um",
         initials: "A1",
       });
-      const read = await app.request("cdp.send", {
-        handle: discardTab,
-        method: "Runtime.evaluate",
-        params: { expression: "location.pathname + '|' + document.title", returnByValue: true },
-      });
-      const value =
-        isDynamicRecord(read.result) && isDynamicRecord(read.result.result) ? read.result.result.value : null;
+      // The document itself, not what the tab strip keeps of a discarded tab: its text and its title.
+      const read = JSON.stringify(
+        resultOf(
+          await app.request("cdp.send", { handle: discardTab, method: "DOM.getDocument", params: { depth: -1 } }),
+        ),
+      );
+      const info = await tabInfo(discardTab);
+      const value = `${read.includes('"nodeValue":"/discard-me"') ? new URL(info.url).pathname : ""}|${info.title}`;
       await app.request("tab.close", { handle: discardTab });
       expect(value === "/discard-me|t", "the discarded tab answered with an empty page", { value, discarded });
       return { discarded, value };
@@ -1607,13 +1834,9 @@ async function main(): Promise<void> {
           5_000,
           since,
         );
-        const whileStopped = await denied(
-          app.request("cdp.send", { handle: h1, method: "Runtime.evaluate", params: { expression: "1" } }),
-        );
+        const whileStopped = await denied(probe(h1));
         const appResume = await denied(app.request("project.resume", { projectKey: project.a }));
-        const stillStopped = await denied(
-          app.request("cdp.send", { handle: h1, method: "Runtime.evaluate", params: { expression: "1" } }),
-        );
+        const stillStopped = await denied(probe(h1));
         const greyGroups = await inspect(
           `return { count: (await chrome.tabGroups.query({})).filter((g) => g.color === "grey").length };`,
         );
@@ -1622,9 +1845,7 @@ async function main(): Promise<void> {
         const resumeSince = performance.now();
         await evaluate(inspector, `document.querySelector("button.primary").click()`);
         await app.waitEvent("user.resume", (body) => body.source === "popup", 5_000, resumeSince);
-        const afterResume = await denied(
-          app.request("cdp.send", { handle: h1, method: "Runtime.evaluate", params: { expression: "1" } }),
-        );
+        const afterResume = await denied(probe(h1));
         expect(whileStopped === "paused_by_user" && stillStopped === "paused_by_user", "a command ran while stopped", {
           whileStopped,
           stillStopped,
@@ -1718,6 +1939,11 @@ async function main(): Promise<void> {
         await Promise.all(
           served.map(async (entry, index) => {
             let round = index;
+            const world = await engineWorld(entry.handle).catch(() => 0);
+            const ready = {
+              method: "Runtime.callFunctionOn",
+              params: { functionDeclaration: READY, executionContextId: world, arguments: [], returnByValue: true },
+            };
             while (performance.now() < until) {
               round += 1;
               const at = performance.now();
@@ -1726,27 +1952,20 @@ async function main(): Promise<void> {
                   await app.request("cdp.batch", {
                     handle: entry.handle,
                     commands: [
-                      {
-                        method: "Runtime.evaluate",
-                        params: { expression: "document.querySelectorAll('button').length", returnByValue: true },
-                      },
-                      { method: "Runtime.evaluate", params: { expression: "document.title", returnByValue: true } },
+                      ready,
+                      { method: "Target.getTargetInfo", params: {} },
                       { method: "Page.getLayoutMetrics", params: {} },
                       { method: "DOM.getDocument", params: { depth: 1 } },
-                      { method: "Runtime.evaluate", params: { expression: "innerWidth", returnByValue: true } },
-                      { method: "Runtime.evaluate", params: { expression: "innerHeight", returnByValue: true } },
-                      { method: "Runtime.evaluate", params: { expression: "location.href", returnByValue: true } },
-                      { method: "Runtime.evaluate", params: { expression: "1+1", returnByValue: true } },
+                      ready,
+                      ready,
+                      { method: "Page.getFrameTree", params: {} },
+                      ready,
                     ],
                   });
                   batchMs.push(performance.now() - at);
                   commands += 8;
                 } else {
-                  await app.request("cdp.send", {
-                    handle: entry.handle,
-                    method: "Runtime.evaluate",
-                    params: { expression: "document.querySelectorAll('button').length", returnByValue: true },
-                  });
+                  await app.request("cdp.send", { handle: entry.handle, ...ready });
                   sendMs.push(performance.now() - at);
                   commands += 1;
                 }
@@ -1857,11 +2076,7 @@ async function main(): Promise<void> {
           agentLabel: "Agente Um",
           initials: "A1",
         });
-        await app.request("cdp.send", {
-          handle: keep,
-          method: "Runtime.evaluate",
-          params: { expression: "1", returnByValue: true },
-        });
+        await probe(keep);
         const result = await idle(35);
         await app.request("lease.close", { leaseId: reconnectLease }).catch(() => undefined);
         expect(
@@ -1894,11 +2109,7 @@ async function main(): Promise<void> {
         agentLabel: "Agente Um",
         initials: "A1",
       });
-      await app.request("cdp.send", {
-        handle: keep,
-        method: "Runtime.evaluate",
-        params: { expression: "1", returnByValue: true },
-      });
+      await probe(keep);
       const closesBefore = app.closes;
       await cdp.send("Target.closeTarget", { targetId: worker ?? "" });
       await waitFor(() => (app.closes > closesBefore ? true : undefined), 10_000, "the connection to close");
@@ -1917,11 +2128,7 @@ async function main(): Promise<void> {
         initials: "A1",
       });
       const at = performance.now();
-      const again = await app.request("cdp.send", {
-        handle: keep,
-        method: "Runtime.evaluate",
-        params: { expression: "location.search", returnByValue: true },
-      });
+      const again = { result: { search: new URL((await tabInfo(keep)).url).search } };
       const firstCommandMs = Math.round(performance.now() - at);
       await app.request("lease.close", { leaseId: reconnectLease });
       expect(handlesBack.includes(keep), "the tab handle did not come back after the restart", ready.body);
@@ -1993,11 +2200,7 @@ async function main(): Promise<void> {
           agentLabel: "Agente Um",
           initials: "A1",
         });
-        const again = await app.request("cdp.send", {
-          handle: keep,
-          method: "Runtime.evaluate",
-          params: { expression: "location.search", returnByValue: true },
-        });
+        const again = { result: { search: new URL((await tabInfo(keep)).url).search } };
         await app.request("tab.create", { leaseId: reconnectLease, url: `${base}/page?after=update` });
         const groupsAfter = await inspect(`return { count: (await chrome.tabGroups.query({})).length };`);
         await app.request("lease.close", { leaseId: reconnectLease });
