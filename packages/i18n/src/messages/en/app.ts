@@ -290,8 +290,8 @@ export const messages = defineMessages("app", {
   "app.feed.live": "Live, following the newest",
   "app.feed.paused": "Paused",
   "app.feed.newItems": { one: "{count} new", other: "{count} new" },
-  "app.feed.jumpToNewest": { one: "{count} new run. Go to the newest", other: "{count} new runs. Go to the newest" },
-  "app.feed.jumpNext": "{label}: {total}. Go to the next one",
+  "app.feed.jumpToNewest": { one: "{count} new. Go to the newest run", other: "{count} new. Go to the newest run" },
+  "app.feed.jumpNext": "Go to the next one",
   "app.feed.announce.needsYou": { one: "{count} run needs you", other: "{count} runs need you" },
   "app.feed.chatWith": "Chat with {name}",
   "app.feed.unnamedAgent": "Agent",
@@ -323,5 +323,5 @@ export const messages = defineMessages("app", {
   "app.feed.team.title": "Team",
   "app.feed.team.active": "{active} of {total} active",
   "app.feed.team.hint": "Choose an agent to show only its runs.",
-  "app.feed.team.member": { one: "{name}, {state}, {count} run", other: "{name}, {state}, {count} runs" },
+  "app.feed.team.runs": { one: "{count} run", other: "{count} runs" },
 });

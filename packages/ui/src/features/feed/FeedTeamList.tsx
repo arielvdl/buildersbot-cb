@@ -42,11 +42,6 @@ export function FeedTeamList(props: FeedTeamListProps) {
                 class="feed-team-member"
                 data-state={member().state}
                 aria-pressed={props.selected === member().key ? "true" : "false"}
-                aria-label={t("app.feed.team.member", {
-                  name: member().name || t("app.feed.unnamedAgent"),
-                  state: t(teamStateLabel(member().state)),
-                  count: member().count,
-                })}
                 onClick={() => props.onSelect(props.selected === member().key ? null : member().key)}
               >
                 <AgentAvatar
@@ -66,7 +61,10 @@ export function FeedTeamList(props: FeedTeamListProps) {
                   <Show when={member().detail}>{(detail) => <span class="feed-team-detail">{detail()}</span>}</Show>
                 </span>
                 <Show when={member().count > 0}>
-                  <span class="feed-count">{member().count}</span>
+                  <span class="feed-count" aria-hidden="true">
+                    {member().count}
+                  </span>
+                  <span class="sr-only">{t("app.feed.team.runs", { count: member().count })}</span>
                 </Show>
               </Button>
             </li>

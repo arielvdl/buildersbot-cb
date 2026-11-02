@@ -9,7 +9,7 @@
 //   back to the newest card and follows again;
 // - in the whole app of the preview, the Feed button of the page rail opens the page, and a card opens
 //   the chat of its agent;
-// - the light and the dark palette render, and no error halts the page.
+// - the light and the dark palette render, axe-core finds no violation, and no error halts the page.
 // Pass the URL that `bun run storybook` reports:
 //
 //   bun scripts/feed-ui-e2e.ts --storybook=http://localhost:6006 [--browser-executable=<path>] [--prints=<folder>]
@@ -24,6 +24,8 @@ declare global {
   interface Window {
     /** The frame times that the scroll check records in the page. */
     feedFrames?: { times: number[]; running: boolean };
+    /** axe-core, added to the page by the accessibility check (the same type as `status-page-smoke.ts`). */
+    axe?: { run: () => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> };
   }
   interface Performance {
     /** Chromium only: the JavaScript heap of the page. */
@@ -32,6 +34,7 @@ declare global {
 }
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/feed-ui-e2e");
+const AXE = resolve(import.meta.dirname, "../node_modules/axe-core/axe.min.js");
 const argument = (name: string) =>
   process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(`--${name}=`.length);
 const storybook = argument("storybook")?.replace(/\/$/, "");
@@ -72,6 +75,8 @@ const report: {
   browser: string;
   dom?: { total: number; cards: number; rows: number; setSize: string | null; heapMb: number | null };
   domTypicalDay?: { total: number; cards: number };
+  /** The axe-core violations of the page, by story. */
+  accessibility: Record<string, string[]>;
   scroll?: FrameStats & { distancePx: number };
   liveScroll?: FrameStats;
   steps: string[];
@@ -86,6 +91,7 @@ const report: {
   screenshots: [],
   errors: [],
   failures: [],
+  accessibility: {},
   passed: false,
 };
 
@@ -151,6 +157,19 @@ async function scrollFrames(page: Page, step: number, turns: number): Promise<Fr
     longFrames: times.filter((time) => time > 50).length,
     distancePx: Math.round(start - end),
   };
+}
+
+/** Runs axe-core on the feed page and keeps the rules that failed, with the first element of each. */
+async function accessibility(page: Page, name: string): Promise<void> {
+  await page.addScriptTag({ path: AXE });
+  const violations = await page.evaluate(async () => {
+    if (!document.querySelector(".feed-page") || !window.axe) return ["no feed page or no axe"];
+    // The story frame holds the feed page alone.
+    const result = await window.axe.run();
+    return result.violations.map((violation) => `${violation.id}: ${violation.nodes[0]?.target.join(" ") ?? ""}`);
+  });
+  report.accessibility[name] = violations;
+  assert.deepEqual(violations, [], `${name}: axe found accessibility violations.`);
 }
 
 async function domCounts(page: Page) {
@@ -252,6 +271,7 @@ async function checkLive(browser: Browser): Promise<void> {
     const pill = page.locator(".feed-newest-button");
     await pill.getByText(/\d+ new/u).waitFor({ timeout: 10_000 });
     await shot(page, "feed-mvp-paused-light");
+    await accessibility(page, "paused-light");
     await pill.click();
     await page.getByText(text.live).waitFor({ timeout: 5_000 });
     await page.waitForFunction(() => {
@@ -292,6 +312,12 @@ async function checkScreens(browser: Browser): Promise<void> {
         .waitFor({ timeout: 240_000 });
       if (id === "typical-day") report.domTypicalDay = await domCounts(page);
       await shot(page, name);
+      if (id !== "empty") await accessibility(page, name);
+      if (id === "typical-day") {
+        await page.getByRole("button", { name: "Por projeto" }).click();
+        await page.locator(".feed-group-head").first().waitFor({ timeout: 5_000 });
+        await accessibility(page, `${name}-por-projeto`);
+      }
     } finally {
       await context.close();
     }

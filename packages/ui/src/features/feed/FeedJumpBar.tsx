@@ -39,12 +39,12 @@ export function FeedJumpBar(props: FeedJumpBarProps) {
               class="feed-counter"
               data-state={counter().state}
               disabled={total() === 0}
-              aria-label={t("app.feed.jumpNext", { label: label(), total: total() })}
               onClick={() => props.onJump(counter().state)}
             >
               <span class="feed-dot" aria-hidden="true" />
               {label()}
               <span class="feed-count">{total()}</span>
+              <span class="sr-only">{t("app.feed.jumpNext")}</span>
             </Button>
           );
         }}

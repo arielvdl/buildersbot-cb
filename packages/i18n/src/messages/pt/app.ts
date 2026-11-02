@@ -288,10 +288,10 @@ export const messages = {
   "app.feed.paused": "Pausado",
   "app.feed.newItems": { one: "{count} novo", other: "{count} novos" },
   "app.feed.jumpToNewest": {
-    one: "{count} execução nova. Ir para a mais nova",
-    other: "{count} execuções novas. Ir para a mais nova",
+    one: "{count} novo. Ir para a execução mais nova",
+    other: "{count} novos. Ir para a execução mais nova",
   },
-  "app.feed.jumpNext": "{label}: {total}. Ir para a próxima",
+  "app.feed.jumpNext": "Ir para a próxima",
   "app.feed.announce.needsYou": {
     one: "{count} execução precisa de você",
     other: "{count} execuções precisam de você",
@@ -326,5 +326,5 @@ export const messages = {
   "app.feed.team.title": "Equipe",
   "app.feed.team.active": "{active} de {total} ativos",
   "app.feed.team.hint": "Clique num agente para ver só as execuções dele.",
-  "app.feed.team.member": { one: "{name}, {state}, {count} execução", other: "{name}, {state}, {count} execuções" },
+  "app.feed.team.runs": { one: "{count} execução", other: "{count} execuções" },
 } as const satisfies PartialTranslation<typeof source>;

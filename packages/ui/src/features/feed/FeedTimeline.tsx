@@ -224,15 +224,16 @@ export function FeedTimeline(props: FeedTimelineProps) {
                         : "none",
                     }}
                   >
+                    {/* A heading is not a child that an ARIA feed allows, and each card names its project and agent. */}
                     <Show when={group()}>
                       {(head) => (
-                        <h3 class="feed-group-head">
+                        <div class="feed-group-head" aria-hidden="true">
                           <span>
                             {head().label ??
                               t(head().group === "project" ? "app.feed.filter.noProject" : "app.feed.unnamedAgent")}
                           </span>
                           <span class="feed-count">{head().count}</span>
-                        </h3>
+                        </div>
                       )}
                     </Show>
                     <Show when={card()}>
