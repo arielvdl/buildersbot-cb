@@ -24,6 +24,18 @@
   line, a button with no name, a part of a button's name, and a recipient that changed after the
   agent read the page all ask you first.
 - Agents that a routine or a webhook started, also through other agents, do not reach your Chrome.
+- More ways around the approval card in your Chrome now ask you first: a key with a space or a "+"
+  after it, Alt+S and other keys with Ctrl, Cmd or Alt, a button named only by a symbol, a button in
+  Spanish, French, German, Italian or Dutch, a tab or another control character in the text, and a
+  button that the agent named by a part of its name, which the page can change after the agent read
+  it.
+- More ways around the approval card now ask you first: a send button in Japanese, Russian, Arabic or
+  another language, a button whose label and visible text differ, a send button in a web component or a
+  frame, and a space typed while a button has the focus. While a message is being written, any button
+  asks unless it is an action such as Cancel, Close, Attach or Bold.
+- Builders Bot connects only to its own Chrome program when Google Chrome started it. A copy of that
+  program that another program starts, or that a program starts and then turns into Chrome, gets no
+  connection and opens no pairing card. The pairing words stay the main protection.
 
 ### Fixed
 

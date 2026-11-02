@@ -572,8 +572,8 @@ the extension itself ([chrome-extension.md](chrome-extension.md)). Phase 3 gives
 | Engine seam | `CdpTarget`, `ElectronCdpTarget` (`browser-cdp-target.ts`) | `BrowserCdpEngine` drives a `CdpTarget`, not a `WebContents`. `attach` is an Effect, so an attach over a channel can be asynchronous; `isAttached` reads no I/O. `release` is what the engine calls when nothing needs the debugger: an Electron tab (`retention: "operation"`) detaches at once, as before; a Chrome tab (`"lease"`) will keep the real debugger until the agent's lease ends, so Chrome's debugging bar does not flash on each call. Electron's own dialog box is `dialogBox`; a Chrome target has none. |
 | Tab ownership | `canUseBrowserTab` (`browser-tab-ownership.ts`) | One rule for the Builders Bot browser and for Chrome tabs: a tab belongs to its thread, and to its agent when an agent opened it. A tab that the caller cannot use reads as unknown. |
 | Wire protocol | `packages/contracts/src/chrome-bridge/protocol.ts`, `decode.ts` | Closed decoders with no Node, Electron or Effect, so the extension runs them too. Every object is closed: an unknown field, operation, event or error code breaks the protocol and closes the connection. Each operation and event has a feature, and a side sends only what the other announced. Identifiers are 128-bit opaque values; an agent never sees a Chrome tab id. There is no reflective `chrome.*` call, no consent grant and no operation that lowers the floor. |
-| CDP allowlist | `cdp-allowlist.ts` | The methods that the engine sends, each with a closed list of parameters and rules (`checkCdpCommand`). Cookies, storage, `Fetch`, `Target.attachToTarget`, `DOM.setFileInputFiles`, a `paste` command and drag files are denied. `Network.enable` only inside a navigation, with no buffer. Events leave the extension reduced to listed fields (`projectCdpEvent`); no `Network.*` event leaves it, because those carry `HttpOnly` cookie values. |
-| Gesture table | `cdp-functions.ts`, made by `scripts/chrome-bridge-cdp-functions.ts` | The SHA-256 of each engine function that runs through `Runtime.callFunctionOn` with `userGesture: true`. In Chrome, only these get a gesture; an agent's own code runs with none. `--check` fails when the table is stale or when a gesture appears outside `#callOnNode` and `evaluate`. |
+| CDP allowlist | `cdp-allowlist.ts` | The methods that the engine sends, each with a closed list of parameters and rules (`checkCdpCommand`). Cookies, storage, `Fetch`, `Target.attachToTarget`, `DOM.setFileInputFiles`, the tab's history (`Page.getNavigationHistory`), a `paste` command, copy, cut and paste keys in any spelling (`isClipboardKey`) and drag files are denied. Page code runs only as an engine function (condition `scripts`): `Runtime.callFunctionOn` with a declaration whose SHA-256 is in the engine table, or the agent's own code when the person turned scripts on for the project, which this release never does; `Runtime.evaluate` is agent code only. A command makes only the engine's isolated world (`ENGINE_WORLD_NAME`), and names only contexts and objects (`objectIdContext`) of its session that the extension may hand out. Reads of page values (`Runtime.*`, `DOM.getDocument`, `DOM.describeNode`) run the strict secret check; a screenshot and the accessibility tree run the masked one. `Network.enable` only inside a navigation, with no buffer. Events and results leave the extension reduced to listed fields (`projectCdpEvent`, `projectCdpResult`): no URL fragment, no frame of the floor, no `Network.*` event, because those carry `HttpOnly` cookie values. |
+| Engine table | `cdp-functions.ts`, made by `scripts/chrome-bridge-cdp-functions.ts` | The SHA-256 of each function that the engine runs through `Runtime.callFunctionOn` (48 today), and of the ones with `userGesture: true` (26, `#callOnNode`). The engine never builds code from values: values go in `arguments` (`callInContext`). In Chrome, only these functions run, and only the gesture ones get a gesture. `--check` fails when the table is stale, when a declaration is not a constant that it can read, when the engine sends `Runtime.evaluate` outside `BrowserCdp.evaluate` (the agent's own code), or when a gesture appears outside `#callOnNode` and `evaluate`. |
 | Site floor | `site-floor.ts` | Banks, exchanges, password vaults, Google and Apple accounts, `*.gov.br` and browser pages: no agent opens, reads or acts on them. Only http, https and `about:blank` (and `about:srcdoc` in a frame) pass. The app can add blocks; only a choice in the extension popup opens one origin for one project. |
 | Group title and color | `groups.ts` | The project name only, in NFC, with no control or direction characters, at most 40 characters. Grey is kept for "paused". |
 
@@ -583,9 +583,9 @@ the reach of the whole browser context, every tab of the group and the cookies o
 sites. `scripts/browser-tab-reuse-e2e.ts` checks that a call of it gets an error and never reaches
 the server.
 
-`bun scripts/chrome-bridge-contracts-smoke.ts` runs the real decoders, the allowlist, the event
-projection, the floor, the group rules and `AppBehaviorService` on a real preference file, and
-compares each CDP method that `src/backend/browser-*.ts` sends with the allowlist. It writes
+`bun scripts/chrome-bridge-contracts-smoke.ts` runs the real decoders, the allowlist, the event and
+result projections, the floor, the group rules and `AppBehaviorService` on a real preference file, and
+compares each CDP method that `src/backend/browser-*.ts` and `chrome-*.ts` send with the allowlist. It writes
 `.buildersbot-build/chrome-bridge-contracts-smoke/report.json`.
 
 ### Native host, channel and pairing
@@ -598,7 +598,7 @@ card, Settings and `application-services.ts` come with Phase 3.
 | Native host | `native/chrome-host/main.swift`, `scripts/build-chrome-host.ts` | Swift, CoreFoundation and Security only (about 110 KB). Chrome starts it; it copies whole frames between Chrome (stdin and stdout) and the app's socket and reads no message. Each build compiles its channel in: the one extension origin it accepts (`argv[1]`, else exit 2), its socket, and the code requirement of the app. A store build checks the app on the socket (`LOCAL_PEERTOKEN`, team `ZTRDTUL87R`, `app.buildersbot.desktop`) before it passes a byte. It holds at most one frame for each direction and reads one side only when the other side took the last frame. |
 | Host frames | `HostFrameGate` (`channel.ts`) | The host sends `hello` once, first, then `status: online` or `offline` when the app connection changes. A frame from the app must start as `{"k":"` or `{"v":1,`, so the app side of the socket cannot write a host frame. |
 | Socket | `bridgeSocket`, `preparePrivateFolder` (`bridge-paths.ts`) | `~/Library/Application Support/Builders Bot/cb/b.sock` (`b-dev.sock` for dev), in a folder of mode 0700; E2E uses `<per-user temporary folder>/bb-e2e/b-e2e.sock`. Both sides compute the path, never from the environment. The host does not connect through a folder that others can open. |
-| Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
+| Peer check in the app | `native/chrome-peer/peer.c`, `bridge-peer.ts` | A Node-API addon with one function: the audit token of the peer and `SecCodeCheckValidity` against the host requirement, and the code of the process that started the peer against the Chrome requirement: Google's Developer ID `EQHXZ8M8AV` and a `com.google.Chrome` channel identifier in a store build; in E2E, Chrome for Testing pinned by its code hash, because it is signed ad hoc, with no team; none in development. The check is bound to values that the kernel never gives twice, not to a pid: the peer's records must carry the pid version of its audit token, and the process at the parent pid must have the unique id and the pid version that the peer recorded at fork (`proc_pidinfo` flavor 17, `p_orig_ppidversion`), before and after the code check. So a copy of the signed host that another program starts is refused, and so is one whose starter then runs `exec` into Chrome (protocol smoke B9, B10). It proves only that a process that runs Chrome's code started the host, not which extension asked Chrome: a Chrome that someone starts with a profile and an extension of their own passes it. The pairing (the extension's static key, pinned after the person picks the words) stays the main defense. The server accepts with `pauseOnConnect`, so a process that fails is closed before the app reads a byte. |
 | Channel | `packages/contracts/src/chrome-bridge/channel.ts` | One WebCrypto implementation for both sides: the handshake with a commitment, three ECDH values, HKDF, key confirmation, the comparison words (BIP-39 Portuguese list, `pairing-words.ts`), and sealed frames with parts. The transcript is the canonical JSON of the decoded messages, because Chrome writes the extension's messages with sorted keys. |
 | App service | `ChromeBridgeService` (`chrome-bridge-service.ts`), `HostConnection` (`host-connection.ts`) | One connection for each Chrome profile, up to 8. The handshake has a 5 s deadline from the accept, and a connection told `busy` closes after 60 s, so idle connections do not keep the places. The pairing rules of DESIGN §3: a window of 2 minutes that the person opens, used once, cancelled by a second candidate; outside it, at most 3 cards an hour and never two at once, else `reject{busy}`; a key that the person just refused gets `busy` for 10 minutes. A connection told `busy` waits idle; opening a window closes it, so its host reconnects and the extension tries again. Requests: at most 64 in flight and 16 for one key (a tab), up to 1024 waiting in order, a deadline from the moment the frames go to the socket. |
 | Sealed state | `BridgeStateStore` (`bridge-state.ts`) | `app-key.bin` (the app key and a state key, sealed by the key store) and `bridge-state-v1.bin` (pins, revocations, refusals; AES-256-GCM). A file that does not open reads as no pairing. |
@@ -676,11 +676,22 @@ How a call runs:
 4. A send on a mail, chat, social, forum or code review site, or in a frame of one
    (`chrome-message-send.ts`), waits for a card with the text and the recipients, read from the
    agent's last snapshot of the tab (`AttentionRegistry.awaitToolApproval` with `alwaysAsk` and
-   `ownerOnly`): Full access and "Always" never skip it. A send is a click on any element that the
-   target can resolve to (the engine matches a role or a text by a part of the name) whose name is a
-   send or is empty; a click by selector, point or stale ref; Enter, NumpadEnter or Space; and a
-   `type` with submit or with `\n` or `\r`. Recipients come from recipient fields and from chips with
-   an e-mail address. The card needs a snapshot that no action of the tab followed (the host counts
+   `ownerOnly`): Full access and "Always" never skip it. A send is a click on a ref whose element has
+   a send name or no name (a name of symbols only is no name); a click on a role or a text target
+   that is not exact (the engine finds it in the live page, which can have changed since the
+   snapshot), or an exact one whose name, or a snapshot element it matches, is a send or no name; a
+   click by selector, point or stale ref; Enter, NumpadEnter, Return or Space, and any key with Ctrl,
+   Cmd or Alt that is not an edit key (Alt+S sends in some mail sites), read with the engine's own
+   `parseShortcut`; a `type` with submit or with a new line or any control or separator character,
+   read with the engine's own `typedCharacters`; and a `type` with no target that has a space of any
+   kind, unless a snapshot that no action followed shows the focus on a text field. While the page
+   holds a composer with text, the list turns over: a click on a button, link, menu item, tab or option
+   asks unless its name is on a short list of actions that do not send (`NOT_SEND_NAME`: cancel, close,
+   attach, emoji, format and the like, in English, Portuguese and Spanish). Send words are in seven
+   languages, and send parts in Japanese, Chinese, Korean, Russian and Arabic. A click that asks no card
+   passes `clickTargetCheck` too: just before the click, the engine reads the element that the target
+   resolved to (its accessible name and its visible text) and stops when either is a send. Recipients
+   come from recipient fields and from chips with an e-mail address. The card needs a snapshot that no action of the tab followed (the host counts
    the actions in the tab's queue); an action during the person's answer voids the card. Where nobody
    answers a card, the call gets `message_send_requires_approval`.
 5. A sensitive site (`sensitiveSiteKind` in `site-floor.ts`: mail, chat, cloud and code consoles,
@@ -714,7 +725,13 @@ Rules that are easy to break:
   keeps them and gives them to the tab when it registers. `open` waits for the first page that is not
   `about:blank`; `navigate` waits for a load that began after its own mark (`statusMark`).
 - Chrome reports no title change for a page that the back-forward cache gives back: after back and
-  forward, the host reads the title once from `Page.getNavigationHistory`.
+  forward, the host reads the title once from `Target.getTargetInfo`. The tab's history is not a
+  command in the person's Chrome.
+- The commands of a tab (`cdp.send`, `cdp.batch`, `script.run`, `secret.fill`) name the lease that
+  sends them, and the extension refuses a tab of another lease (`tab_not_owned`).
+- Page code in Chrome is an engine function with JSON arguments (`callInContext`), never code built
+  from a value: the extension refuses a declaration that is not in the engine table. After a change
+  to such a function, run `bun scripts/chrome-bridge-cdp-functions.ts`.
 - A connection keeps going when an answer comes after the app's deadline: the app keeps the ids of
   requests that timed out for 5 minutes (at most 1024) and drops their answers. The extension's own
   deadline starts later than the app's, so a late answer is normal for a stuck page.

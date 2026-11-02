@@ -27,3 +27,19 @@
 - With Builders Bot closed or not installed, the extension no longer tries to connect each minute.
 - The welcome page opens by itself only when you connect Chrome in Builders Bot, at most 3 times an
   hour. More banks, exchanges, iCloud and Google Workspace admin are blocked for agents.
+
+### Security
+
+- Agents run in your pages only the fixed functions of the Builders Bot browser engine, checked by
+  their fingerprint. No other code from outside the extension runs, until you turn on an agent's own
+  scripts for a project, which this version cannot do.
+- An agent can no longer read the value of a password, code or card field that Builders Bot typed for
+  it, and a field that the page turns from a password into text counts as a secret again. A password
+  inside a web component, also a closed one, counts too, and a very large page counts as holding a
+  secret. Builders Bot types a secret only into a password, code or card field.
+- An agent can no longer reach the extension's own secret check, the scripts of other extensions in
+  the page (such as a password manager), the history of the tab, or the part of an address after
+  "#", where some sites put a sign-in token.
+- Copy, cut and paste keys, in every spelling, are refused, so an agent cannot read or change your
+  clipboard.
+- A command for a tab runs only for the agent that holds the tab.
