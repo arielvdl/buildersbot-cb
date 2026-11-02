@@ -11,6 +11,7 @@ import { PROVIDER_HOST_SIGN_IN_PROVIDERS } from "@openbot/contracts/team-protoco
 import { PROVIDERS_ADMIN_CODE_SIGN_IN_PROVIDERS } from "@openbot/contracts/team-protocol/providers-v1";
 import { PROVIDERS_SIGN_IN_V3_PROVIDERS } from "@openbot/contracts/team-protocol/providers-v3";
 import { PROVIDERS_V4_SIGN_IN_PROVIDERS } from "@openbot/contracts/team-protocol/providers-v4";
+import { PROVIDERS_V8_CODE_SIGN_IN_PROVIDERS } from "@openbot/contracts/team-protocol/providers-v8";
 import { SIGN_IN_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 
 /**
@@ -182,14 +183,20 @@ export function serverCanAdminister(
  */
 export function serverCodeRouteProviders(server: ServerSummary | undefined): readonly AgentProviderId[] {
   if (server?.kind !== "remote") return [];
+  const openIds = serverSupportsCapability(server, "providers-v8") ? PROVIDERS_V8_CODE_SIGN_IN_PROVIDERS : [];
   if (serverSupportsCapability(server, "providers-v4")) {
     const paste = serverSupportsCapability(server, "providers-v3");
-    return PROVIDERS_V4_SIGN_IN_PROVIDERS.filter(
-      (provider) => paste || agentProviderDescriptor(provider).localCodeSignIn !== "paste",
-    );
+    return [
+      ...PROVIDERS_V4_SIGN_IN_PROVIDERS.filter(
+        (provider) => paste || agentProviderDescriptor(provider).localCodeSignIn !== "paste",
+      ),
+      ...openIds,
+    ];
   }
-  if (serverSupportsCapability(server, "providers-v3")) return PROVIDERS_SIGN_IN_V3_PROVIDERS;
-  return serverSupportsCapability(server, "providers-v1") ? PROVIDERS_ADMIN_CODE_SIGN_IN_PROVIDERS : [];
+  if (serverSupportsCapability(server, "providers-v3")) return [...PROVIDERS_SIGN_IN_V3_PROVIDERS, ...openIds];
+  return serverSupportsCapability(server, "providers-v1")
+    ? [...PROVIDERS_ADMIN_CODE_SIGN_IN_PROVIDERS, ...openIds]
+    : [...openIds];
 }
 
 /**

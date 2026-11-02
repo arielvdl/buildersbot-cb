@@ -814,9 +814,9 @@ export class BrowserCdpEngine {
       modifiers?: string[] | undefined;
       /**
        * A last check, just before the click, of the element that the target resolved to: a refusal text
-       * stops the click. With it, the click lands only on a point where the element hit is the target
-       * itself (or the inside of its own shadow trees), never on a child of it, which can act on its
-       * own. A target with no element (a point) is refused.
+       * stops the click. With it, the click lands only on a point where the element hit is exactly the
+       * target, never on a child of it or a part of its shadow trees, which can act on their own. A
+       * target with no element (a point) is refused.
        */
       checkTarget?: ClickTargetCheck | undefined;
     } = {},
@@ -837,7 +837,7 @@ export class BrowserCdpEngine {
               // The event goes to the element at the point. A child of the target can act on its own, also
               // through a listener that no check can see (a framework that listens at the root), so the
               // click lands only where the element hit is the target itself.
-              return yield* this.#ownPointEffect(send, resolved.backendNodeId, checkTarget, resolved.sessionId);
+              return yield* this.#ownPointEffect(send, resolved.backendNodeId, resolved.sessionId);
             })
           : yield* this.#targetPointEffect(send, target, true, true, deadline);
         const { sessionId, ...coordinates } = point;
@@ -3033,16 +3033,14 @@ export class BrowserCdpEngine {
 
   /**
    * A point of the element where the element hit (in the page's own DOM, not the browser's inside of a
-   * field) is the element itself, or the inside of its own shadow trees when each element there up to
-   * the target is inert (`check.inner`: no control, no send name; and no click listener): the center,
-   * then a grid. A point over a child of the element, or over anything else, is not taken. It fails
-   * when the element has no such point.
+   * field) is exactly the element: the center, then a 5 x 5 grid of its border box. A point over a child
+   * of the element, a part of its shadow trees, or anything else is not taken: such an element can act
+   * on its own, also through a listener that no check sees. It fails when the element has no such point.
    */
   readonly #ownPointEffect = Effect.fn("BrowserCdp.ownPoint")(function* (
     this: BrowserCdpEngine,
     send: SendCommand,
     backendNodeId: number,
-    check: ClickTargetCheck,
     sessionId?: string,
   ): Effect.fn.Return<{ x: number; y: number; sessionId?: string | undefined }, BrowserOperationError> {
     yield* send("DOM.scrollIntoViewIfNeeded", { backendNodeId }, sessionId);
@@ -3071,72 +3069,29 @@ export class BrowserCdpEngine {
     const grid: Array<{ x: number; y: number }> = [{ x: (left + right) / 2, y: (top + bottom) / 2 }];
     for (let py = 0; py <= 4; py += 1)
       for (let px = 0; px <= 4; px += 1) grid.push({ x: step(left, right, px), y: step(top, bottom, py) });
-    const executionContextId = yield* automationContextId(send, sessionId);
-    const resolvedTarget = yield* send("DOM.resolveNode", { backendNodeId, executionContextId }, sessionId);
-    const targetObject = stringValue(recordValue(resolvedTarget.object)?.objectId);
-    if (!targetObject) return yield* browserFailure(new Error("Element is no longer attached to the document."));
     const tried = new Set<string>();
-    let lastRefusal: string | null = null;
-    return yield* Effect.gen(function* () {
-      for (const point of grid) {
-        const key = `${Math.round(point.x)}:${Math.round(point.y)}`;
-        if (tried.has(key)) continue;
-        tried.add(key);
-        // The hit test takes document coordinates; input events keep viewport coordinates.
-        const hit = yield* send(
-          "DOM.getNodeForLocation",
-          {
-            x: Math.round(point.x + numberValue(viewport?.pageX)),
-            y: Math.round(point.y + numberValue(viewport?.pageY)),
-            includeUserAgentShadowDOM: false,
-          },
-          sessionId,
-        );
-        const hitId = numberValue(hit.backendNodeId);
-        if (!hitId) continue;
-        if (hitId === backendNodeId) return { ...point, ...(sessionId === undefined ? {} : { sessionId }) };
-        const resolvedHit = yield* send("DOM.resolveNode", { backendNodeId: hitId, executionContextId }, sessionId);
-        const hitObject = stringValue(recordValue(resolvedHit.object)?.objectId);
-        if (!hitObject) continue;
-        const accepted = yield* Effect.gen(function* () {
-          const own = yield* send(
-            "Runtime.callFunctionOn",
-            {
-              objectId: hitObject,
-              functionDeclaration: OWN_HIT_FUNCTION,
-              arguments: [{ objectId: targetObject }, { value: false }],
-              returnByValue: true,
-            },
-            sessionId,
-          );
-          const value = recordValue(own.result)?.value;
-          if (!Array.isArray(value)) return false;
-          // The target's own parts: each one up to the target must be inert, with no send name.
-          const inner = value.filter(isRecord).map(
-            (entry): ClickInnerElement => ({
-              tag: stringValue(entry.tag),
-              role: stringValue(entry.role),
-              labels: Array.isArray(entry.labels) ? entry.labels.filter(isString) : [],
-              interactive: entry.interactive === true,
-            }),
-          );
-          const refusal = check.inner(inner);
-          if (refusal !== null) {
-            lastRefusal = refusal;
-            return false;
-          }
-          if (inner.length === 0) return true;
-          return !(yield* hasClickListener(send, hitObject, targetObject, sessionId));
-        }).pipe(Effect.ensuring(send("Runtime.releaseObject", { objectId: hitObject }, sessionId).pipe(Effect.ignore)));
-        if (accepted) return { ...point, ...(sessionId === undefined ? {} : { sessionId }) };
-      }
-      return yield* browserFailure(
-        new Error(
-          lastRefusal ??
-            "The target has no point that is not covered by elements inside it, which can act on their own: nothing was clicked. Click the inner element by its own ref.",
-        ),
+    for (const point of grid) {
+      const key = `${Math.round(point.x)}:${Math.round(point.y)}`;
+      if (tried.has(key)) continue;
+      tried.add(key);
+      // The hit test takes document coordinates; input events keep viewport coordinates.
+      const hit = yield* send(
+        "DOM.getNodeForLocation",
+        {
+          x: Math.round(point.x + numberValue(viewport?.pageX)),
+          y: Math.round(point.y + numberValue(viewport?.pageY)),
+          includeUserAgentShadowDOM: false,
+        },
+        sessionId,
       );
-    }).pipe(Effect.ensuring(send("Runtime.releaseObject", { objectId: targetObject }, sessionId).pipe(Effect.ignore)));
+      if (numberValue(hit.backendNodeId) === backendNodeId)
+        return { ...point, ...(sessionId === undefined ? {} : { sessionId }) };
+    }
+    return yield* browserFailure(
+      new Error(
+        "The target has no point that is not covered by elements inside it, which can act on their own: nothing was clicked. Click the inner element by its own ref.",
+      ),
+    );
   });
 
   readonly #elementPointEffect = Effect.fn("BrowserCdp.elementPoint")(function* (
@@ -3533,124 +3488,10 @@ function uniquePoints(points: Array<{ x: number; y: number }>): Array<{ x: numbe
   });
 }
 
-/** An element of the target's own shadow trees between the element hit at a click point and the target. */
-export interface ClickInnerElement {
-  readonly tag: string;
-  readonly role: string;
-  /** Its own names: aria-label, title, alt, a button value, and its visible text. */
-  readonly labels: readonly string[];
-  /** A control of its own: a native control, a control role, a click attribute or a tab stop. */
-  readonly interactive: boolean;
-}
-
 /** The last check of a click (the send gate of the person's Chrome). A text refuses the click. */
 export interface ClickTargetCheck {
   target(found: { role: string; name: string; visibleText: string }): string | null;
-  /** The elements of the target's own shadow trees from the one hit up to the target. */
-  inner(elements: readonly ClickInnerElement[]): string | null;
 }
-
-/** Listeners that a click at a point runs on the element there. */
-const CLICK_LISTENER_TYPES = new Set([
-  "click",
-  "auxclick",
-  "dblclick",
-  "contextmenu",
-  "mousedown",
-  "mouseup",
-  "pointerdown",
-  "pointerup",
-  "touchstart",
-  "touchend",
-]);
-
-/**
- * For the element hit at a click point (`this`; a text node counts as its element): null when it is
- * neither the target nor inside the target's own shadow trees (a child of the page's that the target
- * holds, or that a slot shows in it); otherwise the elements from it up to the target, the target left
- * out, along the event's path inside the shadow trees. `asObjects` gives the elements themselves, for
- * their listeners; otherwise what names each one and whether it acts on its own.
- */
-const OWN_HIT_FUNCTION = `function(target, asObjects) {
-  let start = this.nodeType === 3 ? this.parentNode : this;
-  if (start instanceof CSSPseudoElement) start = start.element;
-  let own = false;
-  for (let node = start, depth = 0; node && depth < 64; depth += 1) {
-    if (node === target) { own = true; break; }
-    const root = node.getRootNode();
-    if (!(root instanceof ShadowRoot)) break;
-    if (root.host === target) { own = true; break; }
-    node = root.host;
-  }
-  if (!own) return null;
-  const elements = [];
-  for (let node = start; node && node !== target && elements.length < 64;) {
-    if (node.nodeType === 1) elements.push(node);
-    node = node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode;
-  }
-  if (asObjects) return elements;
-  const controls = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option', 'treeitem', 'switch', 'checkbox', 'radio']);
-  return elements.map((node) => {
-    const tag = node.localName || '';
-    const role = (node.getAttribute('role') || '').trim().split(/\\s+/)[0].toLowerCase();
-    const labels = [node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('alt'),
-      tag === 'input' && ['button', 'submit', 'reset'].includes(node.type) ? node.value : null,
-      node.isContentEditable ? null : String(node.innerText ?? node.textContent ?? '').replace(/\\s+/g, ' ').trim().slice(0, 500)]
-      .filter((label) => typeof label === 'string' && label.trim() !== '');
-    const interactive = ['button', 'select', 'textarea', 'summary', 'option'].includes(tag) ||
-      (tag === 'a' && node.hasAttribute('href')) || (tag === 'input' && node.type !== 'hidden') ||
-      controls.has(role) || node.hasAttribute('onclick') || node.hasAttribute('tabindex') || node.isContentEditable;
-    return { tag, role, labels, interactive };
-  });
-}`;
-
-/**
- * Whether an element of the target's own shadow trees, from the one hit up to the target, has a
- * listener that a click there runs. A listener added in code shows no attribute; the debugger lists it,
- * but only the listeners of the world that the object comes from: each element is resolved again in
- * the page's own world, where the page adds them.
- */
-const hasClickListener = Effect.fn("Browser.hasClickListener")(function* (
-  send: SendCommand,
-  hitObject: string,
-  targetObject: string,
-  sessionId?: string,
-) {
-  const list = yield* send(
-    "Runtime.callFunctionOn",
-    {
-      objectId: hitObject,
-      functionDeclaration: OWN_HIT_FUNCTION,
-      arguments: [{ objectId: targetObject }, { value: true }],
-      returnByValue: false,
-    },
-    sessionId,
-  );
-  const listId = stringValue(recordValue(list.result)?.objectId);
-  // An answer that does not list the elements cannot show that they have no listener.
-  if (!listId) return true;
-  return yield* Effect.gen(function* () {
-    const properties = yield* send("Runtime.getProperties", { objectId: listId, ownProperties: true }, sessionId);
-    const elements = (Array.isArray(properties.result) ? properties.result.filter(isRecord) : [])
-      .filter((descriptor) => /^\d+$/u.test(stringValue(descriptor.name)))
-      .map((descriptor) => stringValue(recordValue(descriptor.value)?.objectId))
-      .filter(Boolean);
-    for (const objectId of elements) {
-      const described = yield* send("DOM.describeNode", { objectId, depth: 0 }, sessionId);
-      const backendNodeId = numberValue(recordValue(described.node)?.backendNodeId);
-      if (!backendNodeId) return true;
-      const inPage = yield* send("DOM.resolveNode", { backendNodeId }, sessionId);
-      const pageObject = stringValue(recordValue(inPage.object)?.objectId);
-      if (!pageObject) return true;
-      const found = yield* send("DOMDebugger.getEventListeners", { objectId: pageObject }, sessionId).pipe(
-        Effect.ensuring(send("Runtime.releaseObject", { objectId: pageObject }, sessionId).pipe(Effect.ignore)),
-      );
-      const listeners = Array.isArray(found.listeners) ? found.listeners.filter(isRecord) : [];
-      if (listeners.some((listener) => CLICK_LISTENER_TYPES.has(stringValue(listener.type)))) return true;
-    }
-    return false;
-  }).pipe(Effect.ensuring(send("Runtime.releaseObject", { objectId: listId }, sessionId).pipe(Effect.ignore)));
-});
 
 const hitActivatesTarget = Effect.fn("Browser.hitActivatesTarget")(function* (
   send: SendCommand,
