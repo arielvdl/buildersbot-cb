@@ -597,13 +597,19 @@ class App {
   }
 }
 
-/** Plays Chrome on the host's stdin and stdout, with the stub extension. */
+/**
+ * Plays Chrome on the host's stdin and stdout, with the stub extension. `command` starts the host
+ * another way (a program that starts it and then becomes another program).
+ */
 function chromeOnHost(
   binary: string,
   origin: string,
   stub: (send: (frame: ExtensionFrame) => void, disconnect: () => void) => StubExtension,
+  command?: { readonly file: string; readonly args: readonly string[] },
 ) {
-  const child = spawn(binary, [origin], { stdio: ["pipe", "pipe", "ignore"] });
+  const child = command
+    ? spawn(command.file, [...command.args], { stdio: ["pipe", "pipe", "ignore"] })
+    : spawn(binary, [origin], { stdio: ["pipe", "pipe", "ignore"] });
   let buffer = Buffer.alloc(0);
   const send = (frame: ExtensionFrame) => {
     const body = Buffer.from(JSON.stringify(frame));
@@ -643,6 +649,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
       features?: readonly string[];
       key?: Awaited<ReturnType<typeof generateChannelKey>>;
       installId?: string;
+      command?: { readonly file: string; readonly args: readonly string[] };
     } = {},
   ) => {
     const staticKey = extra.key ?? (await generateChannelKey(false));
@@ -661,6 +668,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
           features: extra.features,
           evaluateDelayMs: 5,
         }),
+      extra.command,
     );
     hosts.push(run);
     return { ...run, staticKey, installId };
@@ -726,6 +734,7 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     started = performance.now();
     await app.run(
       app.api.request(s1.installId, "cdp.send", {
+        leaseId: randomBase64Url(16),
         handle,
         method: "Runtime.evaluate",
         params: { order: 1, blob: "q".repeat(1_500_000) },
@@ -734,7 +743,6 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     check(
       "a 1.5 MB request reaches the extension in parts below Chrome's 1 MB limit",
       s1.extension.view.largestParamsBytes >= 1_500_000,
-        leaseId: randomBase64Url(16),
       { ms: Math.round(performance.now() - started) },
     );
     measures.hostB = { screenshot9MbMs: shotMs };
@@ -969,6 +977,49 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     } finally {
       await chromeOnly.stop();
     }
+
+    // B10: a program starts the signed host and then becomes Chrome for Testing (`exec` keeps its
+    // pid). When the app checks, the code at the parent pid is Chrome's, but it is not the process
+    // that started the host: its pid version changed. Refused, with no card. Chrome for Testing runs
+    // here with a new temporary profile and no extension, and stops at the end.
+    const cftBinary = (await ensureCft()).binary;
+    const execProfile = mkdtempSync(join(tmpdir(), "bb-exec-parent-"));
+    const becomesChrome = new App({
+      ...base,
+      peerChecker: loadPeerChecker(peerAddon, `cdhash H"${host.cdhash}"`, `cdhash H"${codeHash(cftBinary)}"`),
+    });
+    let starter: Awaited<ReturnType<typeof newStub>> | null = null;
+    try {
+      await becomesChrome.start();
+      await becomesChrome.run(becomesChrome.api.openPairingWindow);
+      starter = await newStub({
+        command: {
+          file: "/bin/sh",
+          args: [
+            "-c",
+            // A background list gets /dev/null as its input unless it names one: the host keeps the pipe.
+            'exec 3<&0; (sleep 2; exec "$1" "$2" 0<&3 3<&-) & exec "$3" --headless=new --user-data-dir="$4" --no-first-run --no-default-browser-check --disable-extensions about:blank 3<&-',
+            "sh",
+            host.binary,
+            host.origin,
+            cftBinary,
+            execProfile,
+          ],
+        },
+      });
+      await sleep(5_000);
+      const loaded = await becomesChrome.run(becomesChrome.api.load);
+      check(
+        "the signed host started by a program that then became Chrome is refused, with no card",
+        loaded.length === 0 && becomesChrome.prompt.asked.length === 0 && starter.extension.view.phase !== "ready",
+        { connections: loaded.length, cards: becomesChrome.prompt.asked.length, phase: starter.extension.view.phase },
+      );
+    } finally {
+      starter?.close();
+      starter?.child.kill("SIGKILL");
+      await becomesChrome.stop();
+      rmSync(execProfile, { recursive: true, force: true });
+    }
   } finally {
     for (const run of hosts) run.child.kill();
     await app.stop();
@@ -1185,6 +1236,7 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     started = performance.now();
     const shot = await app.run(
       app.api.request(installId, "cdp.send", {
+        leaseId: randomBase64Url(16),
         handle,
         method: "Page.captureScreenshot",
         params: { stubBytes: 9_000_000 },
@@ -1198,6 +1250,7 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     started = performance.now();
     await app.run(
       app.api.request(installId, "cdp.send", {
+        leaseId: randomBase64Url(16),
         handle,
         method: "Runtime.evaluate",
         params: { order: 1, blob: "q".repeat(1_500_000) },
@@ -1236,7 +1289,6 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
 
     await app.stop();
     const listening = await app.start();
-        leaseId: randomBase64Url(16),
     await until(() => app.ready.filter((id) => id === installId).length >= 2, 10_000, "the reconnection in Chrome");
     const chromeReconnectMs = Math.round(performance.now() - listening);
     measures.chromeReconnectMs = chromeReconnectMs;
@@ -1250,7 +1302,6 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
           .split("\n")
           .filter((line) => line.includes("parent"))
           .slice(-2)
-        leaseId: randomBase64Url(16),
       : [];
   } finally {
     await context?.close().catch(() => undefined);

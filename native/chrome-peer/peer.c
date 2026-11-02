@@ -12,8 +12,20 @@
 // `parent` is the process that started the peer: Chrome starts its native host itself, so a host that
 // another program started (a copy of the signed host run by hand) has another parent. It is
 // { pid, valid, identifier, team }, with `valid` checked against `parentRequirement` the same way, or
-// null when the kernel gives no parent. The parent is known by its pid, so the peer's parent is read
-// again after the check: a parent that changed in between (it ended) makes `valid` false.
+// null when the kernel gives no parent.
+//
+// A pid alone can name another process by the time of the check (a pid used again), and `exec` keeps
+// the pid but changes the code. So the check is bound to versions that the kernel never gives twice:
+//   - the peer's records are read by pid, and must carry the pid version of its audit token;
+//   - the peer records its parent at fork: the parent's 64-bit unique id and its pid version then
+//     (`p_orig_ppidversion`). The process at the parent pid must have that unique id and still that
+//     pid version: a parent that ran `exec` after it started the peer (a program that starts the host,
+//     then becomes Chrome) has a new pid version and fails;
+//   - the same records are read again after the code check, so the process that was checked is the
+//     one that started the peer.
+// This proves that the peer was started by a process that runs Chrome's code. It cannot prove which
+// extension asked Chrome to start it: the pairing of the channel (the extension's static key, pinned
+// by the person's choice of words) stays the main defense.
 //
 // The Node-API declarations below are the stable C ABI of js_native_api.h (version 8), so the addon
 // builds without Node or Electron headers and loads in both.
@@ -145,6 +157,35 @@ static pid_t parent_of(pid_t pid) {
   return (pid_t)info.pbi_ppid;
 }
 
+// `proc_pidinfo` flavor 17 (PROC_PIDUNIQIDENTIFIERINFO), as xnu's `proc_info_private.h` declares it.
+// The SDK does not export it; a kernel that gives another size fails the check (fail closed).
+#define UNIQUE_IDENTIFIERS 17
+struct unique_identifiers {
+  uint8_t uuid[16];
+  uint64_t unique_id;
+  uint64_t parent_unique_id;
+  int32_t pid_version;
+  int32_t parent_pid_version_at_fork;
+  uint64_t reserved3;
+  uint64_t reserved4;
+};
+
+static bool identifiers_of(pid_t pid, struct unique_identifiers *out) {
+  return proc_pidinfo(pid, UNIQUE_IDENTIFIERS, 0, out, sizeof *out) == (int)sizeof *out;
+}
+
+/**
+ * Whether `parent` is, now, the very process that started the peer: the peer is the incarnation of
+ * its audit token, and the parent has the unique id and the pid version that the peer recorded at
+ * fork (no other process, and no `exec` since).
+ */
+static bool same_parent(pid_t pid, int32_t peer_version, pid_t parent) {
+  struct unique_identifiers peer, father;
+  if (!identifiers_of(pid, &peer) || !identifiers_of(parent, &father)) return false;
+  return peer.pid_version == peer_version && parent_of(pid) == parent &&
+         father.unique_id == peer.parent_unique_id && father.pid_version == peer.parent_pid_version_at_fork;
+}
+
 static napi_value check(napi_env env, napi_callback_info info) {
   size_t argc = 3;
   napi_value argv[3] = {NULL, NULL, NULL};
@@ -179,7 +220,10 @@ static napi_value check(napi_env env, napi_callback_info info) {
   describe_code(env, result, code, has_requirement, requirement_text);
   if (code) CFRelease(code);
 
+  int32_t peer_version = (int32_t)audit_token_to_pidversion(token);
   pid_t parent = parent_of(pid);
+  // Read before the code check, then again after it: the same process from start to end.
+  bool parent_before = parent > 0 && same_parent(pid, peer_version, parent);
   if (parent <= 0) {
     napi_get_null(env, &value);
   } else {
@@ -193,8 +237,9 @@ static napi_value check(napi_env env, napi_callback_info info) {
     CFRelease(parent_number);
     describe_code(env, value, parent_code, has_parent_requirement, parent_text);
     if (parent_code) CFRelease(parent_code);
-    // The parent is known by its pid: one that changed meanwhile is not the process that was checked.
-    if (has_parent_requirement && parent_of(pid) != parent) {
+    // The parent is known by its pid: one that is not the process that started the peer, before and
+    // after the code check, fails.
+    if (has_parent_requirement && !(parent_before && same_parent(pid, peer_version, parent))) {
       napi_value invalid = NULL;
       napi_get_boolean(env, false, &invalid);
       napi_set_named_property(env, value, "valid", invalid);
