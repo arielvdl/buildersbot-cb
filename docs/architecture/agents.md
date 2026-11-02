@@ -319,17 +319,20 @@ state. A step keeps a short name with no arguments (`git push`, `openbot.channel
 
 The journal fails closed, and the shell reader is a strict allowlist (`command-effects.ts`). A command
 is `read` or `local` only when each part of it is in the tables: a known program, a known subcommand,
-and each flag a known flag of that program, with literal words. Anything else is `external`: a program,
-a subcommand, a flag, a wrapper (`env`, `sudo`, `exec`, `nice`, `xargs`), a variable or a substitution in
-a word, a variable set before a program (other than `LANG`, `TZ`, `TERM`, `CI` and similar), a
+and each flag a known flag of that program, with literal words. A word is literal only when the
+shell keeps it as written: no variable, substitution, arithmetic or `$'…'`, and in its unquoted parts
+no brace expansion (`-{d,X}` becomes `-d -X`), no glob (`*` can match a file named `-d`), no tilde at
+its start and no history `!`. Anything else is `external`: a program, a subcommand, a flag, a wrapper
+(`env`, `sudo`, `exec`, `nice`, `xargs`), a variable set before a program (other than `LANG`, `TZ`, `TERM`, `CI` and similar), a
 redirection to a variable or to `/dev/tcp`/`/dev/udp` (read from the parsed words, not only the text),
-`>(…)`, and any shell construct other than a list, a pipe, `if`, `while` and `{ }`. Codex's own reading
+`>(…)`, and any shell construct other than a list, a pipe, `if`, `while` and `{ }`. The tables are maps,
+so a name such as `__proto__` finds nothing, and an error of the reader is an outside step too. Codex's own reading
 of a command (`commandActions`) does not count: two readers that differ must not make a step safe. The
 cost is that the app asks the person more often; it never repeats an action.
 
 | Reach | Steps |
 | --- | --- |
-| `read`: safe to run again | `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` (search flags; no `--pre`, `-z`), `jq`, `sort`, `uniq`, `cut`, `tr`, `diff`, `echo`, `printf`, `pwd`, `date`, `which`, `stat`, `du`, `df`, `tree`, `test`, `cd`, `set`; `sed` with `-n`/`-E` and a script that only prints, deletes or substitutes; `awk` with `-F`/`-v` and an inline program with no `system`, pipe, `getline`, `>` or `@`; `find` with tests only; `git status/log/diff/show/branch/rev-parse/ls-files/blame/describe/grep/ls-remote/config --get/remote -v/stash list/tag -l` with their listed flags and only `-C`, `--no-pager`, `-P` as global options; `gh pr/issue/run/release/repo/workflow/label … list/view/status/checks/diff/watch`, `gh search`, `gh api PATH` with no field and no method other than GET; `curl` with the flags of a GET (`-sSfLkiI`, `-H` that is not a method override, `-X GET`) and HTTP URLs; `http`/`xh` only with an explicit `GET` or `HEAD`, `--ignore-stdin`, headers and `==` query items; `bash -c`/`-lc` of a command that is itself in the tables; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `think`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
+| `read`: safe to run again | `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` (search flags; no `--pre`, `-z`), `jq`, `sort`, `uniq`, `cut`, `tr`, `diff`, `echo`, `printf`, `pwd`, `date`, `which`, `stat`, `du`, `df`, `tree`, `test`, `cd`, `set`; `sed` with `-n`/`-E` and a script that only prints, deletes or substitutes; `awk` with `-F`/`-v` and an inline program with no `system`, pipe, `getline`, `>` or `@`; `find` with tests only; `git status/log/diff/show/branch/rev-parse/ls-files/blame/describe/grep/ls-remote/config --get/remote -v/stash list/tag -l` with their listed flags and only `-C`, `--no-pager`, `-P` as global options; `gh pr/issue/run/release/repo/workflow/label … list/view/status/checks/diff/watch`, `gh search`, `gh api PATH` with no field and no method other than GET; `curl` with the flags of a GET (`-sSfLkiI`, `-H` that is not a method override or `@file`, `-X GET`) and only `http://` or `https://` URLs; `http`/`xh` only with an explicit `GET` or `HEAD`, an `http(s)://` URL, `--ignore-stdin`, headers and `==` query items; `bash -c`/`-lc` of a command that is itself in the tables; Claude `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`; ACP `read`, `search`, `think`; web search; the app's list, read and history tools; browser snapshot, screenshot and navigation |
 | `local`: changes only this computer | file changes (Codex `fileChange`, Claude `Edit`/`Write`, ACP `edit`/`delete`/`move`); `mkdir`, `touch`, `cp`, `mv`, `rm`, `rmdir`, `ln`, `chmod`, `tee`, `tsc`; `sed -i`, `sort -o`, `curl -o`, `find -delete`, output to a file; `git add/commit/checkout/switch/restore/reset/stash/merge/rebase/cherry-pick/revert/fetch/pull/clone/init/mv/rm/apply`, `git branch` and `git tag` that create or delete, with their listed flags; `gh pr checkout`; the app's memory, section, skill, routine and channel-setting tools |
 | `external`: anything else | every program, subcommand and flag that the tables do not list, such as `git push`, `gh pr create`, `curl -d`, `npm test`, `make`, `npx`, `python script.py`, `docker`, `ssh`; `bash -i`, `--rcfile`, `-o`, an operand before `-c` or an argument after the script; a subagent; every MCP tool of a server that is not the app's own; an ACP `fetch`; browser clicks, typing and scripts; an item of a kind that the app does not know; the app's `send_message`, `channel_assign`, `channel_transfer`, `channel_result`, `messaging_post`, agent and routine-test tools (`OWN_EXTERNAL_TOOLS`) |
 
@@ -343,10 +346,14 @@ replaces the provider's item: a call that the provider announced and never sent 
 whose handler returned a result is done, and a call whose handler failed or did not return is
 `uncertain`.
 
-`scripts/safe-resume-adversarial-e2e.ts` runs the real classifier, journal and decision on more than 200
+`scripts/safe-resume-adversarial-e2e.ts` runs the real classifier, journal and decision on more than 260
 commands that hide an outside effect or that the tables cannot prove safe (grouped flags, quoting,
 nesting, here-documents, process substitution, aliases, functions, variables, wrappers with options,
-shell options, network files, curl and HTTPie options, awk `@`, pagers, git options) and on about 50
+shell options, network files, curl and HTTPie options, awk `@`, pagers, git options, braces, globs,
+tilde, history, URL schemes, headers from a file, inherited names), on more than 1,600 forms that a
+generator makes of 43 outside actions (quoting, `$'…'`, escapes, braces, globs, tabs and line
+continuations, `;`, `&&`, `||`, pipes, `&`, comments, here-documents, here-strings, process
+substitution, subshells, `sh -c` nesting, homoglyphs, wrappers, aliases, variables), and on about 50
 plain reads and local changes. No such command may read as `read` or `local`, and each one, with no
 result or with an exit code, must stop the task for the person.
 

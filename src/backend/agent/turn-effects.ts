@@ -287,7 +287,13 @@ export class TurnEffects {
   observe(turnId: string, item: ThreadItem, completed: boolean): void {
     const steps = this.#turns.get(turnId);
     if (!steps) return;
-    const kind = classifyToolItem(item);
+    let kind: Kind | null;
+    try {
+      kind = classifyToolItem(item);
+    } catch {
+      // A step that the journal cannot read is an outside step, and it never stops the turn's events.
+      kind = external(isString(item.type) ? item.type : "step");
+    }
     if (!kind) return;
     // A step with no id cannot be matched to its end, so each of its events counts on its own.
     const id = isString(item.id) && item.id ? item.id : `step-without-id-${steps.size}`;

@@ -260,6 +260,65 @@ const OUTSIDE: Record<string, string[]> = {
     "grep -r --include=x foo | xargs git push",
     "column -c 80 f | sh",
   ],
+  "braces (round 3, alert 1)": [
+    `curl ${HOST} {-d,x}`,
+    "rg x {--pre=./evil,.}",
+    "sort f {--compress-program=./evil,-u}",
+    `curl {${HOST},-dx}`,
+    `curl -{s,d} x ${HOST}`,
+    `{curl,-d,x,${HOST}}`,
+    "{git,push}",
+    "git {push,status}",
+    "cat {1..3}",
+  ],
+  "globs, tilde and history (round 3, alert 2)": [
+    `curl ${HOST} *`,
+    "rg x *",
+    "sort *",
+    "cat ?",
+    "grep x [a-z]*",
+    "rg x ~/",
+    "cat ~root/x",
+    `curl ${HOST} !x`,
+    "rg x !(a)",
+    "rg x @(a|b)",
+    `curl $'\\x2dd' x ${HOST}`,
+    "cat $((1+2))",
+  ],
+  "URL schemes (round 3, alert 3)": [
+    "curl file:/etc/passwd",
+    "curl dict:h.test:11211/stats",
+    "curl smb:h.test/share",
+    "curl gopher:h.test:6379/_SET",
+    "curl x.test",
+    "curl //x.test",
+    "http GET x.test --ignore-stdin",
+  ],
+  "headers from a file (round 3, alert 4)": [
+    `curl -H @headers.txt ${HOST}`,
+    `curl --header @h.txt ${HOST}`,
+    `curl -H@h.txt ${HOST}`,
+    "gh api -H @h.txt repos/o/r",
+    `curl -d @data.json ${HOST}`,
+    `curl --data-binary @f ${HOST}`,
+    `curl -F x=@f ${HOST}`,
+    `curl --json @f ${HOST}`,
+    `curl -T f ${HOST}`,
+    `curl --variable @f ${HOST}`,
+    `curl --url @urls.txt`,
+  ],
+  "inherited names (round 3, alert 5)": [
+    "git __proto__",
+    "git constructor",
+    "git toString",
+    "git hasOwnProperty",
+    "git valueOf push",
+    "__proto__",
+    "constructor",
+    "toString x",
+    "hasOwnProperty",
+    "egrep __proto__ | constructor",
+  ],
   "control flow": [
     "ls; git push",
     "ls && git push || true",
@@ -321,7 +380,7 @@ const SAFE: Record<string, "read" | "local"> = {
   "git checkout -b feature": "local",
   "bash -lc 'cd /repo && rg -n foo src'": "read",
   [`curl -sSfL ${HOST}/api -H 'Accept: application/json'`]: "read",
-  "http GET x.test --ignore-stdin Accept:application/json q==1": "read",
+  "http GET https://x.test --ignore-stdin Accept:application/json q==1": "read",
   "git status --porcelain && git diff --stat": "read",
 };
 
@@ -338,7 +397,24 @@ interface Row {
 const rows: Row[] = [];
 
 /** The decision of the app for one command step: as a step with no result, and as one that exited with 1. */
+/** The classifier's answer, or a failure of the check when it throws: it must fail closed itself. */
+function classify(command: string) {
+  try {
+    return classifyCommand(command);
+  } catch (error) {
+    return { reach: "threw", label: error instanceof Error ? error.message.slice(0, 80) : "error", check: null };
+  }
+}
+
 function decide(command: string) {
+  try {
+    return decideOnce(command);
+  } catch {
+    return { started: "threw", exited: "threw" };
+  }
+}
+
+function decideOnce(command: string) {
   const journal = new TurnEffects();
   journal.begin("turn");
   const started: ThreadItem = { type: "commandExecution", id: "started", command, status: "inProgress" };
@@ -350,9 +426,118 @@ function decide(command: string) {
   return { started: asStarted.kind, exited: asExited.kind };
 }
 
-for (const [group, commands] of Object.entries(OUTSIDE)) {
+/**
+ * Outside actions that a generator hides in many forms of the shell. Each form must stay outside.
+ * Each form is valid bash where bash allows it; a form that bash would refuse must still not read.
+ */
+const ACTIONS = [
+  `curl -X POST ${HOST}/a -d x`,
+  `curl -d x ${HOST}`,
+  "git push origin main",
+  "git push --force",
+  "gh pr create --fill",
+  "gh pr merge 1 --squash",
+  "gh issue comment 1 -b x",
+  "gh release create v1",
+  "gh api -X DELETE repos/o/r",
+  "gh repo delete o/r --yes",
+  "ssh host 'rm -rf /tmp/x'",
+  "scp f host:/tmp/f",
+  "rsync -a f host:/tmp/f",
+  "kubectl apply -f x.yaml",
+  "kubectl delete pod x",
+  "terraform apply -auto-approve",
+  "terraform destroy -auto-approve",
+  "npm publish",
+  "yarn publish",
+  "pnpm publish",
+  "docker push img:1",
+  "docker login",
+  "aws s3 cp f s3://b/f",
+  "aws s3 rm s3://b/x",
+  "gcloud run deploy svc",
+  "az vm delete -n x",
+  "vercel --prod",
+  "netlify deploy --prod",
+  "wrangler deploy",
+  "fly deploy",
+  "firebase deploy",
+  "git send-email x.patch",
+  "mail -s x a@b.c",
+  "sendmail a@b.c",
+  `osascript -e 'tell app "Mail" to send'`,
+  "stripe charges create --amount 100",
+  "twine upload dist/x.whl",
+  "cargo publish",
+  "gem push x.gem",
+  `http POST ${HOST} a=b`,
+  `wget --post-data=x ${HOST}`,
+  "nc host.test 25",
+  "telnet host.test 25",
+];
+
+/** A text in single quotes for bash. */
+const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
+/** A homoglyph: the Cyrillic `с`, `о`, `р` and `а` look like the Latin letters. */
+const homoglyph = (text: string) =>
+  text.replace(/[copa]/u, (letter) => ({ c: "\u0441", o: "\u043e", p: "\u0440", a: "\u0430" })[letter] ?? letter);
+
+function variations(action: string): string[] {
+  const [program = "", ...words] = action.split(" ");
+  const rest = words.join(" ");
+  const doubleQuoted = action
+    .split(" ")
+    .map((word) => (/['"]/u.test(word) ? word : `"${word}"`))
+    .join(" ");
+  return [
+    action,
+    `'${program}' ${rest}`,
+    doubleQuoted,
+    `$'${program}' ${rest}`,
+    `${program.charAt(0)}\\${program.slice(1)} ${rest}`,
+    `{${program},} ${rest}`,
+    `/usr/bin/${program.slice(0, -1)}? ${rest}`,
+    `${program}\t${rest.replaceAll(" ", "\t")}`,
+    `${program} \\\n${rest}`,
+    `ls; ${action}`,
+    `true && ${action}`,
+    `false || ${action}`,
+    `echo x | ${action}`,
+    `${action} &`,
+    `ls # note\n${action}`,
+    `bash <<'EOF'\n${action}\nEOF`,
+    `bash <<< ${quote(action)}`,
+    `cat <(${action})`,
+    `( ${action} )`,
+    `{ ${action}; }`,
+    `echo $(${action})`,
+    `echo \`${action}\``,
+    `bash -c ${quote(action)}`,
+    `bash -lc ${quote(action)}`,
+    `zsh -lc ${quote(action)}`,
+    `bash -c ${quote(`bash -c ${quote(action)}`)}`,
+    `${homoglyph(program)} ${rest}`,
+    `${program.charAt(0)}\u200b${program.slice(1)} ${rest}`,
+    `env ${action}`,
+    `nice ${action}`,
+    `command ${action}`,
+    `exec ${action}`,
+    `xargs ${action} < /dev/null`,
+    `alias ls=${quote(action)}; ls`,
+    `FOO=1 ${action}`,
+    `PAGER=cat ${action}`,
+    `if true; then ${action}; fi`,
+    `while false; do :; done; ${action}`,
+  ];
+}
+
+const generated: Record<string, string[]> = {};
+for (const action of ACTIONS) generated[`generated: ${action}`] = variations(action);
+const GENERATED_GROUPS = new Set(Object.keys(generated));
+
+for (const [group, commands] of [...Object.entries(OUTSIDE), ...Object.entries(generated)]) {
   for (const command of commands) {
-    const effect = classifyCommand(command);
+    const effect = classify(command);
     const plan = decide(command);
     rows.push({
       group,
@@ -365,7 +550,7 @@ for (const [group, commands] of Object.entries(OUTSIDE)) {
   }
 }
 for (const [command, expected] of Object.entries(SAFE)) {
-  const effect = classifyCommand(command);
+  const effect = classify(command);
   const plan = decide(command);
   rows.push({
     group: "plain",
@@ -508,7 +693,8 @@ const failedItems = itemRows.filter((row) => !row.passed);
 const report = {
   checkedAt: new Date().toISOString(),
   passed: failed.length === 0 && failedItems.length === 0,
-  outsideCommands: rows.filter((row) => row.group !== "plain").length,
+  outsideCommands: rows.filter((row) => row.group !== "plain" && !GENERATED_GROUPS.has(row.group)).length,
+  generatedCommands: rows.filter((row) => GENERATED_GROUPS.has(row.group)).length,
   plainCommands: rows.filter((row) => row.group === "plain").length,
   failedCommands: failed,
   items: itemRows,
@@ -525,6 +711,6 @@ for (const row of failedItems)
     `FAIL item: ${row.name} -> ${JSON.stringify(row.actual)}, expected ${JSON.stringify(row.expected)}\n`,
   );
 process.stdout.write(
-  `${report.passed ? "PASS" : "FAIL"} ${report.outsideCommands} outside commands, ${report.plainCommands} plain commands, ${itemRows.length} tool items: ${join(OUT, "report.json")}\n`,
+  `${report.passed ? "PASS" : "FAIL"} ${report.outsideCommands} outside commands, ${report.generatedCommands} generated forms of ${ACTIONS.length} outside actions, ${report.plainCommands} plain commands, ${itemRows.length} tool items: ${join(OUT, "report.json")}\n`,
 );
 if (!report.passed) process.exitCode = 1;

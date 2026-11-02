@@ -65,6 +65,11 @@ interface Flags {
   numeric?: boolean;
 }
 
+/** A table with no inherited keys. */
+function tableOf<T>(entries: Readonly<Record<string, T>>): ReadonlyMap<string, T> {
+  return new Map(Object.entries(entries));
+}
+
 interface Parsed {
   operands: string[];
   /** Each flag that the command used, as written (`-X`, `--request`), with its value or null. */
@@ -140,7 +145,8 @@ const METHOD_HEADER = /^\s*x-(?:http-)?method(?:-override)?\s*:/iu;
 
 // --- Simple programs -------------------------------------------------------------------------------------
 
-const PROGRAMS: Readonly<Record<string, Rule>> = {
+// Tables are maps: a name such as `__proto__` or `constructor` must not find an inherited value.
+const PROGRAMS: ReadonlyMap<string, Rule> = tableOf({
   ls: {
     reach: "read",
     flags: {
@@ -379,16 +385,16 @@ const PROGRAMS: Readonly<Record<string, Rule>> = {
       longValue: split("--project --outDir --target --module --lib --jsx --rootDir"),
     },
   },
-};
+});
 
 /** Other names of a listed program: `egrep` is `grep -E`, `gawk` is `awk`. */
-const ALIASES: Readonly<Record<string, string>> = {
+const ALIASES: ReadonlyMap<string, string> = tableOf({
   egrep: "grep",
   fgrep: "grep",
   gawk: "awk",
   mawk: "awk",
   nawk: "awk",
-};
+});
 
 // --- sed, awk, find --------------------------------------------------------------------------------------
 
@@ -538,7 +544,7 @@ const DIFF_FLAGS: Flags = {
 /** A remote that git reaches with a program (`ext::`, `fd::`) or with an option that runs one. */
 const UNSAFE_OPERAND = /::|^!/u;
 
-const GIT: Readonly<Record<string, Rule>> = {
+const GIT: ReadonlyMap<string, Rule> = tableOf({
   status: {
     reach: "read",
     flags: {
@@ -817,7 +823,7 @@ const GIT: Readonly<Record<string, Rule>> = {
       longValue: split("--whitespace --directory --exclude --include"),
     },
   },
-};
+});
 
 const GIT_CHECK = "git status -sb && git log --oneline -3 @{upstream}";
 
@@ -841,7 +847,7 @@ function git(args: readonly ShellWord[]): CommandEffect {
     else return outside(gitLabel(args), GIT_CHECK);
   }
   const sub = args[index]?.value ?? "";
-  const rule = GIT[sub];
+  const rule = GIT.get(sub);
   if (!rule) return outside(`git ${sub}`.trim(), GIT_CHECK);
   const parsed = parse(args.slice(index + 1), rule.flags);
   if (!parsed || parsed.operands.some((operand) => UNSAFE_OPERAND.test(operand)))
@@ -888,7 +894,7 @@ function gh(args: readonly ShellWord[]): CommandEffect {
     if (
       parsed?.operands.length !== 1 ||
       valuesOf(parsed, "-X", "--method").some((method) => !READ_METHODS.has(method.toUpperCase())) ||
-      valuesOf(parsed, "-H", "--header").some((header) => METHOD_HEADER.test(header))
+      valuesOf(parsed, "-H", "--header").some((header) => METHOD_HEADER.test(header) || header.startsWith("@"))
     )
       return outside("gh api");
     return result("read", "gh api");
@@ -907,7 +913,8 @@ function gh(args: readonly ShellWord[]): CommandEffect {
 
 // --- HTTP clients ----------------------------------------------------------------------------------------
 
-const HTTP_URL = /^(?![a-z][a-z0-9+.-]*:\/\/)|^https?:\/\//iu;
+/** Only an HTTP URL with its scheme: a word with no scheme or another one (`file:`, `dict:`, `smb:`) is not read. */
+const HTTP_URL = /^https?:\/\/[^\s]/iu;
 
 const CURL_FLAGS: Flags = {
   short: "sSfLkivIg46#NjO",
@@ -926,7 +933,8 @@ function curl(args: readonly ShellWord[]): CommandEffect {
   if (
     !parsed ||
     valuesOf(parsed, "-X", "--request").some((method) => !READ_METHODS.has(method.toUpperCase())) ||
-    valuesOf(parsed, "-H", "--header").some((header) => METHOD_HEADER.test(header)) ||
+    // `-H @file` reads headers, a method or credentials from a file that this file does not see.
+    valuesOf(parsed, "-H", "--header").some((header) => METHOD_HEADER.test(header) || header.startsWith("@")) ||
     [...parsed.operands, ...valuesOf(parsed, "--url")].some((url) => !HTTP_URL.test(url))
   )
     return outside("curl (sends data)");
@@ -1018,7 +1026,7 @@ function program(words: readonly ShellWord[], depth: number): CommandEffect {
   // `./git` or `/tmp/git` is not git.
   if (slash >= 0 && !SYSTEM_FOLDERS.has(first.value.slice(0, slash))) return outside(programName(first.value));
   const typed = slash >= 0 ? first.value.slice(slash + 1) : first.value;
-  const name = ALIASES[typed] ?? typed;
+  const name = ALIASES.get(typed) ?? typed;
   const args = words.slice(1);
   if (SHELLS.has(name)) return shell(name, args, depth);
   switch (name) {
@@ -1040,7 +1048,7 @@ function program(words: readonly ShellWord[], depth: number): CommandEffect {
     case "find":
       return find(args);
   }
-  const rule = Object.hasOwn(PROGRAMS, name) ? PROGRAMS[name] : undefined;
+  const rule = PROGRAMS.get(name);
   if (!rule) return outside(name.slice(0, LABEL_LIMIT));
   const parsed = parse(args, rule.flags);
   const reach = parsed ? (rule.check ? rule.check(parsed) : rule.reach) : null;
@@ -1072,7 +1080,53 @@ function redirections(segment: ShellSegment): CommandEffect | null {
   return segment.outputs.some((word) => !NOTHING.test(word.value)) ? result("local", "write to a file") : null;
 }
 
-function segmentEffect(segment: ShellSegment, depth: number): CommandEffect {
+/**
+ * The parts of a word, as written in `raw`, that no quote and no backslash protects. `$'…'` keeps its `$`,
+ * so it reads as an expansion: it can hold any character, such as the `-` of a flag.
+ */
+function unquotedText(raw: string): string {
+  let text = "";
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw.charAt(index);
+    if (char === "\\") index += 1;
+    else if (char === "'") {
+      const close = raw.indexOf("'", index + 1);
+      index = close < 0 ? raw.length : close;
+    } else if (char === '"') {
+      let at = index + 1;
+      while (at < raw.length && raw.charAt(at) !== '"') at += raw.charAt(at) === "\\" ? 2 : 1;
+      index = at;
+    } else text += char;
+  }
+  return text;
+}
+
+/** Brace expansion: `{a,b}` or `{1..3}` makes several words, or flags, of one (`-{d,X}`). */
+const BRACES = /\{[^{}]*(?:,|\.\.)[^{}]*\}/u;
+/** Globs and extended globs: a file named `-d` or `--pre=x` becomes a flag. */
+const GLOB = /[*?[]|[!@+]\(/u;
+
+/**
+ * Whether the shell leaves a word as it is written: no variable, substitution, arithmetic or `$'…'`; no
+ * brace expansion, glob or tilde at its start in an unquoted part; no history `!`. `[` and `[[` are
+ * the test programs.
+ */
+function literal(word: ShellWord, command: string): boolean {
+  if (EXPANSION.test(word.expandable) || word.subcommands.length > 0) return false;
+  if (word.value === "[" || word.value === "[[") return true;
+  const bare = unquotedText(command.slice(word.start, word.end));
+  return !(
+    EXPANSION.test(bare) ||
+    BRACES.test(bare) ||
+    GLOB.test(bare) ||
+    bare.startsWith("~") ||
+    /![^\s=]/u.test(bare)
+  );
+}
+
+function segmentEffect(segment: ShellSegment, depth: number, command: string): CommandEffect {
+  for (const word of [...segment.words, ...segment.inputs, ...segment.outputs, ...segment.hereStrings])
+    if (!literal(word, command)) return outside("expansion");
   const words = segment.words;
   let index = 0;
   for (; index < words.length; index += 1) {
@@ -1099,7 +1153,7 @@ function classifyAt(command: string, depth: number): CommandEffect {
   let strongest = result("read", "");
   for (const statement of statements)
     for (const segment of statement.segments) {
-      const effect = segmentEffect(segment, depth);
+      const effect = segmentEffect(segment, depth, command);
       if (RANK[effect.reach] > RANK[strongest.reach] || (strongest.label === "" && effect.reach === strongest.reach))
         strongest = effect;
     }
@@ -1110,6 +1164,11 @@ function classifyAt(command: string, depth: number): CommandEffect {
 
 /** The effect of a shell command, as the provider reported it (`commandExecution.command`, Bash `command`). */
 export function classifyCommand(command: string): CommandEffect {
-  const effect = classifyAt(command, 0);
-  return effect.label ? effect : { ...effect, label: "command" };
+  // An error of this reader fails closed, as anything that it cannot read.
+  try {
+    const effect = classifyAt(command, 0);
+    return effect.label ? effect : { ...effect, label: "command" };
+  } catch {
+    return outside("command");
+  }
 }
