@@ -277,10 +277,10 @@ export function parseDevelopmentTarget(args: string[]): DevelopmentInvocation {
 
 async function main(): Promise<void> {
   const { target, dryRun, force, shared, slack } = parseDevelopmentTarget(process.argv.slice(2));
-  if (!dryRun && prepareDevelopmentEnvironment() === "created") {
+  const services = servicesForTarget(target);
+  if (!dryRun && prepareDevelopmentEnvironment({ needsElectron: services.includes("app") }) === "created") {
     logger.info("Prepared local development state.");
   }
-  const services = servicesForTarget(target);
   const developmentEnvironment = dryRun ? {} : await loadDevelopmentEnvironment(projectRoot);
   const sharedEnvironment = developmentEnvironmentForTarget(target);
   // The host and the test client of this stack find each other through a file named after it.
@@ -416,9 +416,7 @@ async function allocateDevelopmentPorts(
     );
     reservedPorts.add(apiPort);
     sharedEnvironment.OPENBOT_API_PORT = String(apiPort);
-    if (!sharedEnvironment.OPENBOT_AUTH_API_URL) {
-      sharedEnvironment.OPENBOT_AUTH_API_URL = `http://127.0.0.1:${apiPort}`;
-    }
+    useStackAccountApi(sharedEnvironment, `http://127.0.0.1:${apiPort}`);
     configureSiteHostingDevelopmentEnvironment(sharedEnvironment, apiPort);
     if (services.includes("remote")) {
       const signalPort = await findAvailablePort(
@@ -572,6 +570,34 @@ async function runDevelopmentServices(specs: DevelopmentServiceSpec[], stack: De
   }
 }
 
+/**
+ * Points the dev app at the account API of this stack. The dev host signs a throwaway account in
+ * at startup, so an `OPENBOT_AUTH_API_URL` from the environment sent that sign-in to another server:
+ * `launchctl setenv` had given the production URL to each process of the macOS session, and each
+ * `bun run dev` asked production for a code for openbot-dev-host@example.com. The Signal URL of
+ * that server goes with it.
+ */
+function useStackAccountApi(environment: NodeJS.ProcessEnv, apiUrl: string): void {
+  for (const name of ["OPENBOT_AUTH_API_URL", "OPENBOT_REMOTE_SIGNAL_URL"] as const) {
+    const inherited = environment[name];
+    if (inherited === undefined || inherited === apiUrl) continue;
+    logger.warn(
+      `Ignoring ${name}=${urlOrigin(inherited)} from the environment. The dev app uses this stack's services.`,
+    );
+    delete environment[name];
+  }
+  environment.OPENBOT_AUTH_API_URL = apiUrl;
+}
+
+/** The origin only: a URL from the environment can hold a user name, a password or a token. */
+function urlOrigin(value: string): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "(not a URL)";
+  }
+}
+
 export function configureSiteHostingDevelopmentEnvironment(environment: NodeJS.ProcessEnv, apiPort: number): void {
   environment.SITE_PUBLISH_ENABLED ??= "true";
   environment.SITE_COOKIE_ISOLATION_READY ??= "true";
@@ -644,12 +670,16 @@ function isPrivateIpv4(address: string): boolean {
 async function waitForDevelopmentApi(portValue: string | undefined, child: ChildProcess): Promise<void> {
   const port = readPort(portValue);
   if (!port) throw new Error("The development API port is missing.");
-  const deadline = Date.now() + 30_000;
+  // A new worktree pre-bundles the Worker's dependencies first, and the first request then loads the
+  // Worker's modules: on a busy computer these took about 30 and 25 seconds. A request that stops
+  // during that load leaves the Worker without an answer for later requests too, so one request
+  // waits until the deadline. A refused connection, before Vite listens, fails at once.
+  const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error("The development Auth API stopped before it became ready.");
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health/live`, {
-        signal: AbortSignal.timeout(1_000),
+        signal: AbortSignal.timeout(Math.max(1_000, deadline - Date.now())),
       });
       if (response.ok) return;
     } catch {

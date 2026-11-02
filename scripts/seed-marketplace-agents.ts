@@ -172,13 +172,13 @@ const agents: SeedAgent[] = [
 ];
 
 async function main(): Promise<void> {
-  await runWrangler(["d1", "migrations", "apply", "openbot-auth", "--local"]);
+  await runWrangler(["d1", "migrations", "apply", "buildersbot-auth", "--local"]);
   await import("./seed-marketplace-skills");
   const staging = await mkdtemp(join(tmpdir(), "openbot-agent-seed-"));
   try {
     const sqlPath = join(staging, "seed.sql");
     await writeFile(sqlPath, seedSql());
-    await runWrangler(["d1", "execute", "openbot-auth", "--local", "--file", sqlPath, "--yes"]);
+    await runWrangler(["d1", "execute", "buildersbot-auth", "--local", "--file", sqlPath, "--yes"]);
     process.stdout.write(`Seeded ${agents.length} approved marketplace agents with exact skills and routines.\n`);
   } finally {
     await rm(staging, { recursive: true, force: true });

@@ -56,7 +56,7 @@ mkdirSync(OUT, { recursive: true });
 const sql = (value: string) => `'${value.replaceAll("'", "''")}'`;
 const wrangler = resolvePackageBin(ROOT, "wrangler");
 const d1 = (...args: string[]) =>
-  run(wrangler, ["d1", ...args, "openbot-auth", "--local"], { cwd: SITE, env: { ...process.env, CI: "1" } });
+  run(wrangler, ["d1", ...args, "buildersbot-auth", "--local"], { cwd: SITE, env: { ...process.env, CI: "1" } });
 const removeRows = `DELETE FROM agent_templates WHERE id = ${sql(TEMPLATE_ID)}; DELETE FROM users WHERE id = ${sql(USER_ID)};`;
 
 const freePort = () =>

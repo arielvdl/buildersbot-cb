@@ -14,7 +14,7 @@ const authApiRoot = join(projectRoot, "apps", "auth-api");
 const executableSuffix = process.platform === "win32" ? ".exe" : "";
 const wrangler = join(projectRoot, "node_modules", ".bin", `wrangler${executableSuffix}`);
 const productionApiUrl = "https://api.openbot.run";
-const productionDatabase = "openbot-auth";
+const productionDatabase = "buildersbot-auth";
 const productionBucket = "openbot-skills";
 const owner = {
   id: "openbot-production-catalog",
