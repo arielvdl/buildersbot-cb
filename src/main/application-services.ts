@@ -132,6 +132,7 @@ import { isHubPageUrl } from "../backend/hub-connections/hub-connection-tools";
 import { MailboxStore } from "../backend/mailbox-store";
 import { McpOAuth } from "../backend/mcp-oauth-provider";
 import type { McpToolRuntimes } from "../backend/mcp-provider-shapes";
+import { mcpSecretValues } from "../backend/mcp-redaction";
 import { discordDriver } from "../backend/messaging/discord/discord-driver";
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
@@ -216,6 +217,7 @@ import {
   ExternalLinkOpener,
   type ExternalLinkPreferenceStore,
 } from "./external-link-opener";
+import { FeedService } from "./feed/feed-service";
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
@@ -483,6 +485,8 @@ const TEARDOWN_ORDER = {
   resourceMonitor: 9,
   // Before the service, so no look of the recovery starts work while the service stops.
   workControl: 9.5,
+  // Only timers and memory: the feed keeps nothing on disk.
+  feed: 9.6,
   updater: 10,
   idleRestart: 11,
   hostUpdateCoordinator: 12,
@@ -671,6 +675,8 @@ export interface ApplicationServices {
   agentLimit: AgentLimitPreferenceStore;
   /** What runs and what stopped, and the automatic recovery of the stopped work. */
   workControl: WorkControl;
+  /** The feed page: one card for each run on every server, in memory only. */
+  feed: FeedService;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
@@ -3095,6 +3101,25 @@ export async function createApplicationServices({
     workControl.stop();
     return Promise.resolve();
   });
+  // Every agent event of every server reaches it from `forwardAgentEvent`. It reads this computer's
+  // load only while a window shows the feed page, and it writes nothing to disk.
+  const feedLogger = createBuildersBotLogger("feed");
+  const feed = new FeedService({
+    secretValues: () => mcpSecretValues(service.listMcpServers()),
+    resolveName: (serverId, agentId) =>
+      serverId === LOCAL_SERVER_ID ? (service.listAgents().find((agent) => agent.id === agentId)?.name ?? null) : null,
+    readLoad: () => {
+      const work = workControl.overview();
+      return { running: work.running, stopped: work.stopped };
+    },
+    readLocalRuntime: () => service.getRuntimeSnapshot(),
+    readLocalLayout: () => sidebarLayout.getSnapshot(),
+    onError: (operation, cause) => feedLogger.warn(`The feed could not ${operation}.`, toLogValue(cause)),
+  });
+  teardown.push(TEARDOWN_ORDER.feed, "the feed", () => {
+    feed.dispose();
+    return Promise.resolve();
+  });
   // Sends nothing: see `HostAnalytics`. The callers and the saved preference stay as they were.
   const analytics = new HostAnalytics();
   teardown.push(TEARDOWN_ORDER.analytics, "host analytics", () => Effect.runPromise(analytics.close()));
@@ -3726,6 +3751,7 @@ export async function createApplicationServices({
     startRetry,
     agentLimit,
     workControl,
+    feed,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,

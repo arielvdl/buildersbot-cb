@@ -75,6 +75,11 @@ export interface StoppedWork {
   /** Why it stopped, clipped. */
   reason: string;
   agentName: string | null;
+  /**
+   * The agent that owns the task. Null or absent when the task has no owner; absent from an older main
+   * process. The stopped work page sets it on every entry.
+   */
+  agentId?: string | null;
   state: "paused" | "failed";
   /** The agents that can take it, for Reassign. Never the owner. */
   candidates: StoppedWorkCandidate[];
@@ -409,6 +414,7 @@ function isStoppedWork(value: unknown): value is StoppedWork {
     isString(value.title) &&
     isString(value.reason) &&
     (value.agentName === null || isString(value.agentName)) &&
+    (value.agentId === undefined || value.agentId === null || isIdentifier(value.agentId)) &&
     (value.state === "paused" || value.state === "failed") &&
     isBoundedList(value.candidates, 8, isStoppedWorkCandidate) &&
     (value.auto === null || value.auto === "waiting" || value.auto === "gave-up") &&

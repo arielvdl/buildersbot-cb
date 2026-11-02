@@ -216,6 +216,7 @@ import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
+import { createMockFeed, type MockFeedOptions } from "./mock-feed";
 import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
@@ -250,6 +251,8 @@ export interface MockBuildersBotOptions
     MockHostUpdateOptions,
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
+  /** The cards of the feed page. 40 cards of a normal day by default. */
+  feed?: MockFeedOptions;
   /** The sound center as main would read it. Not saved by default, so the window moves old choices in. */
   sounds?: Partial<SoundCenterState>;
   analyticsPreference?: AnalyticsPreference;
@@ -1642,6 +1645,7 @@ export function createMockBuildersBot(options: MockBuildersBotOptions = {}): Moc
     },
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
+    feed: createMockFeed(options.feed),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
