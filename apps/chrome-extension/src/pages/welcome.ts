@@ -71,6 +71,7 @@ function render(status: StatusView): void {
       el("p", { className: "words", text: status.pairing.chrome.join(" · ") }),
       el("p", { text: t("chromeExtension.welcome.chooseWords") }),
       el("div", { className: "choices" }, ...options),
+      el("p", { className: "muted", text: t("chromeExtension.welcome.notExpected") }),
       button(t("chromeExtension.welcome.notNow"), () => void choose(null), "link"),
     );
     return;

@@ -717,6 +717,20 @@ async function main(): Promise<void> {
           return new Response(null, { status: 302, headers: { location: `${bank}/after-redirect` } });
         case "/bank-frame":
           return page(`<p>frame</p><iframe src="${bank}/in-frame"></iframe>`);
+        case "/bank-sub-frame":
+          return page(`<p>frame</p><iframe src="http://sub.itau.com.br:${port}/in-frame"></iframe>`);
+        case "/pw":
+          // A filled password, as Chrome's password manager leaves it.
+          return page(
+            `<input type="password" id="p"><script>document.getElementById("p").value = "s3cret-e2e"</script>`,
+          );
+        case "/pw-frame":
+          return page(`<p>shop</p><iframe src="http://control.test:${port}/pw"></iframe>`);
+        case "/same-site-frames":
+          return page(
+            `<input type="password" id="p"><script>document.getElementById("p").value = "s3cret-e2e"</script>` +
+              `<iframe src="/f"></iframe><iframe src="/f"></iframe><iframe src="/f"></iframe>`,
+          );
         default:
           return page(`<p>${url.pathname}</p>`);
       }
@@ -1360,6 +1374,16 @@ async function main(): Promise<void> {
         );
         await sleep(500);
         const reached = bankHits() - hitsBefore;
+        // The unlock is for one origin: a subdomain of the same bank in a frame stays blocked before it leaves.
+        const subHits = () => hits.filter((hit) => hit.host.startsWith("sub.itau.com.br")).length;
+        const subBefore = subHits();
+        await app.request("cdp.send", {
+          handle: h1,
+          method: "Page.navigate",
+          params: { url: `${base}/bank-sub-frame` },
+        });
+        await sleep(800);
+        const subdomainHits = subHits() - subBefore;
         const otherProject = await denied(
           app.request("cdp.send", { handle: hBeta, method: "Page.navigate", params: { url: `${bank}/other` } }),
         );
@@ -1375,6 +1399,7 @@ async function main(): Promise<void> {
           app.request("cdp.send", { handle: h1, method: "Page.navigate", params: { url: `${bank}/again` } }),
         );
         expect(allowed === "allowed" && reached > 0, "the allowed site was not reached", { allowed, reached });
+        expect(subdomainHits === 0, "a subdomain of the allowed origin was reached", { subdomainHits });
         expect(
           otherProject === "site_blocked",
           "another project reached the site that one project allowed",
@@ -1386,6 +1411,7 @@ async function main(): Promise<void> {
           unblock: unblock.body,
           allowed,
           requestsThatReachedTheSite: reached,
+          subdomainHits,
           otherProject,
           blockedAgain,
         };
@@ -1436,6 +1462,111 @@ async function main(): Promise<void> {
         crashed: crashed.body,
         crashReportedAsUnloaded: unloaded !== undefined,
       };
+    });
+
+    await testCase(
+      "secret check: a password in a frame of another site, and after a navigation to another site, blocks reads",
+      async () => {
+        await app.request("lease.open", {
+          leaseId: lease.one,
+          projectKey: project.a,
+          agentLabel: "Agente Um",
+          initials: "A1",
+        });
+        const secretTab = String(
+          (await app.request("tab.create", { leaseId: lease.one, url: `${base}/page?secret=1` })).handle,
+        );
+        // A clean read first: the check runs here, on this site.
+        await sleep(800);
+        const clean = await app.request("cdp.send", {
+          handle: secretTab,
+          method: "Page.captureScreenshot",
+          params: { format: "jpeg", quality: 10 },
+        });
+        expect(isDynamicRecord(clean.result), "a clean page refused the screenshot", clean);
+        await app.request("cdp.send", {
+          handle: secretTab,
+          method: "Page.navigate",
+          params: { url: `${base}/pw-frame` },
+        });
+        await sleep(1_500);
+        const inFrameShot = await denied(
+          app.request("cdp.send", {
+            handle: secretTab,
+            method: "Page.captureScreenshot",
+            params: { format: "jpeg", quality: 10 },
+          }),
+        );
+        const inFrameTree = await denied(
+          app.request("cdp.send", { handle: secretTab, method: "Accessibility.getFullAXTree", params: {} }),
+        );
+        // Another site, with frames of its own site: a context id from before names another document.
+        await app.request("cdp.send", {
+          handle: secretTab,
+          method: "Page.navigate",
+          params: { url: `http://control.test:${port}/same-site-frames` },
+        });
+        await sleep(1_500);
+        const afterNavigation = await denied(
+          app.request("cdp.send", {
+            handle: secretTab,
+            method: "Page.captureScreenshot",
+            params: { format: "jpeg", quality: 10 },
+          }),
+        );
+        await app.request("tab.close", { handle: secretTab });
+        expect(inFrameShot === "secret_present", "a screenshot showed a password of a frame", inFrameShot);
+        expect(inFrameTree === "secret_present", "the tree of a page with a filled frame was read", inFrameTree);
+        expect(
+          afterNavigation === "secret_present",
+          "the check ran in an old world after a navigation",
+          afterNavigation,
+        );
+        return { inFrameShot, inFrameTree, afterNavigation };
+      },
+    );
+
+    await testCase("discard: a tab that Chrome discarded loads again before the next command reads it", async () => {
+      await app.request("lease.open", {
+        leaseId: lease.one,
+        projectKey: project.a,
+        agentLabel: "Agente Um",
+        initials: "A1",
+      });
+      const discardTab = String(
+        (await app.request("tab.create", { leaseId: lease.one, url: `${base}/discard-me` })).handle,
+      );
+      await app.request("cdp.send", {
+        handle: discardTab,
+        method: "Runtime.evaluate",
+        params: { expression: "1", returnByValue: true },
+      });
+      // The end of the turn: the debugger leaves the tab, which can then be discarded.
+      await app.request("lease.close", { leaseId: lease.one });
+      await sleep(300);
+      const discarded = await inspect(`
+        const [tab] = (await chrome.tabs.query({})).filter((t) => (t.url ?? "").includes("/discard-me"));
+        await chrome.tabs.discard(tab.id).catch(() => undefined);
+        await new Promise((done) => setTimeout(done, 300));
+        const now = await chrome.tabs.get(tab.id);
+        return { discarded: now.discarded, status: now.status ?? null };`);
+      expect(discarded.discarded === true, "Chrome did not discard the test tab", discarded);
+      await app.request("lease.open", {
+        leaseId: lease.one,
+        projectKey: project.a,
+        agentLabel: "Agente Um",
+        initials: "A1",
+      });
+      const read = await app.request("cdp.send", {
+        handle: discardTab,
+        method: "Runtime.evaluate",
+        params: { expression: "location.pathname + '|' + document.title", returnByValue: true },
+      });
+      const value =
+        isDynamicRecord(read.result) && isDynamicRecord(read.result.result) ? read.result.result.value : null;
+      await app.request("tab.close", { handle: discardTab });
+      expect(value === "/discard-me|t", "the discarded tab answered with an empty page", { value, discarded });
+      return { discarded, value };
     });
 
     await testCase(
@@ -1811,6 +1942,49 @@ async function main(): Promise<void> {
           };
         },
       );
+
+    await testCase(
+      "update: with its session storage empty (as after an update), the extension gives its tabs back with the same handles",
+      async () => {
+        const groupsBefore = await inspect(`return { count: (await chrome.tabGroups.query({})).length };`);
+        // An update or a reload empties storage.session and starts a new worker. In this harness
+        // chrome.runtime.reload() leaves an extension loaded by --load-extension without its APIs, so
+        // the test empties the session storage and stops the worker, which is the state an update leaves.
+        await inspect(`await chrome.storage.session.clear(); return {};`);
+        const worker = workerTarget();
+        expect(worker !== undefined, "no worker");
+        const closesBefore = app.closes;
+        const since = performance.now();
+        await cdp.send("Target.closeTarget", { targetId: worker ?? "" });
+        await waitFor(() => (app.closes > closesBefore ? true : undefined), 15_000, "the connection to close");
+        // A browser event wakes the next worker, if Chrome has not started it already.
+        await cdp.send("Target.createTarget", { url: "about:blank", background: true });
+        const ready = await app.waitEvent("ready", () => true, 30_000, since);
+        const handlesBack = Array.isArray(ready.body.handles)
+          ? ready.body.handles.filter(isDynamicRecord).map((entry) => entry.handle)
+          : [];
+        await app.request("lease.open", {
+          leaseId: reconnectLease,
+          projectKey: project.a,
+          agentLabel: "Agente Um",
+          initials: "A1",
+        });
+        const again = await app.request("cdp.send", {
+          handle: keep,
+          method: "Runtime.evaluate",
+          params: { expression: "location.search", returnByValue: true },
+        });
+        await app.request("tab.create", { leaseId: reconnectLease, url: `${base}/page?after=update` });
+        const groupsAfter = await inspect(`return { count: (await chrome.tabGroups.query({})).length };`);
+        await app.request("lease.close", { leaseId: reconnectLease });
+        expect(handlesBack.includes(keep), "the tab handle did not come back after the update", ready.body);
+        expect(groupsAfter.count === groupsBefore.count, "a group was made again after the update", {
+          groupsBefore,
+          groupsAfter,
+        });
+        return { handlesBack: handlesBack.length, groupsBefore, groupsAfter, result: again.result };
+      },
+    );
 
     report.machine.end = { ...machine(), chrome: chromeMemory(chrome.pid) };
     await stopChrome();

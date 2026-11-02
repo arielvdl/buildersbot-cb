@@ -23,6 +23,20 @@ export function floorDecision(url: string, projectKey: string, subframe = false)
 
 const BLOCK_RULE = 1;
 const FIRST_ALLOW_RULE = 1000;
+/** Session rules are few in Chrome (5000); the popup keeps a short list of unlocks per project anyway. */
+const MAX_ALLOW_RULES = 1000;
+
+/** The `urlFilter` of one origin: `|https://host:port/`, with the port only when the origin has one. */
+function originFilter(origin: string): string | null {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    const host = floorHost(parsed.hostname);
+    return `|${parsed.protocol}//${host}${parsed.port === "" ? "" : `:${parsed.port}`}/`;
+  } catch {
+    return null;
+  }
+}
 const RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = ["main_frame", "sub_frame"];
 
 let applying: Promise<void> | null = null;
@@ -64,21 +78,20 @@ async function writeRules(): Promise<void> {
       const projectTabs = [...state.tabs.values()]
         .filter((tab) => tab.projectKey === projectKey)
         .map((tab) => tab.tabId);
-      const hosts = origins.flatMap((origin) => {
-        try {
-          return [floorHost(new URL(origin).hostname)];
-        } catch {
-          return [];
-        }
-      });
-      if (projectTabs.length === 0 || hosts.length === 0) continue;
-      rules.push({
-        id: next,
-        priority: 2,
-        action: { type: "allow" },
-        condition: { requestDomains: hosts, resourceTypes: RESOURCE_TYPES, tabIds: projectTabs },
-      });
-      next += 1;
+      if (projectTabs.length === 0) continue;
+      // One rule for each origin, anchored to its scheme, host and port: an unlocked origin opens no
+      // subdomain, no other scheme and no other port of the same site.
+      for (const origin of origins) {
+        const filter = originFilter(origin);
+        if (filter === null || next >= FIRST_ALLOW_RULE + MAX_ALLOW_RULES) continue;
+        rules.push({
+          id: next,
+          priority: 2,
+          action: { type: "allow" },
+          condition: { urlFilter: filter, resourceTypes: RESOURCE_TYPES, tabIds: projectTabs },
+        });
+        next += 1;
+      }
     }
   }
   const removeRuleIds = [...new Set([BLOCK_RULE, ...appliedIds])];

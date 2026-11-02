@@ -31,6 +31,8 @@ export interface FrameTarget {
 interface TabDebugger {
   attached: boolean;
   attaching: Promise<void> | null;
+  /** Who waits for the tab to have no command in Chrome (`secret.fill`). */
+  idle: Array<() => void>;
   /** Child sessions of frames of another process, by session id. */
   frames: Map<string, FrameTarget>;
   /** Execution contexts that the tab reported, for the context checks of the allowlist. */
@@ -43,6 +45,8 @@ interface TabDebugger {
 type DetachReason = "target_closed" | "canceled_by_user" | "site_blocked" | "memory" | "lease_end" | "person";
 
 const tabs = new Map<number, TabDebugger>();
+/** The detach count of each tab, kept after its record goes, so an attach in flight sees a detach. */
+const generations = new Map<number, number>();
 let globalInFlight = 0;
 /** Commands that wait for a slot, in arrival order. A slot is taken for the waiter before it wakes. */
 const waiters: Array<{ entry: TabDebugger; resolve: () => void }> = [];
@@ -56,6 +60,7 @@ function record(tabId: number): TabDebugger {
     entry = {
       attached: false,
       attaching: null,
+      idle: [],
       frames: new Map(),
       contexts: new Set(),
       inFlight: 0,
@@ -98,11 +103,16 @@ export function load(): { inFlight: number; waiting: number } {
   return { inFlight: globalInFlight, waiting: waiters.length };
 }
 
-/** Attaches the debugger to an agent tab, once, however many commands ask at the same time. */
+/**
+ * Attaches the debugger to an agent tab, once, however many commands ask at the same time. A detach
+ * (a stop, a pause, the end of the lease) during the attach wins: the new session leaves at once and
+ * the command fails.
+ */
 export function ensureAttached(tab: AgentTab): Promise<void> {
   const entry = record(tab.tabId);
   if (entry.attached) return Promise.resolve();
   if (entry.attaching) return entry.attaching;
+  const generation = generations.get(tab.tabId) ?? 0;
   entry.attaching = (async () => {
     try {
       await chrome.debugger.attach({ tabId: tab.tabId }, "1.3");
@@ -114,6 +124,10 @@ export function ensureAttached(tab: AgentTab): Promise<void> {
           throw new BridgeError("policy_blocks_debugger", "Chrome does not let the extension debug this tab");
         throw new BridgeError("cdp_error", `attach failed: ${text}`);
       }
+    }
+    if ((generations.get(tab.tabId) ?? 0) !== generation) {
+      await chrome.debugger.detach({ tabId: tab.tabId }).catch(() => undefined);
+      throw new BridgeError("paused_by_user", "the tab was let go while the debugger attached");
     }
     entry.attached = true;
     entry.frames.clear();
@@ -136,8 +150,9 @@ export function ensureAttached(tab: AgentTab): Promise<void> {
   return entry.attaching;
 }
 
-/** Detaches the debugger from a tab, and tells the app why. */
+/** Detaches the debugger from a tab, and tells the app why. An attach in flight leaves too. */
 export async function detach(tabId: number, reason: DetachReason): Promise<void> {
+  generations.set(tabId, (generations.get(tabId) ?? 0) + 1);
   const entry = tabs.get(tabId);
   const wasAttached = entry?.attached === true || state.attachedTabIds.has(tabId);
   tabs.delete(tabId);
@@ -182,6 +197,7 @@ async function slot(entry: TabDebugger): Promise<void> {
 function release(entry: TabDebugger): void {
   entry.inFlight -= 1;
   globalInFlight -= 1;
+  if (entry.inFlight === 0) for (const wake of entry.idle.splice(0)) wake();
   for (let index = 0; index < waiters.length && globalInFlight < BRIDGE_LIMITS.inFlightTotal; ) {
     const waiter = waiters[index];
     if (waiter && waiter.entry.inFlight < BRIDGE_LIMITS.inFlightPerTab) {
@@ -190,6 +206,13 @@ function release(entry: TabDebugger): void {
       waiter.resolve();
     } else index += 1;
   }
+}
+
+/** Resolves when no command of the tab is in Chrome. */
+export function whenIdle(tabId: number): Promise<void> {
+  const entry = tabs.get(tabId);
+  if (!entry || entry.inFlight === 0) return Promise.resolve();
+  return new Promise((resolve) => entry.idle.push(resolve));
 }
 
 /** A command that Chrome has: `done` settles with its result. */
@@ -207,9 +230,12 @@ export async function dispatch(
   method: string,
   params: CdpParams,
   session: string | undefined,
+  urgent = false,
 ): Promise<Dispatched> {
   const entry = record(tabId);
-  await slot(entry);
+  // An answer to a page dialog does not wait behind the commands that the dialog holds.
+  if (urgent) take(entry);
+  else await slot(entry);
   const target: chrome.debugger.Debuggee = session === undefined ? { tabId } : { tabId, sessionId: session };
   const timeout =
     method === "Page.captureScreenshot" ? BRIDGE_LIMITS.screenshotTimeoutMs : BRIDGE_LIMITS.commandTimeoutMs;
@@ -240,6 +266,8 @@ export async function internalCommand(
   params: CdpParams,
   session?: string,
 ): Promise<CdpParams> {
+  // A tab that is no longer an agent tab gets no new record (a late timer of a closed tab).
+  if (!tabs.has(tabId) && !tabByChromeId(tabId)) throw new BridgeError("out_of_scope", "the tab is gone");
   return (await dispatch(tabId, method, params, session)).done;
 }
 
@@ -259,6 +287,14 @@ function checkFrame(tab: AgentTab, entry: TabDebugger, sessionId: string, url: s
     .sendCommand({ tabId: tab.tabId }, "Target.detachFromTarget", { sessionId })
     .catch(() => undefined);
   emit("tab.blocked", { handle: tab.handle, origin: originOf(url) ?? "null", rule: decision.rule });
+}
+
+type MainFrameCheck = (tab: AgentTab, url: string) => boolean;
+let mainFrameOnFloor: MainFrameCheck = () => false;
+
+/** The tabs module gives the check of a main frame URL (quarantine on the floor), to keep imports one way. */
+export function setMainFrameCheck(check: MainFrameCheck): void {
+  mainFrameOnFloor = check;
 }
 
 function forward(tab: AgentTab, method: string, params: { readonly [key: string]: unknown }, session?: string): void {
@@ -283,6 +319,13 @@ export function onDebuggerEvent(
   const session = source.sessionId;
   // Events of a frame on the floor never leave.
   if (session !== undefined && entry.frames.get(session)?.blocked === true) return;
+  // A main frame that lands on the floor (the back-forward cache makes no request) goes to quarantine
+  // at its first event, before `tabs.onUpdated`; nothing of it leaves.
+  if (session === undefined && tab.quarantined) return;
+  if (session === undefined && method === "Page.frameNavigated") {
+    const frame = isDynamicRecord(params.frame) ? params.frame : {};
+    if (frame.parentId === undefined && isString(frame.url) && mainFrameOnFloor(tab, frame.url)) return;
+  }
   switch (method) {
     case "Target.attachedToTarget":
     case "Target.targetInfoChanged": {
@@ -376,5 +419,6 @@ export function onDebuggerDetach(source: chrome.debugger.Debuggee, reason: strin
 /** Forgets a tab that closed. */
 export function forgetTab(tabId: number): void {
   tabs.delete(tabId);
+  generations.delete(tabId);
   state.attachedTabIds.delete(tabId);
 }

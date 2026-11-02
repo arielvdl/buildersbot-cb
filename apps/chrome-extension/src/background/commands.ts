@@ -12,7 +12,12 @@
  *
  * The commands of one tab keep their order: each one passes the gate and reaches Chrome before the next
  * one starts its gate. They do not wait for each other's result, so a tab still has up to
- * `inFlightPerTab` commands in Chrome at once, and different tabs run side by side.
+ * `inFlightPerTab` commands in Chrome at once, and different tabs run side by side. At most
+ * `MAX_CHAIN` commands of one tab wait in its order; more get `limit`. The answer to a page dialog does
+ * not wait in that order: the commands before it may be the ones that the dialog holds.
+ *
+ * A tab that Chrome discarded loads again before a command reaches it, so a read never gets the empty
+ * page of a discarded tab.
  */
 
 import { type CdpCheckContext, checkCdpCommand } from "@openbot/contracts/chrome-bridge/cdp-allowlist";
@@ -23,6 +28,7 @@ import {
   type CdpParams,
   contextsOf,
   type Dispatched,
+  detach,
   dispatch,
   ensureAttached,
   frameTargets,
@@ -32,17 +38,19 @@ import {
 } from "./debugger";
 import { floorDecision } from "./floor";
 import { audit, emit } from "./outbox";
-import { fillSecret, secretPresent } from "./secrets";
+import { fillSecret, pageMayChange, secretPresent } from "./secrets";
 import type { AgentTab, Project } from "./state";
 import { state } from "./state";
 import {
   noteUsed,
   requireActiveLease,
+  requireInGroup,
   requireProject,
   requireRunning,
   requireTab,
   takeNavigation,
   touch,
+  waitForComplete,
 } from "./tabs";
 import { BridgeError, chromeErrorText, originOf } from "./util";
 
@@ -54,12 +62,18 @@ interface Gate {
 }
 
 const chains = new Map<number, Promise<void>>();
+/** Steps of each tab that wait in its order or run their gate. */
+const chainDepth = new Map<number, number>();
+const MAX_CHAIN = 64;
 
 /**
  * Runs `step` after the earlier steps of the same tab. A step resolves once its commands are in
  * Chrome; their results settle later, outside the chain.
  */
 function sequenced<T>(tabId: number, step: () => Promise<{ readonly done: Promise<T> }>): Promise<T> {
+  const depth = chainDepth.get(tabId) ?? 0;
+  if (depth >= MAX_CHAIN) return Promise.reject(new BridgeError("limit", "too many commands wait for this tab"));
+  chainDepth.set(tabId, depth + 1);
   const before = chains.get(tabId) ?? Promise.resolve();
   const started = before.then(step);
   const link = started.then(
@@ -68,9 +82,21 @@ function sequenced<T>(tabId: number, step: () => Promise<{ readonly done: Promis
   );
   chains.set(tabId, link);
   void link.then(() => {
+    const left = (chainDepth.get(tabId) ?? 1) - 1;
+    if (left <= 0) chainDepth.delete(tabId);
+    else chainDepth.set(tabId, left);
     if (chains.get(tabId) === link) chains.delete(tabId);
   });
   return started.then((step) => step.done);
+}
+
+/** A tab that Chrome discarded, or that never loaded, loads again and its load ends first. */
+async function loadIfDiscarded(tabId: number, chromeTab: chrome.tabs.Tab): Promise<chrome.tabs.Tab> {
+  if (chromeTab.discarded !== true && chromeTab.status !== "unloaded") return chromeTab;
+  const complete = waitForComplete(tabId, BRIDGE_LIMITS.commandTimeoutMs);
+  await chrome.tabs.reload(tabId);
+  await complete;
+  return chrome.tabs.get(tabId);
 }
 
 async function authorize(handle: string): Promise<Gate> {
@@ -84,17 +110,9 @@ async function authorize(handle: string): Promise<Gate> {
   } catch {
     throw new BridgeError("out_of_scope", "the tab is closed");
   }
-  const groupTabId = tab.satelliteOf === null ? null : (state.tabs.get(tab.satelliteOf)?.tabId ?? -1);
-  const groupId =
-    groupTabId === null
-      ? chromeTab.groupId
-      : await chrome.tabs.get(groupTabId).then(
-          (parent) => parent.groupId,
-          () => -2,
-        );
-  if (project.groupId === null || groupId !== project.groupId)
-    throw new BridgeError("out_of_scope", "the person took the tab out of the project group");
+  await requireInGroup(chromeTab, tab, project);
   if (tab.quarantined) throw new BridgeError("site_blocked", "the tab shows a site that agents may not use");
+  chromeTab = await loadIfDiscarded(tab.tabId, chromeTab);
   for (const url of [chromeTab.url, chromeTab.pendingUrl]) {
     if (url === undefined || url === "" || url === "about:blank") continue;
     const decision = floorDecision(url, tab.projectKey);
@@ -103,6 +121,14 @@ async function authorize(handle: string): Promise<Gate> {
   touch(tab, lease, project);
   noteUsed(tab);
   await ensureAttached(tab);
+  // A stop, a pause or the end of the lease while the debugger attached: the command does not run.
+  try {
+    requireRunning(project);
+    requireActiveLease(tab.leaseId);
+  } catch (error) {
+    await detach(tab.tabId, "person");
+    throw error;
+  }
   return { tab, project, origin: originOf(chromeTab.url) };
 }
 
@@ -146,6 +172,8 @@ async function check(
   }
   if (method === "Page.navigate" && isString(params.url)) takeNavigation(tab.projectKey, params.url);
   if (decision.historyFloorCheck && isNumber(params.entryId)) await checkHistoryEntry(tab, params.entryId);
+  // Only a read keeps the last clean secret check of the tab: any other command can change the page.
+  if (!READS.has(method)) pageMayChange(tab.tabId);
   if (decision.secretCheck && (await secretPresent(tab.tabId))) {
     emit("tab.secret-present", { handle: tab.handle });
     throw new BridgeError("secret_present", "the page holds a secret that was not typed by secret.fill");
@@ -218,6 +246,7 @@ function boundFileChooser(tabId: number, enabled: boolean): void {
     tabId,
     setTimeout(() => {
       fileChooserTimers.delete(tabId);
+      // A closed tab gets no command: `internalCommand` refuses a tab that is not an agent tab.
       void internalCommand(tabId, "Page.setInterceptFileChooserDialog", { enabled: false }).catch(() => undefined);
     }, 30_000),
   );
@@ -310,6 +339,7 @@ export function cdpSend(
   session: string | undefined,
 ): Promise<{ result: CdpParams }> {
   const tab = requireTab(handle);
+  if (method === "Page.handleJavaScriptDialog") return answerDialog(handle, params, session);
   return sequenced(tab.tabId, async () => {
     const gate = await authorize(handle);
     const values = paramsOf(params);
@@ -324,6 +354,22 @@ export function cdpSend(
     const sent = await dispatch(gate.tab.tabId, method, values, session);
     return { done: settle(gate, method, sent).then((result) => ({ result })) };
   });
+}
+
+/**
+ * The answer to a page dialog, outside the tab's order and its slots: the commands before it (a click
+ * that opened `confirm()`) wait for it, so it cannot wait for them.
+ */
+async function answerDialog(
+  handle: string,
+  params: unknown,
+  session: string | undefined,
+): Promise<{ result: CdpParams }> {
+  const gate = await authorize(handle);
+  const values = paramsOf(params);
+  await check(gate, "Page.handleJavaScriptDialog", values, session, "other");
+  const sent = await dispatch(gate.tab.tabId, "Page.handleJavaScriptDialog", values, session, true);
+  return { result: await settle(gate, "Page.handleJavaScriptDialog", sent) };
 }
 
 type BatchResult = { result?: CdpParams; err?: { code: ChromeBridgeErrorCode; message: string } };

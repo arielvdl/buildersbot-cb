@@ -9,6 +9,7 @@ declare const __BB_CHANNEL__: "store" | "dev" | "e2e";
 declare namespace chrome {
   export interface ChromeEvent<Listener> {
     addListener(listener: Listener): void;
+    removeListener(listener: Listener): void;
   }
 
   export namespace runtime {
@@ -173,7 +174,13 @@ declare namespace chrome {
       id: number;
       priority: number;
       action: { type: "block" | "allow" | "allowAllRequests" };
-      condition: { requestDomains?: string[]; tabIds?: number[]; resourceTypes?: ResourceType[] };
+      condition: {
+        requestDomains?: string[];
+        /** `|` anchors the start of the URL; see the declarativeNetRequest URL filter syntax. */
+        urlFilter?: string;
+        tabIds?: number[];
+        resourceTypes?: ResourceType[];
+      };
     }
     function updateSessionRules(options: { removeRuleIds?: number[]; addRules?: Rule[] }): Promise<void>;
     function getSessionRules(): Promise<Rule[]>;

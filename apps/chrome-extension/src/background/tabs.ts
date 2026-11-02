@@ -5,14 +5,20 @@
  *   of a turn and `lease.open` at the next keep the same tabs: no new tab and no new group at each turn.
  * - A handle is a 128-bit opaque value. An agent never sees a Chrome tab id, and a handle names only a
  *   tab that the extension put in a project group (or a popup window that such a tab opened).
- * - Limits are counted from the extension's own records, so the count is exact. Past a limit the call
- *   is refused at once with `limit`; nothing waits.
- * - Nothing polls. Deadlines (lease idle, tab discard, group collapse) set one timer, to the nearest one,
- *   and only while there is something to wait for.
+ * - Limits are counted from the extension's own records, so the count is exact. Past the limit of a
+ *   project or of all agents, the oldest tab that an agent made and nobody looked at, of a lease that
+ *   is not open, closes first; when there is none, the call is refused at once with `limit`.
+ * - Tabs that agents left are cleaned up: a blank one of a closed lease closes after 10 minutes; a tab
+ *   with content is discarded (its memory goes) unless the person looked at it, and it loads again at
+ *   the next command.
+ * - A tab that the person drags out of the group is the person's: it leaves the lease at once.
+ * - Nothing polls. Deadlines (lease idle, tab discard, blank close, group collapse) set one timer, to
+ *   the nearest one that still has work, and only while there is something to wait for.
  */
 
 import { TAB_TIMING } from "@openbot/contracts/chrome-bridge/protocol";
-import { detach, ensureAttached, forgetTab, internalCommand } from "./debugger";
+import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
+import { detach, ensureAttached, forgetTab, internalCommand, setMainFrameCheck } from "./debugger";
 import { floorDecision, syncFloorRules } from "./floor";
 import {
   applyLook,
@@ -27,6 +33,7 @@ import {
   ungroupBeforeClose,
 } from "./groups";
 import { audit, emit } from "./outbox";
+import { forgetSecrets } from "./secrets";
 import {
   type AgentTab,
   addTab,
@@ -63,6 +70,49 @@ export function requireRunning(project: Project): void {
   if (project.shared) throw new BridgeError("group_shared", "the project group is shared: agents are paused");
   if (state.stopAll !== null || project.pausedBy !== null)
     throw new BridgeError("paused_by_user", "the person paused the agents in Chrome");
+}
+
+/** Chrome says, now, that the tab is in its project's group (a satellite: its opener is). */
+export async function requireInGroup(chromeTab: chrome.tabs.Tab, tab: AgentTab, project: Project): Promise<void> {
+  const groupTabId = tab.satelliteOf === null ? null : (state.tabs.get(tab.satelliteOf)?.tabId ?? -1);
+  const groupId =
+    groupTabId === null
+      ? chromeTab.groupId
+      : await chrome.tabs.get(groupTabId).then(
+          (parent) => parent.groupId,
+          () => -2,
+        );
+  if (project.groupId === null || groupId !== project.groupId)
+    throw new BridgeError("out_of_scope", "the person took the tab out of the project group");
+}
+
+/** The current Chrome tab of an agent tab that is still in its group. */
+async function inGroupNow(tab: AgentTab): Promise<chrome.tabs.Tab> {
+  const project = requireProject(tab.projectKey);
+  let chromeTab: chrome.tabs.Tab;
+  try {
+    chromeTab = await chrome.tabs.get(tab.tabId);
+  } catch {
+    throw new BridgeError("out_of_scope", "the tab is closed");
+  }
+  await requireInGroup(chromeTab, tab, project);
+  return chromeTab;
+}
+
+/** Resolves when the tab's load ends, or after `ms`. */
+export function waitForComplete(tabId: number, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const listener = (id: number, change: chrome.tabs.ChangeInfo) => {
+      if (id === tabId && change.status === "complete") done();
+    };
+    const timer = setTimeout(() => done(), ms);
+    const done = () => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
 
 export function requireActiveLease(leaseId: string | null): Lease {
@@ -173,10 +223,16 @@ export async function createTab(leaseId: string, url: string): Promise<{ handle:
   }
   // The blank tab that holds a group made by `group.ensure` is the first tab of the project's agent.
   const placeholder = tabsOfProject(project.projectKey).find((tab) => tab.createdBy === "extension");
-  const used = counts(lease);
   const extra = placeholder ? 0 : 1;
+  let used = counts(lease);
   if (used.lease + 1 > state.limits.tabsPerLease)
     throw new BridgeError("limit", `this agent has ${used.lease} tabs open, its limit; close or reuse one`);
+  // Room first comes from tabs that agents left: the oldest unseen one of a closed lease closes.
+  while (used.project + extra > state.limits.tabsPerProject || used.total + extra > state.limits.tabsTotal) {
+    const evicted = await evictLeftTab(used.project + extra > state.limits.tabsPerProject ? project.projectKey : null);
+    if (!evicted) break;
+    used = counts(lease);
+  }
   if (used.project + extra > state.limits.tabsPerProject)
     throw new BridgeError("limit", `the project has ${used.project} tabs open, its limit; close or reuse one`);
   if (used.total + extra > state.limits.tabsTotal)
@@ -189,15 +245,40 @@ export async function createTab(leaseId: string, url: string): Promise<{ handle:
   } finally {
     unreserve();
   }
-  // The floor rule covers the tab before its first request leaves.
-  await syncFloorRules();
-  touch(tab, lease, project);
-  void markTab(tab);
-  if (url !== "about:blank") {
-    await ensureAttached(tab);
-    await internalCommand(tab.tabId, "Page.navigate", { url });
+  try {
+    // The floor rule covers the tab before its first request leaves.
+    await syncFloorRules();
+    touch(tab, lease, project);
+    void markTab(tab);
+    if (url !== "about:blank") {
+      await ensureAttached(tab);
+      await internalCommand(tab.tabId, "Page.navigate", { url });
+    }
+  } catch (error) {
+    // The app never got this tab's handle: the tab goes, so it does not count against the limits.
+    await closeTab(tab.handle).catch(() => undefined);
+    throw error;
   }
   return { handle: tab.handle };
+}
+
+/**
+ * Closes the oldest tab that an agent made, that the person never looked at, of a lease that is not
+ * open (or of no lease), in `projectKey` or in any project. False when there is none.
+ */
+async function evictLeftTab(projectKey: string | null): Promise<boolean> {
+  const left = [...state.tabs.values()]
+    .filter((tab) => {
+      if (tab.createdBy !== "agent" || tab.viewed || tab.satelliteOf !== null) return false;
+      if (projectKey !== null && tab.projectKey !== projectKey) return false;
+      const lease = tab.leaseId === null ? undefined : state.leases.get(tab.leaseId);
+      return lease?.active !== true;
+    })
+    .sort((a, b) => a.lastCommandAt - b.lastCommandAt)[0];
+  if (!left) return false;
+  await closeTab(left.handle).catch(() => undefined);
+  emit("tab.removed", { handle: left.handle, by: "extension" });
+  return !state.tabs.has(left.handle);
 }
 
 async function takeOrMakeTab(project: Project, lease: Lease, placeholder: AgentTab | undefined): Promise<AgentTab> {
@@ -244,6 +325,7 @@ export async function closeTab(handle: string): Promise<{ closed: boolean }> {
   const tab = requireTab(handle);
   const project = state.projects.get(tab.projectKey);
   await detach(tab.tabId, "lease_end");
+  forgetSecrets(tab.tabId);
   if (tab.createdBy === "person") {
     dropTab(handle);
     await chrome.tabs.ungroup([tab.tabId]).catch(() => undefined);
@@ -267,12 +349,26 @@ export async function activateTab(handle: string): Promise<void> {
   persist();
 }
 
+/**
+ * Back, forward or reload. The entry that back or forward reaches is checked against the floor first:
+ * the back-forward cache shows a page again with no request, so the network rule never sees it.
+ */
 export async function historyTab(handle: string, action: "back" | "forward" | "reload"): Promise<void> {
   const tab = requireTab(handle);
   const lease = requireActiveLease(tab.leaseId);
   const project = requireProject(tab.projectKey);
   requireRunning(project);
-  const current = await chrome.tabs.get(tab.tabId);
+  const current = await inGroupNow(tab);
+  if (action !== "reload") {
+    await ensureAttached(tab);
+    const history = await internalCommand(tab.tabId, "Page.getNavigationHistory", {});
+    const entries = Array.isArray(history.entries) ? history.entries : [];
+    const index = (isNumber(history.currentIndex) ? history.currentIndex : -1) + (action === "back" ? -1 : 1);
+    const entry = entries[index];
+    const url = isDynamicRecord(entry) && isString(entry.url) ? entry.url : "";
+    if (url !== "" && url !== "about:blank" && floorDecision(url, tab.projectKey).blocked)
+      throw new BridgeError("site_blocked", "the history entry is a site that agents may not use");
+  }
   takeNavigation(project.projectKey, current.url ?? "about:blank");
   touch(tab, lease, project);
   if (action === "back") await chrome.tabs.goBack(tab.tabId);
@@ -282,12 +378,16 @@ export async function historyTab(handle: string, action: "back" | "forward" | "r
 
 export async function zoomOf(handle: string): Promise<{ factor: number }> {
   const tab = requireTab(handle);
+  await inGroupNow(tab);
   const factor = await chrome.tabs.getZoom(tab.tabId);
   return { factor: Math.min(5, Math.max(0.25, factor)) };
 }
 
 export async function discardTab(handle: string): Promise<void> {
   const tab = requireTab(handle);
+  const chromeTab = await inGroupNow(tab);
+  // A tab that the person looks at, or looked at in the last 5 minutes, keeps its page.
+  if (chromeTab.active || recentlyViewed(tab)) return;
   await detach(tab.tabId, "memory");
   await chrome.tabs.discard(tab.tabId).catch(() => undefined);
 }
@@ -423,8 +523,12 @@ const stripFragment = (url: string) => {
 export function onTabRemoved(tabId: number, info: { isWindowClosing: boolean }): void {
   const tab = tabByChromeId(tabId);
   forgetTab(tabId);
+  forgetSecrets(tabId);
+  activatedAt.delete(tabId);
   if (!tab) return;
-  noteTabGone(tab.projectKey);
+  // A window that closes is not the person closing the group: the project is not paused for it.
+  if (!info.isWindowClosing) noteTabGone(tab.projectKey);
+  discarded.delete(tab.handle);
   dropTab(tab.handle);
   emit("tab.removed", { handle: tab.handle, by: info.isWindowClosing ? "browser" : "person" });
   void syncFloorRules();
@@ -441,9 +545,20 @@ export function onTabReplaced(addedTabId: number, removedTabId: number): void {
   void syncFloorRules();
 }
 
+/** When the person last activated each agent tab, so a tab in use is not discarded. */
+const activatedAt = new Map<number, number>();
+
+function recentlyViewed(tab: AgentTab): boolean {
+  return Date.now() - (activatedAt.get(tab.tabId) ?? 0) < TAB_TIMING.discardIdleMs;
+}
+
 export function onTabActivated(info: { tabId: number }): void {
   const tab = tabByChromeId(info.tabId);
-  if (!tab || tab.viewed) return;
+  if (!tab) return;
+  activatedAt.set(info.tabId, Date.now());
+  // The person looks at the group now: a collapse that waited for that can be tried again.
+  collapseRefused.delete(tab.projectKey);
+  if (tab.viewed) return;
   tab.viewed = true;
   persist();
 }
@@ -463,6 +578,8 @@ export function onTabUpdated(tabId: number, change: chrome.tabs.ChangeInfo, chro
     // The person dragged the tab out of the group: the tab is the person's now. A group that Chrome just
     // made is a group dragged to another window (or our own new group); the group events decide that.
     void detach(tabId, "person");
+    // When the tab is still out of the group a moment later, it leaves the lease and the limits.
+    setTimeout(() => void letGoIfTaken(tab.handle), TAKEN_SETTLE_MS);
   }
   const update: {
     url?: string;
@@ -480,11 +597,31 @@ export function onTabUpdated(tabId: number, change: chrome.tabs.ChangeInfo, chro
   if (change.status === "complete" && chromeTab.url) checkMainFrame(tab, chromeTab.url);
 }
 
-/** A main frame on the floor puts the tab in quarantine: no debugger, only history and close. */
-function checkMainFrame(tab: AgentTab, url: string): void {
+/** How long a tab may stay out of its group (a group being made or moved) before it is the person's. */
+const TAKEN_SETTLE_MS = 1_500;
+
+/** A tab that is still out of its project's group: the person took it, so the lease lets it go. */
+async function letGoIfTaken(handle: string): Promise<void> {
+  const tab = state.tabs.get(handle);
+  const project = tab ? state.projects.get(tab.projectKey) : undefined;
+  if (!tab || !project || project.groupId === null || tab.satelliteOf !== null) return;
+  const chromeTab = await chrome.tabs.get(tab.tabId).catch(() => null);
+  if (!chromeTab || chromeTab.groupId === project.groupId) return;
+  dropTab(handle);
+  forgetTab(tab.tabId);
+  discarded.delete(handle);
+  emit("tab.removed", { handle, by: "person" });
+  void syncFloorRules();
+}
+
+/**
+ * A main frame on the floor puts the tab in quarantine: no debugger, only history and close. True when
+ * the tab is in quarantine.
+ */
+function checkMainFrame(tab: AgentTab, url: string): boolean {
   const decision = floorDecision(url, tab.projectKey);
   if (decision.blocked && decision.rule !== "scheme" && decision.rule !== "invalid-url") {
-    if (tab.quarantined) return;
+    if (tab.quarantined) return true;
     tab.quarantined = true;
     persist();
     const origin = originOf(url) ?? "null";
@@ -496,7 +633,7 @@ function checkMainFrame(tab: AgentTab, url: string): void {
     audit.blocked += 1;
     void detach(tab.tabId, "site_blocked");
     emit("tab.blocked", { handle: tab.handle, origin, rule: decision.rule });
-    return;
+    return true;
   }
   // `chrome://`, `data:` and other schemes are refused at each command, not quarantined: the error page
   // of a blocked request shows such a URL too.
@@ -504,7 +641,10 @@ function checkMainFrame(tab: AgentTab, url: string): void {
     tab.quarantined = false;
     persist();
   }
+  return tab.quarantined;
 }
+
+setMainFrameCheck(checkMainFrame);
 
 /** A popup of an agent tab: same owner, same group, or a satellite when Chrome opened a popup window. */
 export async function onTabCreated(created: chrome.tabs.Tab): Promise<void> {
@@ -523,7 +663,10 @@ export async function onTabCreated(created: chrome.tabs.Tab): Promise<void> {
     used.total + 1 > state.limits.tabsTotal
   )
     return;
+  // The slot is taken before the wait, as `tab.create` takes it.
+  const unreserve = reserve(lease);
   const window = await chrome.windows.get(created.windowId).catch(() => null);
+  unreserve();
   const satellite = window?.type === "popup";
   const tab: AgentTab = {
     handle: opaqueId(),
@@ -556,21 +699,46 @@ export async function onTabCreated(created: chrome.tabs.Tab): Promise<void> {
 let timer: ReturnType<typeof setTimeout> | null = null;
 let timerAt = 0;
 
-/** Sets one timer to the nearest deadline of a lease, a tab or a group; none when nothing waits. */
+/** Agent tabs that the housekeeping discarded; a command takes a tab out again. */
+const discarded = new Set<string>();
+/** Projects whose group the person kept open (an active tab in it): no collapse until the person moves. */
+const collapseRefused = new Set<string>();
+
+function leaseOf(tab: AgentTab): Lease | undefined {
+  return tab.leaseId === null ? undefined : state.leases.get(tab.leaseId);
+}
+
+/** The time after which the housekeeping has work for a tab, or Infinity when it has none. */
+function tabDeadline(tab: AgentTab): number {
+  if (tab.createdBy !== "agent" || tab.lastCommandAt <= 0 || discarded.has(tab.handle)) return Number.POSITIVE_INFINITY;
+  if (leaseOf(tab)?.active === true) return Number.POSITIVE_INFINITY;
+  const blankClose = tab.viewed ? Number.POSITIVE_INFINITY : tab.lastCommandAt + BLANK_CLOSE_MS;
+  const discard = tab.viewed ? Number.POSITIVE_INFINITY : tab.lastCommandAt + TAB_TIMING.discardIdleMs;
+  return Math.min(blankClose, discard);
+}
+
+/** A blank tab that an agent left: it closes after this long with no command. */
+const BLANK_CLOSE_MS = 10 * 60_000;
+
+/**
+ * Sets one timer to the nearest deadline that still has work: a lease to close, a tab to discard or
+ * close, a group to collapse. None when nothing waits; never a deadline that already passed and has
+ * nothing left to do, so the worker is not woken in a loop.
+ */
 export function scheduleHousekeeping(): void {
   let next = Number.POSITIVE_INFINITY;
   for (const lease of state.leases.values()) {
     if (lease.active) next = Math.min(next, lease.lastCommandAt + TAB_TIMING.leaseIdleMs);
   }
-  for (const tab of state.tabs.values()) {
-    if (tab.createdBy === "agent" && tab.lastCommandAt > 0)
-      next = Math.min(next, tab.lastCommandAt + TAB_TIMING.discardIdleMs);
-  }
+  for (const tab of state.tabs.values()) next = Math.min(next, tabDeadline(tab));
+  const busy = new Set([...state.leases.values()].filter((lease) => lease.active).map((lease) => lease.projectKey));
+  const lastByProject = new Map<string, number>();
+  for (const tab of state.tabs.values())
+    lastByProject.set(tab.projectKey, Math.max(lastByProject.get(tab.projectKey) ?? 0, tab.lastCommandAt));
   for (const project of state.projects.values()) {
-    if (project.groupId !== null && !project.collapsedByExtension) {
-      const last = Math.max(0, ...tabsOfProject(project.projectKey).map((tab) => tab.lastCommandAt));
-      next = Math.min(next, last + TAB_TIMING.collapseIdleMs);
-    }
+    if (project.groupId === null || project.collapsedByExtension) continue;
+    if (busy.has(project.projectKey) || collapseRefused.has(project.projectKey)) continue;
+    next = Math.min(next, (lastByProject.get(project.projectKey) ?? 0) + TAB_TIMING.collapseIdleMs);
   }
   if (!Number.isFinite(next)) return;
   const at = Math.max(next, Date.now() + 1_000);
@@ -583,29 +751,59 @@ export function scheduleHousekeeping(): void {
   }, at - Date.now());
 }
 
-const discarded = new Set<string>();
-
 async function housekeeping(): Promise<void> {
   const now = Date.now();
   for (const lease of state.leases.values()) {
     if (lease.active && now - lease.lastCommandAt >= TAB_TIMING.leaseIdleMs) await closeLease(lease.leaseId);
   }
   for (const tab of [...state.tabs.values()]) {
-    const lease = tab.leaseId === null ? undefined : state.leases.get(tab.leaseId);
-    if (tab.createdBy !== "agent" || lease?.active || discarded.has(tab.handle)) continue;
-    if (tab.lastCommandAt > 0 && now - tab.lastCommandAt >= TAB_TIMING.discardIdleMs) {
-      discarded.add(tab.handle);
-      await chrome.tabs.discard(tab.tabId).catch(() => undefined);
+    if (tabDeadline(tab) > now) continue;
+    const chromeTab = await chrome.tabs.get(tab.tabId).catch(() => null);
+    if (!chromeTab) continue;
+    const blank = (chromeTab.url ?? "") === "about:blank" || (chromeTab.url ?? "") === "";
+    if (blank && now - tab.lastCommandAt >= BLANK_CLOSE_MS) {
+      // Nothing to keep in a blank tab that an agent left: it closes, and the app forgets it.
+      await closeTab(tab.handle).catch(() => undefined);
+      emit("tab.removed", { handle: tab.handle, by: "extension" });
+      continue;
     }
+    if (now - tab.lastCommandAt < TAB_TIMING.discardIdleMs) continue;
+    discarded.add(tab.handle);
+    // A tab that the person looks at, or looked at in the last minutes, keeps its page.
+    if (chromeTab.active || recentlyViewed(tab)) continue;
+    await chrome.tabs.discard(tab.tabId).catch(() => undefined);
   }
   for (const project of state.projects.values()) {
+    if (project.groupId === null || project.collapsedByExtension || collapseRefused.has(project.projectKey)) continue;
     const tabs = tabsOfProject(project.projectKey);
     const busy = [...state.leases.values()].some((lease) => lease.active && lease.projectKey === project.projectKey);
     const last = Math.max(0, ...tabs.map((tab) => tab.lastCommandAt));
-    if (!busy && now - last >= TAB_TIMING.collapseIdleMs) await collapseIfIdle(project);
+    if (busy || now - last < TAB_TIMING.collapseIdleMs) continue;
+    if (!(await collapseIfIdle(project))) collapseRefused.add(project.projectKey);
   }
+  pruneRecords(now);
+}
+
+/** Leases closed for an hour with no tab, and projects with nothing left, leave the records. */
+function pruneRecords(now: number): void {
+  let changed = false;
+  for (const lease of [...state.leases.values()]) {
+    if (lease.active || now - lease.lastCommandAt < 60 * 60_000 || tabsOfLease(lease.leaseId).length > 0) continue;
+    state.leases.delete(lease.leaseId);
+    changed = true;
+  }
+  for (const project of [...state.projects.values()]) {
+    const leases = [...state.leases.values()].some((lease) => lease.projectKey === project.projectKey);
+    if (project.groupId !== null || project.pausedBy !== null || leases || tabsOfProject(project.projectKey).length > 0)
+      continue;
+    // The project comes back with the app's next `session.configure`; its floor unlocks stay.
+    state.projects.delete(project.projectKey);
+    changed = true;
+  }
+  if (changed) persist();
 }
 
 export function noteUsed(tab: AgentTab): void {
   discarded.delete(tab.handle);
+  collapseRefused.delete(tab.projectKey);
 }

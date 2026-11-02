@@ -50,6 +50,8 @@ export const messages = {
   "chromeExtension.welcome.pairTitle": "Conectar ao Builders Bot",
   "chromeExtension.welcome.showWords": "No Builders Bot, escolha estas palavras:",
   "chromeExtension.welcome.chooseWords": "Depois, toque nas palavras que o Builders Bot mostra:",
+  "chromeExtension.welcome.notExpected":
+    "Se o Builders Bot não mostra agora um cartão com estas palavras, toque em Agora não.",
   "chromeExtension.welcome.notNow": "Agora não",
   "chromeExtension.welcome.paired": "Conectado. Pode fechar esta aba.",
   "chromeExtension.welcome.mismatch": "As palavras não bateram. Nada foi conectado.",

@@ -4,13 +4,13 @@
  * of this file added a listener for it. Each listener waits for the state to load before it acts.
  */
 
-import { dropStaleSessions, load, onDebuggerDetach, onDebuggerEvent, setInfobarStop } from "./debugger";
+import { detach, dropStaleSessions, load, onDebuggerDetach, onDebuggerEvent, setInfobarStop } from "./debugger";
 import { loadFloorRules, syncFloorRules } from "./floor";
 import { onGroupCreated, onGroupRemoved, onGroupUpdated } from "./groups";
-import { connect, noteEvent, onAlarm, timings, WATCHDOG_ALARM } from "./link";
-import { emit } from "./outbox";
+import { connect, connectOnWake, noteEvent, onAlarm, timings, WATCHDOG_ALARM } from "./link";
+import { emit, flushEvents } from "./outbox";
 import { fromOwnPage, onPageRequest } from "./pages";
-import { clearRegistry, restore } from "./state";
+import { clearRegistry, noteBrowserStart, restore, state } from "./state";
 import { showGlobalState, stopAll } from "./stop";
 import { onTabActivated, onTabCreated, onTabRemoved, onTabReplaced, onTabUpdated, scheduleHousekeeping } from "./tabs";
 
@@ -33,13 +33,16 @@ const whenLoaded =
 
 setInfobarStop((source) => void stopAll(source));
 
-chrome.runtime.onStartup.addListener(
-  whenLoaded(async () => {
-    // A new browser run: no group of the last run is ours, whatever its title.
-    await clearRegistry();
-    connect("start");
-  }),
-);
+const onBrowserStart = whenLoaded(async () => {
+  // A new browser run: no group of the last run is ours, whatever its title.
+  await clearRegistry();
+  connect("start");
+});
+chrome.runtime.onStartup.addListener(() => {
+  // Before the state loads: the carry of the last run is not taken.
+  noteBrowserStart();
+  onBrowserStart();
+});
 
 chrome.runtime.onInstalled.addListener(
   whenLoaded(async (details) => {
@@ -54,7 +57,11 @@ chrome.runtime.onUpdateAvailable.addListener(
     // Wait until no command is in Chrome (10 min at most), then reload into the new version.
     const until = Date.now() + 10 * 60_000;
     while (load().inFlight > 0 && Date.now() < until) await new Promise((done) => setTimeout(done, 1_000));
+    // The debugger leaves each tab, and each tab can be discarded again; the next version takes the
+    // tabs back from the carry with the same handles.
+    await Promise.all([...state.attachedTabIds].map((tabId) => detach(tabId, "lease_end")));
     emit("ext.updating", {});
+    await flushEvents();
     chrome.runtime.reload();
   }),
 );
@@ -86,7 +93,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-void loaded.then(() => connect("start"));
+// A worker that starts for any other reason connects when the wait of its retry step has passed.
+void loaded.then(() => connectOnWake());
 
 // The E2E build lets the test read when this worker started and what woke it. No other build has it.
 if (__BB_CHANNEL__ === "e2e") Object.assign(globalThis, { buildersBotTimings: timings });

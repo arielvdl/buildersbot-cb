@@ -53,6 +53,7 @@ export const messages = defineMessages("chromeExtension", {
   "chromeExtension.welcome.pairTitle": "Connect to Builders Bot",
   "chromeExtension.welcome.showWords": "In Builders Bot, choose these words:",
   "chromeExtension.welcome.chooseWords": "Then tap the words that Builders Bot shows:",
+  "chromeExtension.welcome.notExpected": "If Builders Bot does not show a card with these words now, tap Not now.",
   "chromeExtension.welcome.notNow": "Not now",
   "chromeExtension.welcome.paired": "Connected. You can close this tab.",
   "chromeExtension.welcome.mismatch": "The words did not match. Nothing was connected.",

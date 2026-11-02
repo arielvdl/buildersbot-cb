@@ -8,7 +8,7 @@ import { hostMatches, SITE_FLOOR } from "@openbot/contracts/chrome-bridge/site-f
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import type { PageRequest, PageResponse, ProjectView, StatusView } from "../shared/messages";
 import { syncFloorRules } from "./floor";
-import { choosePairing, connect, disconnectByPerson, linkInfo } from "./link";
+import { choosePairing, connect, disconnectByPerson, linkInfo, openPairingByPerson } from "./link";
 import { emit } from "./outbox";
 import { persist, state, tabsOfProject } from "./state";
 import { linkState, pauseProject, resumeAll, resumeProject, stopAll } from "./stop";
@@ -114,6 +114,7 @@ export async function onPageRequest(value: unknown): Promise<PageResponse> {
       return { kind: "status", status: status() };
     case "connect":
       connect("gesture");
+      await openPairingByPerson();
       return { kind: "ok" };
     case "pair.choose":
       return { kind: "pairing", result: await choosePairing(request.index) };

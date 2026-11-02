@@ -4,8 +4,12 @@
  * - `storage.session` holds the projects, leases, tab handles and stops. Chrome clears it when the
  *   browser restarts and when the extension updates or reloads.
  * - `storage.local` holds the registry of the groups that the extension made (cleared at
- *   `runtime.onStartup`, because group ids change with a browser restart) and the floor origins that the
- *   person opened for a project in the popup.
+ *   `runtime.onStartup`, because group ids change with a browser restart), the floor origins that the
+ *   person opened for a project in the popup, and a copy of the projects, leases and tabs (the carry).
+ * - After an update or a reload of the extension, the session is empty but the browser run is the same:
+ *   the carry gives the tabs back with the same handles, each one only while Chrome still shows it in
+ *   the registered group of its project. The app then finds its tabs in the next `ready`. A browser
+ *   start never takes the carry: its ids are new, and the person may have kept the tabs.
  *
  * Writes are joined: many changes in one task make one write.
  */
@@ -135,6 +139,14 @@ export function projectOfGroup(groupId: number): Project | undefined {
 const SESSION_KEY = "bb.state";
 const REGISTRY_KEY = "bb.registry";
 const UNLOCKS_KEY = "bb.unlocks";
+const CARRY_KEY = "bb.carry";
+
+/** Chrome started this worker for `runtime.onStartup`: a new browser run, where the carry is not taken. */
+let browserStarting = false;
+
+export function noteBrowserStart(): void {
+  browserStarting = true;
+}
 
 let writeScheduled = false;
 
@@ -154,12 +166,15 @@ async function writeNow(): Promise<void> {
     if (project.groupId !== null && project.windowId !== null)
       registry[project.projectKey] = { groupId: project.groupId, windowId: project.windowId };
   }
+  const projects = [...state.projects.values()];
+  const leases = [...state.leases.values()];
+  const tabs = [...state.tabs.values()];
   await Promise.all([
     chrome.storage.session.set({
       [SESSION_KEY]: {
-        projects: [...state.projects.values()],
-        leases: [...state.leases.values()],
-        tabs: [...state.tabs.values()],
+        projects,
+        leases,
+        tabs,
         stopAll: state.stopAll,
         limits: state.limits,
         rate: state.rate,
@@ -167,7 +182,20 @@ async function writeNow(): Promise<void> {
         attachedTabIds: [...state.attachedTabIds],
       },
     }),
-    chrome.storage.local.set({ [REGISTRY_KEY]: registry, [UNLOCKS_KEY]: Object.fromEntries(state.unlocks) }),
+    chrome.storage.local.set({
+      [REGISTRY_KEY]: registry,
+      [UNLOCKS_KEY]: Object.fromEntries(state.unlocks),
+      [CARRY_KEY]: {
+        projects,
+        leases,
+        tabs,
+        stopAll: state.stopAll,
+        limits: state.limits,
+        rate: state.rate,
+        policyAdd: state.policyAdd,
+        attachedTabIds: [...state.attachedTabIds],
+      },
+    }),
   ]);
 }
 
@@ -185,7 +213,7 @@ export async function readRegistry(): Promise<Map<string, { groupId: number; win
 
 /** At a browser start, no group of before is ours: their ids are new, and the person may have kept them. */
 export async function clearRegistry(): Promise<void> {
-  await chrome.storage.local.remove(REGISTRY_KEY);
+  await chrome.storage.local.remove([REGISTRY_KEY, CARRY_KEY]);
 }
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter(isString) : []);
@@ -201,7 +229,10 @@ export async function restore(): Promise<void> {
     for (const [projectKey, origins] of Object.entries(unlocks)) state.unlocks.set(projectKey, strings(origins));
   }
   const saved = session[SESSION_KEY];
-  if (!isDynamicRecord(saved)) return;
+  if (!isDynamicRecord(saved)) {
+    await takeCarry();
+    return;
+  }
   const registry = await readRegistry();
   for (const value of Array.isArray(saved.projects) ? saved.projects : []) {
     const project = readProject(value);
@@ -226,6 +257,57 @@ export async function restore(): Promise<void> {
     }
   }
   if (isString(saved.stopAll)) state.stopAll = readStopSource(saved.stopAll);
+  readSettings(saved);
+  for (const tabId of Array.isArray(saved.attachedTabIds) ? saved.attachedTabIds : [])
+    if (isNumber(tabId)) state.attachedTabIds.add(tabId);
+}
+
+/**
+ * After an update or a reload of the extension (the session is empty, the browser run is the same), the
+ * tabs of the carry come back with the same handles, each one only while Chrome shows it in the
+ * registered group of its project. Leases come back closed: the app opens them again at its next call.
+ */
+async function takeCarry(): Promise<void> {
+  // Chrome gives `runtime.onStartup` to a worker that a browser start woke; let it arrive first.
+  await new Promise((done) => setTimeout(done, 0));
+  const carry = (await chrome.storage.local.get(CARRY_KEY))[CARRY_KEY];
+  if (browserStarting || !isDynamicRecord(carry)) return;
+  const registry = await readRegistry();
+  for (const value of Array.isArray(carry.projects) ? carry.projects : []) {
+    const project = readProject(value);
+    if (!project) continue;
+    const registered = registry.get(project.projectKey);
+    if (!registered || registered.groupId !== project.groupId) {
+      project.groupId = null;
+      project.windowId = null;
+    }
+    state.projects.set(project.projectKey, project);
+  }
+  for (const value of Array.isArray(carry.tabs) ? carry.tabs : []) {
+    const tab = readTab(value);
+    const project = tab ? state.projects.get(tab.projectKey) : undefined;
+    if (!tab || !project || project.groupId === null || tab.satelliteOf !== null) continue;
+    const live = await chrome.tabs.get(tab.tabId).catch(() => null);
+    if (live?.groupId !== project.groupId) continue;
+    state.tabs.set(tab.handle, tab);
+    state.byTabId.set(tab.tabId, tab.handle);
+  }
+  for (const value of Array.isArray(carry.leases) ? carry.leases : []) {
+    const lease = readLease(value);
+    if (!lease || ![...state.tabs.values()].some((tab) => tab.leaseId === lease.leaseId)) continue;
+    lease.active = false;
+    state.leases.set(lease.leaseId, lease);
+  }
+  if (isString(carry.stopAll)) state.stopAll = readStopSource(carry.stopAll);
+  readSettings(carry);
+  // Sessions that the last worker held are dropped at the start, as after a restart of the worker.
+  for (const tabId of Array.isArray(carry.attachedTabIds) ? carry.attachedTabIds : [])
+    if (isNumber(tabId)) state.attachedTabIds.add(tabId);
+  persist();
+}
+
+/** The limits, the rates and the app's added blocks of a saved state. */
+function readSettings(saved: { readonly [key: string]: unknown }): void {
   if (isDynamicRecord(saved.limits)) {
     const { tabsPerLease, tabsPerProject, tabsTotal } = saved.limits;
     if (isNumber(tabsPerLease) && isNumber(tabsPerProject) && isNumber(tabsTotal))
@@ -237,8 +319,6 @@ export async function restore(): Promise<void> {
       state.rate = { perOriginPerMinute, perProjectPerMinute };
   }
   state.policyAdd = strings(saved.policyAdd);
-  for (const tabId of Array.isArray(saved.attachedTabIds) ? saved.attachedTabIds : [])
-    if (isNumber(tabId)) state.attachedTabIds.add(tabId);
 }
 
 const COLORS: readonly ProjectColor[] = ["blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];

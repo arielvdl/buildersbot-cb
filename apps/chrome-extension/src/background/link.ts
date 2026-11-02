@@ -10,7 +10,12 @@
  * - A new app key needs the person's choice of the words in the welcome page. Until then, only `ping`
  *   is answered.
  * - When the port closes, the extension tries again after 1 s, then by `chrome.alarms` (30 s, 1, 2, 5,
- *   15 and 30 min). A one-minute watchdog alarm brings the worker back if Chrome stopped it.
+ *   15 and 30 min). A one-minute watchdog alarm brings the worker back if Chrome stopped it, and connects
+ *   only when the wait of the current step has passed (the step is kept in session storage, so a worker
+ *   that the alarm wakes does not start again at the first step).
+ * - A new app key opens the welcome page by itself only when the app says that the person opened a
+ *   pairing window there, and at most 3 times an hour; otherwise the icon shows "!" and the person
+ *   opens it from the popup.
  * - 60 s with no app, the debugger leaves every tab; tabs and groups stay.
  */
 
@@ -44,9 +49,13 @@ import { state } from "./state";
 import { setLinkState } from "./stop";
 import { BridgeError, chromeErrorText } from "./util";
 
-/** What this build implements. `tab-handoff` (handed tabs) is not in it yet. */
+/**
+ * What this build implements. `tab-handoff` (handed tabs) is not in it yet, and `agent-scripts` (an
+ * agent's own scripts) waits for a switch for each project in this popup: the app alone does not
+ * turn scripts on.
+ */
 export const EXTENSION_FEATURES: readonly ChromeBridgeFeature[] = CHROME_BRIDGE_FEATURES.filter(
-  (feature) => feature !== "tab-handoff",
+  (feature) => feature !== "tab-handoff" && feature !== "agent-scripts",
 );
 
 const HOST_NAME = NATIVE_HOST_NAMES[__BB_CHANNEL__];
@@ -54,6 +63,9 @@ const CONSENT_VERSION = 1;
 const RETRY_ALARM = "bb-reconnect";
 export const WATCHDOG_ALARM = "bb-watchdog";
 const RETRY_MINUTES = [0.5, 1, 2, 5, 15, 30];
+const LINK_KEY = "bb.link";
+const WELCOME_OPENS_KEY = "bb.welcomeOpens";
+const WELCOME_OPENS_PER_HOUR = 3;
 
 interface Session {
   channel: SealedChannel;
@@ -73,6 +85,8 @@ interface Pairing {
 let port: chrome.runtime.Port | null = null;
 let gate = new HostFrameGate();
 let handshake: { run: ExtensionHandshake; stage: "welcome" | "confirm" } | null = null;
+/** What the app said in its welcome: "new" while the person has a pairing window open there. */
+let appHint: "known" | "new" = "known";
 let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
 let session: Session | null = null;
 let pairing: Pairing | null = null;
@@ -117,6 +131,7 @@ export function connect(cause: ConnectCause): void {
   if (cause === "event" && Date.now() - lastAttemptAt < 5_000) return;
   heldForGesture = false;
   lastAttemptAt = Date.now();
+  void saveLink();
   gate = new HostFrameGate();
   inbound = Promise.resolve();
   setLinkState("connecting");
@@ -166,16 +181,37 @@ function endSession(): void {
   handshakeTimer = null;
 }
 
+/** The wait of the current retry step. */
+function retryWaitMs(step: number): number {
+  if (step <= 1) return 1_000;
+  return (RETRY_MINUTES[Math.min(step - 2, RETRY_MINUTES.length - 1)] ?? 30) * 60_000;
+}
+
 function scheduleRetry(): void {
   if (heldForGesture) return;
   if (retryStep === 0) {
     retryStep = 1;
+    void saveLink();
     setTimeout(() => connect("alarm"), 1_000);
     return;
   }
   const minutes = RETRY_MINUTES[Math.min(retryStep - 1, RETRY_MINUTES.length - 1)] ?? 30;
   retryStep += 1;
+  void saveLink();
   void chrome.alarms.create(RETRY_ALARM, { delayInMinutes: minutes });
+}
+
+/** The retry step and the last attempt, for the next worker that an alarm wakes. */
+async function saveLink(): Promise<void> {
+  await chrome.storage.session.set({ [LINK_KEY]: { retryStep, lastAttemptAt } }).catch(() => undefined);
+}
+
+async function loadLink(): Promise<void> {
+  const stored: { readonly [key: string]: unknown } = await chrome.storage.session.get(LINK_KEY).catch(() => ({}));
+  const saved = stored[LINK_KEY];
+  if (!isDynamicRecord(saved)) return;
+  if (isNumber(saved.retryStep) && saved.retryStep > retryStep) retryStep = saved.retryStep;
+  if (isNumber(saved.lastAttemptAt) && saved.lastAttemptAt > lastAttemptAt) lastAttemptAt = saved.lastAttemptAt;
 }
 
 function startOfflineTimer(): void {
@@ -205,6 +241,7 @@ async function onFrame(frame: object): Promise<void> {
   if (handshake?.stage === "welcome") {
     const answer = await handshake.run.onWelcome(frame);
     if ("rejected" in answer) return rejected(answer.rejected);
+    appHint = answer.welcome.pairing;
     handshake.stage = "confirm";
     for (const message of answer.frames) post(message);
     return;
@@ -291,18 +328,34 @@ async function opened(established: Established): Promise<void> {
     peerKey: established.peerKey,
   };
   setLinkState("not-paired");
-  await showWelcome();
+  if (appHint === "new" && (await takeWelcomeOpen())) await showWelcome();
+}
+
+/** One of the 3 automatic openings of the welcome page in an hour; false when none is left. */
+async function takeWelcomeOpen(): Promise<boolean> {
+  const now = Date.now();
+  const saved = (await chrome.storage.local.get(WELCOME_OPENS_KEY))[WELCOME_OPENS_KEY];
+  const recent = (Array.isArray(saved) ? saved.filter(isNumber) : []).filter((at) => now - at < 60 * 60_000);
+  if (recent.length >= WELCOME_OPENS_PER_HOUR) return false;
+  await chrome.storage.local.set({ [WELCOME_OPENS_KEY]: [...recent, now] });
+  return true;
+}
+
+/** The person asked to connect in the popup: a pairing that waits for the words opens the welcome page. */
+export async function openPairingByPerson(): Promise<void> {
+  if (pairing) await showWelcome();
 }
 
 function ready(): void {
   if (!session) return;
   retryStep = 0;
+  void saveLink();
   if (offlineTimer !== null) clearTimeout(offlineTimer);
   offlineTimer = null;
   timings.readyAt = Date.now();
   timings.sessions += 1;
   setLinkState("connected");
-  sendEvent("ready", readyBody());
+  void sendEvent("ready", readyBody());
 }
 
 function readyBody(): EventBodies["ready"] {
@@ -333,16 +386,17 @@ function readyBody(): EventBodies["ready"] {
 }
 
 /** Sends an event of a feature that both sides announced; others never leave. */
-function sendEvent<E extends ChromeBridgeEvent>(op: E, body: EventBodies[E]): void {
+function sendEvent<E extends ChromeBridgeEvent>(op: E, body: EventBodies[E]): Promise<void> {
   const open = session;
-  if (!open || (!open.trusted && op !== "pair.chrome-ok")) return;
-  if (!open.features.includes(EVENT_FEATURES[op])) return;
+  if (!open || (!open.trusted && op !== "pair.chrome-ok")) return Promise.resolve();
+  if (!open.features.includes(EVENT_FEATURES[op])) return Promise.resolve();
   eventSeq += 1;
-  seal(open, { t: "evt", seq: eventSeq, op, body });
+  return seal(open, { t: "evt", seq: eventSeq, op, body });
 }
 
-function seal(open: Session, message: object): void {
-  open.channel.seal(message).then(
+/** Seals a message and posts its frames; the promise settles when they are on the port. */
+function seal(open: Session, message: object): Promise<void> {
+  return open.channel.seal(message).then(
     (frames) => {
       if (session !== open) return;
       for (const frame of frames) post(frame);
@@ -362,7 +416,7 @@ const handlers = operationHandlers({
   },
   ping: () => {
     // Counters ride on the app's ping: no timer of their own.
-    sendEvent("audit", { ...audit });
+    void sendEvent("audit", { ...audit });
   },
 });
 
@@ -374,7 +428,7 @@ function onMessage(open: Session, message: unknown): void {
   const operation = isDynamicRecord(message) ? message.op : undefined;
   if (!open.trusted && !UNTRUSTED_OPERATIONS.has(String(operation))) {
     if (id > 0)
-      seal(open, {
+      void seal(open, {
         t: "res",
         id,
         err: { code: "consent_required", message: "the person has not paired this Chrome yet" },
@@ -386,7 +440,7 @@ function onMessage(open: Session, message: unknown): void {
       error instanceof BridgeError
         ? { code: error.code, message: error.message.slice(0, 2048) }
         : { code: "cdp_error" as const, message: chromeErrorText(error) };
-    seal(open, { t: "res", id, err });
+    void seal(open, { t: "res", id, err });
   };
   let decoded: ReturnType<typeof decodeToExtension<Promise<object>>>;
   try {
@@ -427,7 +481,7 @@ export async function choosePairing(index: number | null): Promise<"paired" | "m
   const pin: Pin = { appKey: current.peerKey, final: false };
   await writePairing(pin, consent);
   open.trusted = true;
-  sendEvent("pair.chrome-ok", {});
+  void sendEvent("pair.chrome-ok", {});
   ready();
   return "paired";
 }
@@ -438,8 +492,18 @@ export async function disconnectByPerson(): Promise<void> {
   close("the person disconnected this Chrome");
 }
 
-export function onAlarm(name: string): void {
+export async function onAlarm(name: string): Promise<void> {
   noteEvent(`alarm:${name}`);
   if (name === RETRY_ALARM) connect("alarm");
-  if (name === WATCHDOG_ALARM) connect("alarm");
+  if (name === WATCHDOG_ALARM) await connectOnWake();
+}
+
+/**
+ * A worker that Chrome started again (or that the watchdog woke) connects only when the wait of the
+ * current retry step has passed: with no host or no app, it does not try at each wake.
+ */
+export async function connectOnWake(): Promise<void> {
+  await loadLink();
+  if (port) return;
+  if (Date.now() - lastAttemptAt >= retryWaitMs(retryStep)) connect("alarm");
 }

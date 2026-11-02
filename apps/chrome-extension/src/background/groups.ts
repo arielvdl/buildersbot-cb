@@ -25,8 +25,30 @@ import { chromeErrorText, retryTabEdit } from "./util";
 
 const GROUP_COLORS: readonly ProjectColor[] = ["blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
 
-/** The title that the extension last wrote to each group, to tell a rename by the person apart. */
-const writtenTitles = new Map<number, string>();
+/**
+ * The titles that the extension wrote to each group in the last seconds, to tell a rename by the person
+ * apart: two quick writes give two update events, and the first one must not read as a rename.
+ */
+const writtenTitles = new Map<number, { latest: string; recent: Map<string, number> }>();
+const WRITTEN_TITLE_MS = 5_000;
+
+function noteWrittenTitle(groupId: number, title: string): void {
+  const now = Date.now();
+  const written = writtenTitles.get(groupId) ?? { latest: title, recent: new Map<string, number>() };
+  for (const [old, at] of written.recent) if (now - at > WRITTEN_TITLE_MS) written.recent.delete(old);
+  written.latest = title;
+  written.recent.set(title, now);
+  writtenTitles.set(groupId, written);
+}
+
+/** Whether a title of a group update is the person's: not the extension's last one, nor a recent one. */
+function isPersonTitle(groupId: number, title: string): boolean {
+  const written = writtenTitles.get(groupId);
+  if (!written || title === written.latest) return false;
+  const at = written.recent.get(title);
+  return at === undefined || Date.now() - at > WRITTEN_TITLE_MS;
+}
+
 /** Groups that the extension removes itself (the last tab closed by an agent or a release). */
 const removedByExtension = new Set<number>();
 /** Groups that Chrome made in the last second: a group dragged to another window is made again there. */
@@ -86,7 +108,7 @@ export async function applyLook(project: Project): Promise<void> {
   const update: { title?: string; color: TabGroupColor } = { color };
   if (!project.userTitle) {
     update.title = shownTitle(project);
-    writtenTitles.set(groupId, update.title);
+    noteWrittenTitle(groupId, update.title);
   }
   try {
     await edit(() => chrome.tabGroups.update(groupId, update));
@@ -205,21 +227,24 @@ export function noteActivity(project: Project): void {
 
 /**
  * Collapses a group with no active lease, unless it holds the active tab of its window. Only a group
- * that the extension collapsed opens again by itself.
+ * that the extension collapsed opens again by itself. False when the person keeps the group in use (its
+ * tab is active, or the person collapsed it): the next try waits for an event of the person.
  */
-export async function collapseIfIdle(project: Project): Promise<void> {
-  if (project.groupId === null || project.collapsedByExtension) return;
+export async function collapseIfIdle(project: Project): Promise<boolean> {
+  if (project.groupId === null || project.collapsedByExtension) return true;
   const groupId = project.groupId;
   try {
     const group = await chrome.tabGroups.get(groupId);
-    if (group.collapsed) return;
+    if (group.collapsed) return false;
     const [active] = await chrome.tabs.query({ active: true, windowId: group.windowId });
-    if (active?.groupId === groupId) return;
+    if (active?.groupId === groupId) return false;
     await edit(() => chrome.tabGroups.update(groupId, { collapsed: true }));
     project.collapsedByExtension = true;
     persist();
+    return true;
   } catch {
-    // Gone or being edited: try at the next idle time.
+    // Gone or being edited: the group events say what comes next.
+    return false;
   }
 }
 
@@ -262,8 +287,7 @@ export function onGroupUpdated(group: chrome.tabGroups.TabGroup): void {
     emit("group.shared", { projectKey: project.projectKey });
     void applyLook(project);
   }
-  const written = writtenTitles.get(group.id);
-  if (!project.userTitle && written !== undefined && group.title !== undefined && group.title !== written) {
+  if (!project.userTitle && group.title !== undefined && isPersonTitle(group.id, group.title)) {
     project.userTitle = true;
     persist();
     emit("group.renamed", { projectKey: project.projectKey, userTitle: true });

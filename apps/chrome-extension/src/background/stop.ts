@@ -29,13 +29,21 @@ const PERSON_SOURCES: readonly StopSource[] = ["popup", "shortcut", "infobar", "
 
 export async function stopAll(source: StopSource): Promise<void> {
   const already = state.stopAll !== null;
+  const reason = source === "infobar" ? "canceled_by_user" : "person";
+  // The "Cancel" of the debugging bar detaches every tab, one event each: the first one stops all, and
+  // the others only detach what is left, with no new event, group edit or badge.
+  if (already && state.stopAll === source) {
+    await Promise.all([...state.attachedTabIds].map((tabId) => detach(tabId, reason)));
+    return;
+  }
   // A stop of the person wins over a stop of the app: only the popup can end it then.
   if (!already || PERSON_SOURCES.includes(source)) state.stopAll = source;
   persist();
   audit.stops += 1;
-  const reason = source === "infobar" ? "canceled_by_user" : "person";
   await Promise.all([...state.attachedTabIds].map((tabId) => detach(tabId, reason)));
-  await Promise.all([...state.projects.values()].map((project) => applyLook(project)));
+  await Promise.all(
+    [...state.projects.values()].filter((project) => project.groupId !== null).map((project) => applyLook(project)),
+  );
   if (source !== "app") emit("user.stop", { scope: "all", source: personSource(source) });
   await showGlobalState();
 }
