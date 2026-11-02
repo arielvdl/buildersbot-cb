@@ -688,7 +688,8 @@ How a call runs:
    `localhost`, `.local`) waits for the person's consent card for the project and the origin, before a
    call reads or acts on it, and again after an action or a navigation that lands on it. The answer
    holds for the project until the app restarts. Where nobody answers, the call gets
-   `consent_required`.
+   `consent_required`. Until the person allows it, `list_tabs` shows only the origin of such a page,
+   with no path and no title.
 6. The project key and the lease id are HMACs of a secret of this install, sealed by `safeStorage`
    (`userData/chrome-bridge/project-secret.sealed`), so the extension never sees an app id, and the
    same agent in the same thread gets the same lease, and so the same tabs, in each turn and after a

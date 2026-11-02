@@ -749,11 +749,14 @@ export class ChromeTabsHost {
   }
 
   #publicTab(tab: ChromeHostTab): BrowserTab {
-    const title = tab.engine.scrubText(tab.engine.page.title());
+    const url = tab.engine.page.url();
+    // A sensitive site that the project may not use yet shows its origin only: no path, no title.
+    const hidden = sensitiveSiteKind(url) !== null && !this.#siteConsents.get(tab.projectKey)?.has(new URL(url).origin);
+    const title = hidden ? "" : tab.engine.scrubText(tab.engine.page.title());
     return {
       id: tab.id,
       title: title || "New tab",
-      url: tab.engine.scrubText(tab.engine.page.url()),
+      url: hidden ? new URL(url).origin : tab.engine.scrubText(url),
       loading: tab.engine.page.isLoading(),
       ownerThreadId: tab.ownerThreadId,
       ownerAgentId: tab.ownerAgentId,

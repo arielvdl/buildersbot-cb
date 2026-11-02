@@ -726,6 +726,8 @@ async function main(): Promise<void> {
           );
         case "/pw-frame":
           return page(`<p>shop</p><iframe src="http://control.test:${port}/pw"></iframe>`);
+        case "/plain-frame":
+          return page(`<p>shop</p><iframe src="http://control.test:${port}/page?frame=1"></iframe>`);
         case "/same-site-frames":
           return page(
             `<input type="password" id="p"><script>document.getElementById("p").value = "s3cret-e2e"</script>` +
@@ -1484,6 +1486,23 @@ async function main(): Promise<void> {
           params: { format: "jpeg", quality: 10 },
         });
         expect(isDynamicRecord(clean.result), "a clean page refused the screenshot", clean);
+        // A frame of another site with no secret: the check reaches it, and the reads pass.
+        await app.request("cdp.send", {
+          handle: secretTab,
+          method: "Page.navigate",
+          params: { url: `${base}/plain-frame` },
+        });
+        await sleep(1_500);
+        const plainShot = await denied(
+          app.request("cdp.send", {
+            handle: secretTab,
+            method: "Page.captureScreenshot",
+            params: { format: "jpeg", quality: 10 },
+          }),
+        );
+        const plainTree = await denied(
+          app.request("cdp.send", { handle: secretTab, method: "Accessibility.getFullAXTree", params: {} }),
+        );
         await app.request("cdp.send", {
           handle: secretTab,
           method: "Page.navigate",
@@ -1515,6 +1534,11 @@ async function main(): Promise<void> {
           }),
         );
         await app.request("tab.close", { handle: secretTab });
+        expect(
+          plainShot === "allowed" && plainTree === "allowed",
+          "a page with a frame of another site and no secret was refused",
+          { plainShot, plainTree },
+        );
         expect(inFrameShot === "secret_present", "a screenshot showed a password of a frame", inFrameShot);
         expect(inFrameTree === "secret_present", "the tree of a page with a filled frame was read", inFrameTree);
         expect(
@@ -1522,7 +1546,7 @@ async function main(): Promise<void> {
           "the check ran in an old world after a navigation",
           afterNavigation,
         );
-        return { inFrameShot, inFrameTree, afterNavigation };
+        return { plainShot, plainTree, inFrameShot, inFrameTree, afterNavigation };
       },
     );
 

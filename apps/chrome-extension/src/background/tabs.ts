@@ -529,6 +529,7 @@ export function onTabRemoved(tabId: number, info: { isWindowClosing: boolean }):
   // A window that closes is not the person closing the group: the project is not paused for it.
   if (!info.isWindowClosing) noteTabGone(tab.projectKey);
   discarded.delete(tab.handle);
+  waitingBlank.delete(tab.handle);
   dropTab(tab.handle);
   emit("tab.removed", { handle: tab.handle, by: info.isWindowClosing ? "browser" : "person" });
   void syncFloorRules();
@@ -701,6 +702,8 @@ let timerAt = 0;
 
 /** Agent tabs that the housekeeping discarded; a command takes a tab out again. */
 const discarded = new Set<string>();
+/** Blank agent tabs that wait for their close; a command takes a tab out again. */
+const waitingBlank = new Set<string>();
 /** Projects whose group the person kept open (an active tab in it): no collapse until the person moves. */
 const collapseRefused = new Set<string>();
 
@@ -708,13 +711,16 @@ function leaseOf(tab: AgentTab): Lease | undefined {
   return tab.leaseId === null ? undefined : state.leases.get(tab.leaseId);
 }
 
-/** The time after which the housekeeping has work for a tab, or Infinity when it has none. */
+/**
+ * The time after which the housekeeping has work for a tab, or Infinity when it has none. A tab that the
+ * person looked at keeps its page; a blank tab waits for its close; any other tab is discarded once.
+ */
 function tabDeadline(tab: AgentTab): number {
-  if (tab.createdBy !== "agent" || tab.lastCommandAt <= 0 || discarded.has(tab.handle)) return Number.POSITIVE_INFINITY;
+  if (tab.createdBy !== "agent" || tab.lastCommandAt <= 0 || tab.viewed) return Number.POSITIVE_INFINITY;
   if (leaseOf(tab)?.active === true) return Number.POSITIVE_INFINITY;
-  const blankClose = tab.viewed ? Number.POSITIVE_INFINITY : tab.lastCommandAt + BLANK_CLOSE_MS;
-  const discard = tab.viewed ? Number.POSITIVE_INFINITY : tab.lastCommandAt + TAB_TIMING.discardIdleMs;
-  return Math.min(blankClose, discard);
+  if (waitingBlank.has(tab.handle)) return tab.lastCommandAt + BLANK_CLOSE_MS;
+  if (discarded.has(tab.handle)) return Number.POSITIVE_INFINITY;
+  return tab.lastCommandAt + TAB_TIMING.discardIdleMs;
 }
 
 /** A blank tab that an agent left: it closes after this long with no command. */
@@ -761,13 +767,18 @@ async function housekeeping(): Promise<void> {
     const chromeTab = await chrome.tabs.get(tab.tabId).catch(() => null);
     if (!chromeTab) continue;
     const blank = (chromeTab.url ?? "") === "about:blank" || (chromeTab.url ?? "") === "";
-    if (blank && now - tab.lastCommandAt >= BLANK_CLOSE_MS) {
+    if (blank) {
       // Nothing to keep in a blank tab that an agent left: it closes, and the app forgets it.
+      if (now - tab.lastCommandAt < BLANK_CLOSE_MS) {
+        waitingBlank.add(tab.handle);
+        continue;
+      }
+      waitingBlank.delete(tab.handle);
       await closeTab(tab.handle).catch(() => undefined);
       emit("tab.removed", { handle: tab.handle, by: "extension" });
       continue;
     }
-    if (now - tab.lastCommandAt < TAB_TIMING.discardIdleMs) continue;
+    waitingBlank.delete(tab.handle);
     discarded.add(tab.handle);
     // A tab that the person looks at, or looked at in the last minutes, keeps its page.
     if (chromeTab.active || recentlyViewed(tab)) continue;
@@ -805,5 +816,6 @@ function pruneRecords(now: number): void {
 
 export function noteUsed(tab: AgentTab): void {
   discarded.delete(tab.handle);
+  waitingBlank.delete(tab.handle);
   collapseRefused.delete(tab.projectKey);
 }
