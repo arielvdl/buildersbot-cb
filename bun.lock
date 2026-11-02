@@ -113,6 +113,16 @@
         "wrangler": "catalog:",
       },
     },
+    "apps/chrome-extension": {
+      "name": "@openbot/chrome-extension",
+      "version": "1.0.0",
+      "dependencies": {
+        "@openbot/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "catalog:",
+      },
+    },
     "apps/mobile": {
       "name": "@openbot/mobile",
       "version": "1.4.4",
@@ -1024,6 +1034,8 @@
     "@openbot/auth-api": ["@openbot/auth-api@workspace:apps/auth-api"],
 
     "@openbot/brand": ["@openbot/brand@workspace:packages/brand"],
+
+    "@openbot/chrome-extension": ["@openbot/chrome-extension@workspace:apps/chrome-extension"],
 
     "@openbot/contracts": ["@openbot/contracts@workspace:packages/contracts"],
 

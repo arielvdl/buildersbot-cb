@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_chromeExtension_extName__",
+  "short_name": "Builders Bot",
+  "description": "__MSG_chromeExtension_extDescription__",
+  "version": "1.0.0",
+  "default_locale": "en",
+  "minimum_chrome_version": "137",
+  "incognito": "not_allowed",
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "__MSG_chromeExtension_actionTitle__",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "permissions": ["debugger", "tabs", "tabGroups", "nativeMessaging", "storage", "alarms", "declarativeNetRequest"],
+  "optional_permissions": [],
+  "externally_connectable": {
+    "ids": []
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+  },
+  "commands": {
+    "stop-all": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "__MSG_chromeExtension_command_stopAll__"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
