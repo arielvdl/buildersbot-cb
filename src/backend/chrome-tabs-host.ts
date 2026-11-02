@@ -29,6 +29,7 @@ import {
   type ResultBodies,
   TAB_TIMING,
 } from "@openbot/contracts/chrome-bridge/protocol";
+import { type SensitiveSiteKind, sensitiveSiteKind } from "@openbot/contracts/chrome-bridge/site-floor";
 import type { BrowserSnapshot, BrowserTab, BrowserTarget } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { redactText } from "@openbot/logging";
@@ -105,6 +106,18 @@ export interface ChromeCallContext {
   readonly origin: HubTurnOrigin;
   /** Shows the person the card of a message send. Absent where nobody answers a card (a routine). */
   readonly approveMessageSend?: (card: MessageSendCard) => Effect.Effect<boolean>;
+  /**
+   * Asks the person whether the agents of a project may use a sensitive site (mail, chat, a cloud
+   * console, a social network, a payment frame, the person's own network). Absent where nobody answers.
+   */
+  readonly approveSiteAccess?: (card: SiteAccessCard) => Effect.Effect<boolean>;
+}
+
+/** What the person reads on the card of a sensitive site (DESIGN §2.4, §7 item 10). */
+export interface SiteAccessCard {
+  readonly project: string;
+  readonly site: string;
+  readonly kind: SensitiveSiteKind;
 }
 
 export interface ChromeTabsHostOptions {
@@ -136,6 +149,10 @@ export interface ChromeHostTab extends QueuedBrowserTab {
   readonly target: ChromeCdpTarget;
   /** The last snapshot that the owner read: the message-send card takes its fields from it. */
   lastSnapshot: BrowserSnapshot | null;
+  /** Counts the agent's actions in the tab, in the order of its queue. */
+  actionSeq: number;
+  /** `actionSeq` when `lastSnapshot` was read: equal means that no action ran after it. */
+  snapshotSeq: number;
   lastUsedAt: number;
 }
 
@@ -171,6 +188,7 @@ const ORIGIN_TEXT: Readonly<Record<HubTurnOrigin, string>> = {
   owner_ui: "the owner",
   agent: "an agent of the owner",
   routine: "a routine",
+  routine_agent: "an agent that a routine or a webhook started",
   team_member: "a team member or a channel with people who are not the owner",
   messaging: "a chat app",
   unknown: "a source that Builders Bot cannot prove",
@@ -227,6 +245,8 @@ export function chromeRefusalText(code: string, message: string): string {
       return "The page holds a password or a code that Builders Bot did not type, so Chrome does not let agents read it until the page navigates. Ask the person.";
     case "message_send_requires_approval":
       return "A send on this site needs the person's approval of the text and recipients, and nobody can answer a card here. Report the draft instead.";
+    case "consent_required":
+      return `The agents of this project may use ${message} in the person's Chrome only after the person allows it, and nobody can answer a card here. Tell the person.`;
     case "scripts_disabled":
       return "Your own scripts (evaluate and run_script) are off in the person's Chrome. Use snapshot, wait_for and the action tools.";
     case "timeout":
@@ -265,6 +285,8 @@ export class ChromeTabsHost {
   /** Tabs that the extension still has after an app restart, by lease, until their agent calls again. */
   readonly #unclaimed = new Map<string, { installId: string; handles: string[] }>();
   readonly #early = new Map<string, ChromeTabState[]>();
+  /** Sensitive origins that the person allowed for each project key, until the app restarts. */
+  readonly #siteConsents = new Map<string, Set<string>>();
   #lastUsedTabId: string | null = null;
 
   constructor(options: ChromeTabsHostOptions) {
@@ -350,9 +372,13 @@ export class ChromeTabsHost {
     this.#epochs.set(installId, (this.#epochs.get(installId) ?? 0) + 1);
     const listed = Array.isArray(body.handles) ? body.handles.filter(isDynamicRecord) : [];
     const alive = new Set(listed.map((entry) => entry.handle).filter(isString));
+    const attached = new Set(Array.isArray(body.attached) ? body.attached.filter(isString) : []);
     // A tab that the extension no longer has is gone: Chrome restarted, or the person closed it.
     for (const tab of [...this.#tabs.values()]) {
-      if (tab.installId === installId && !alive.has(tab.handle)) this.#forget(tab.handle);
+      if (tab.installId !== installId) continue;
+      if (!alive.has(tab.handle)) this.#forget(tab.handle);
+      // A worker that Chrome restarted dropped its debugger sessions: the engine sets up the next one.
+      else if (!attached.has(tab.handle)) tab.target.receiveDetached();
     }
     // Tabs of leases that this app does not know now (it restarted): their agent takes them back.
     for (const entry of listed) {
@@ -419,16 +445,21 @@ export class ChromeTabsHost {
     const caller = { threadId: params.threadId, ownerAgentId: agentId };
     switch (call.tool) {
       case "open":
-        return yield* this.#open(caller, call.args.url);
+        return yield* this.#open(caller, call.args.url, context);
       case "list_tabs":
         return textResult(this.#toolTabs(caller));
       case "status":
         return textResult({ ...this.#toolTabs(caller), control: { sessions: [] } });
       case "snapshot":
-        return yield* this.#snapshot(caller, call.args.tabId, call.args.image ?? "auto");
+        return yield* this.#snapshot(caller, call.args.tabId, call.args.image ?? "auto", context);
       case "navigate": {
-        const tab = yield* this.#usableTab(caller, call.args.tabId);
-        return snapshotTextResult(yield* this.#navigate(tab, call.args, this.#remember(readActionSnapshot)));
+        const tab = yield* this.#gatedTab(caller, call.args.tabId, context);
+        const url = call.args.url;
+        if (url) yield* this.#siteGate(tab.projectKey, yield* browserSync(() => normalizeBrowserUrl(url)), context);
+        const snapshot = yield* this.#navigate(tab, call.args, this.#remember(readActionSnapshot));
+        // A redirect or a history entry can land on a sensitive site: its content waits for the consent.
+        yield* this.#siteGate(tab.projectKey, tab.engine.page.url(), context);
+        return snapshotTextResult(snapshot);
       }
       case "click":
       case "type":
@@ -440,23 +471,33 @@ export class ChromeTabsHost {
       case "drag":
         return yield* this.#input(caller, call, context);
       case "fill_fields": {
-        const tab = yield* this.#usableTab(caller, call.args.tabId);
+        const tab = yield* this.#gatedTab(caller, call.args.tabId, context);
+        let seq = tab.actionSeq;
         const result = yield* runTabFillFields(
           tab,
           call.args.revision,
           call.args.fields,
           call.args.timeoutMs ?? 10_000,
-          () => this.#requireOwned(caller, call.args.tabId),
+          () => {
+            this.#requireOwned(caller, call.args.tabId);
+            // Runs in the tab's queue, before each field: the fields change after the last snapshot.
+            tab.actionSeq += 1;
+            seq = tab.actionSeq;
+          },
         );
-        if (result.snapshot) tab.lastSnapshot = result.snapshot;
+        // The snapshot of the result is fresh when no other action of the tab ran after this one.
+        if (result.snapshot && tab.actionSeq === seq) {
+          tab.lastSnapshot = result.snapshot;
+          tab.snapshotSeq = seq;
+        }
         return { ...snapshotTextResult(result), success: result.status === "completed" };
       }
       case "wait_for":
-        return yield* this.#waitFor(caller, call.args);
+        return yield* this.#waitFor(caller, call.args, context);
       case "screenshot":
-        return yield* this.#screenshot(caller, call.args.tabId, call.args.ref);
+        return yield* this.#screenshot(caller, call.args.tabId, call.args.ref, context);
       case "handle_dialog":
-        return yield* this.#handleDialog(caller, params, call.args);
+        return yield* this.#handleDialog(caller, params, call.args, context);
       case "close_tab":
         return yield* this.#closeTab(caller, call.args.tabId);
     }
@@ -495,6 +536,9 @@ export class ChromeTabsHost {
     if (known) {
       known.title = project.title;
       known.color = color;
+      // The newest projects go into `session.configure`: a project in use moves to the end.
+      this.#projects.delete(key);
+      this.#projects.set(key, known);
       return known;
     }
     const record: ProjectRecord = { key, title: project.title, color };
@@ -549,15 +593,12 @@ export class ChromeTabsHost {
     const project = this.#project(agentId, threadId);
     yield* this.#configure(installId);
     const leaseId = opaqueKey(this.#options.secret, "lease", agentId, threadId, project.key);
-    const lease = this.#leases.get(leaseId) ?? {
-      leaseId,
-      installId,
-      projectKey: project.key,
-      agentId,
-      threadId,
-      openedEpoch: -1,
-      usedAt: 0,
-    };
+    const known = this.#leases.get(leaseId);
+    // A lease follows the Chrome profile that agents use now (a reinstall gives a new install id).
+    const lease =
+      known && known.installId === installId
+        ? known
+        : { leaseId, installId, projectKey: project.key, agentId, threadId, openedEpoch: -1, usedAt: 0 };
     this.#leases.set(leaseId, lease);
     yield* this.#openLease(lease);
     this.#claimUnclaimed(lease);
@@ -681,6 +722,8 @@ export class ChromeTabsHost {
       revision: 0,
       environment: defaultBrowserEnvironment(),
       lastSnapshot: null,
+      actionSeq: 0,
+      snapshotSeq: -1,
       lastUsedAt: Date.now(),
       ...(openerTabId ? { openerTabId } : {}),
     };
@@ -747,10 +790,61 @@ export class ChromeTabsHost {
     return tab;
   });
 
+  /**
+   * The consent for a sensitive site (DESIGN §2.4, §7 item 10): mail, chat, a cloud console, a social
+   * network, a payment frame or the person's own network. The person answers once for a project and an
+   * origin, until the app restarts; a turn where nobody answers gets `consent_required` at once. It runs
+   * before a call reads or acts on such a page, and again after an action that can change the page.
+   */
+  #siteGate(projectKey: string, url: string, context: ChromeCallContext): Effect.Effect<void, BrowserOperationError> {
+    const kind = sensitiveSiteKind(url);
+    if (!kind) return Effect.void;
+    const site = new URL(url).origin;
+    const granted = this.#siteConsents;
+    if (granted.get(projectKey)?.has(site)) return Effect.void;
+    const ask = context.approveSiteAccess;
+    if (!ask) return refusal("consent_required", site);
+    const project = this.#projectTitle(projectKey);
+    return this.#once(
+      `consent:${projectKey}:${site}`,
+      ask({ project, site, kind }).pipe(
+        Effect.flatMap((allowed) => {
+          if (!allowed)
+            return browserFailure(
+              new Error(
+                `The person did not allow the agents of this project on ${site}. Do not use that site; tell the person.`,
+              ),
+            );
+          const sites = granted.get(projectKey) ?? new Set<string>();
+          sites.add(site);
+          granted.set(projectKey, sites);
+          return Effect.void;
+        }),
+      ),
+    );
+  }
+
+  #projectTitle(projectKey: string): string {
+    return this.#projects.get(projectKey)?.title || "Agent";
+  }
+
+  /** A tab of the caller whose page the project may use now. */
+  readonly #gatedTab = Effect.fn("ChromeTabsHost.gatedTab")(function* (
+    this: ChromeTabsHost,
+    caller: { threadId: string; ownerAgentId: string },
+    tabId: string,
+    context: ChromeCallContext,
+  ) {
+    const tab = yield* this.#usableTab(caller, tabId);
+    yield* this.#siteGate(tab.projectKey, tab.engine.page.url(), context);
+    return tab;
+  });
+
   readonly #open = Effect.fn("ChromeTabsHost.open")(function* (
     this: ChromeTabsHost,
     caller: { threadId: string; ownerAgentId: string },
     url: string,
+    context: ChromeCallContext,
   ) {
     const address = url.trim() === "about:blank" ? "about:blank" : yield* browserSync(() => normalizeBrowserUrl(url));
     const connection = this.#connection();
@@ -758,6 +852,7 @@ export class ChromeTabsHost {
     const memory = this.#options.memoryLevel?.() ?? "ok";
     if (memory === "critical") return yield* refusal("low_memory");
     const lease = yield* this.#lease(connection.installId, caller.ownerAgentId, caller.threadId);
+    yield* this.#siteGate(lease.projectKey, address, context);
     // A blank tab of this agent is used before a new one: no tab is made where one waits.
     const blank = this.#ownedTabs(caller).find(
       (tab) =>
@@ -770,7 +865,13 @@ export class ChromeTabsHost {
       blank.lastUsedAt = Date.now();
       this.#lastUsedTabId = blank.id;
       if (address !== "about:blank")
-        yield* enqueueTabOperation(blank, (tab) => this.#loadUrl(tab, address, Date.now() + OPEN_LOAD_TIMEOUT_MS));
+        yield* enqueueTabOperation(blank, (tab) =>
+          Effect.suspend(() => {
+            tab.actionSeq += 1;
+            return this.#loadUrl(tab, address, Date.now() + OPEN_LOAD_TIMEOUT_MS);
+          }),
+        );
+      yield* this.#siteGate(lease.projectKey, blank.engine.page.url(), context);
       return textResult({ tab: this.#publicTab(blank), reused: true });
     }
     if (memory === "low") return yield* refusal("low_memory");
@@ -788,6 +889,7 @@ export class ChromeTabsHost {
     this.#lastUsedTabId = tab.id;
     // The extension navigates the new tab itself; its load events can come before its handle.
     if (address !== "about:blank") yield* tab.target.waitForFirstPage(OPEN_LOAD_TIMEOUT_MS).pipe(Effect.ignore);
+    yield* this.#siteGate(lease.projectKey, tab.engine.page.url(), context);
     return textResult({ tab: this.#publicTab(tab) });
   });
 
@@ -828,6 +930,7 @@ export class ChromeTabsHost {
       undefined,
       (current, deadline) =>
         Effect.gen({ self: this }, function* () {
+          current.actionSeq += 1;
           if (url) {
             const address = yield* browserSync(() => normalizeBrowserUrl(url));
             yield* this.#loadUrl(current, address, deadline);
@@ -865,14 +968,16 @@ export class ChromeTabsHost {
     );
   });
 
-  /** Keeps the snapshot that a reader returns, for the card of a later send. */
+  /** Keeps the snapshot that a reader returns, for the card of a later send. It runs in the tab's queue. */
   #remember(reader: ActionResultReader<BrowserSnapshot>): ActionResultReader<BrowserSnapshot> {
     return (tab, keepQueueBlocked, timeoutMessage) =>
       reader(tab, keepQueueBlocked, timeoutMessage).pipe(
         Effect.tap((snapshot) =>
           Effect.sync(() => {
             const owned = this.#tabs.get(tab.id);
-            if (owned) owned.lastSnapshot = snapshot;
+            if (!owned) return;
+            owned.lastSnapshot = snapshot;
+            owned.snapshotSeq = owned.actionSeq;
           }),
         ),
       );
@@ -883,11 +988,13 @@ export class ChromeTabsHost {
     caller: { threadId: string; ownerAgentId: string },
     tabId: string,
     mode: "auto" | "always" | "never",
+    context: ChromeCallContext,
   ) {
-    const tab = yield* this.#usableTab(caller, tabId);
+    const tab = yield* this.#gatedTab(caller, tabId, context);
     const capture = yield* enqueueTabOperation(tab, (current, keepQueueBlocked) =>
       Effect.gen(function* () {
         let imageUrl: string | null = null;
+        const seq = current.actionSeq;
         const result: SnapshotReadResult = yield* readTabSnapshot(
           current,
           current.revision + 1,
@@ -920,10 +1027,11 @@ export class ChromeTabsHost {
               markImageTaken(current);
             }),
         );
+        current.lastSnapshot = result.snapshot;
+        current.snapshotSeq = seq;
         return { result, imageUrl };
       }),
     );
-    tab.lastSnapshot = capture.result.snapshot;
     return snapshotImageResult(capture.result, mode, capture.imageUrl);
   });
 
@@ -936,7 +1044,7 @@ export class ChromeTabsHost {
     >,
     context: ChromeCallContext,
   ) {
-    const tab = yield* this.#usableTab(caller, call.args.tabId);
+    const tab = yield* this.#gatedTab(caller, call.args.tabId, context);
     const gated: ChromeAction | null =
       call.tool === "click"
         ? { tool: "click", target: call.args.target }
@@ -946,8 +1054,18 @@ export class ChromeTabsHost {
             ? { tool: "type", text: call.args.text, submit: call.args.submit === true, target: call.args.target }
             : null;
     const card = gated ? messageSendCard(tab.engine.page.url(), gated, tab.lastSnapshot) : null;
+    /** The tab's action count that the person approved; another action meanwhile voids the card. */
+    let approvedSeq: number | null = null;
     if (card) {
+      // The card shows the page as the last snapshot read it: an action after it would hide a change.
+      if (!tab.lastSnapshot || tab.snapshotSeq !== tab.actionSeq)
+        return yield* browserFailure(
+          new Error(
+            "Take a fresh snapshot before this send: the person's card shows the page as your last snapshot read it, and an action ran after that snapshot.",
+          ),
+        );
       if (!context.approveMessageSend) return yield* refusal("message_send_requires_approval");
+      const seq = tab.actionSeq;
       const approved = yield* context.approveMessageSend(card);
       if (!approved)
         return yield* browserFailure(
@@ -956,6 +1074,7 @@ export class ChromeTabsHost {
       // The person read the page as it was: a change since then needs a new card.
       if (tab.engine.page.url() !== card.site && !tab.engine.page.url().startsWith(`${card.site}/`))
         return yield* browserFailure(new Error("The page changed during the approval. Take a fresh snapshot."));
+      approvedSeq = seq;
     }
     const action = yield* browserSync(() => browserInputAction(call, {}));
     const run = <A>(readResult: ActionResultReader<A>) =>
@@ -963,13 +1082,25 @@ export class ChromeTabsHost {
         tab,
         action.name,
         action.target,
-        (current, deadline, markDispatched) => action.run(current.engine, deadline, markDispatched),
+        (current, deadline, markDispatched) =>
+          Effect.suspend(() => {
+            // In the tab's queue: an action that ran during the approval changed what the card showed.
+            if (approvedSeq !== null && current.actionSeq !== approvedSeq)
+              return browserFailure(
+                new Error("The page changed during the approval. Nothing was sent; take a fresh snapshot."),
+              );
+            current.actionSeq += 1;
+            return action.run(current.engine, deadline, markDispatched);
+          }),
         readResult,
         browserToolTimeout(call.args.timeoutMs),
       );
-    return call.args.snapshot
+    const result = call.args.snapshot
       ? snapshotTextResult(yield* run(this.#remember(readActionSnapshot)))
       : textResult(yield* run(readActionStatus));
+    // A click can lead to a sensitive site: its address and content wait for the consent.
+    yield* this.#siteGate(tab.projectKey, tab.engine.page.url(), context);
+    return result;
   });
 
   readonly #waitFor = Effect.fn("ChromeTabsHost.waitFor")(function* (
@@ -983,6 +1114,7 @@ export class ChromeTabsHost {
       readonly state?: "load" | "domcontentloaded" | "dom-quiet" | undefined;
       readonly timeoutMs?: number | undefined;
     },
+    context: ChromeCallContext,
   ) {
     const condition = {
       ...(args.target === undefined ? {} : { target: args.target }),
@@ -992,7 +1124,7 @@ export class ChromeTabsHost {
     };
     if (!condition.target && !condition.text && !condition.url && !condition.state)
       return yield* browserFailure(new Error("wait_for requires a condition."));
-    const tab = yield* this.#usableTab(caller, args.tabId);
+    const tab = yield* this.#gatedTab(caller, args.tabId, context);
     const timeoutMs = browserToolTimeout(args.timeoutMs);
     const snapshot = yield* enqueueTabOperation(tab, (current, keepQueueBlocked: KeepQueueBlocked) =>
       Effect.gen(function* () {
@@ -1006,6 +1138,7 @@ export class ChromeTabsHost {
           timeoutMessage,
           keepQueueBlocked,
         );
+        const seq = current.actionSeq;
         const read = yield* readTabSnapshot(
           current,
           current.revision + 1,
@@ -1013,10 +1146,12 @@ export class ChromeTabsHost {
           remainingTime(deadline, timeoutMessage),
           timeoutMessage,
         );
+        current.lastSnapshot = read.snapshot;
+        current.snapshotSeq = seq;
         return read.snapshot;
       }),
     );
-    tab.lastSnapshot = snapshot;
+    yield* this.#siteGate(tab.projectKey, tab.engine.page.url(), context);
     return snapshotTextResult(snapshot);
   });
 
@@ -1025,8 +1160,9 @@ export class ChromeTabsHost {
     caller: { threadId: string; ownerAgentId: string },
     tabId: string,
     ref: string | undefined,
+    context: ChromeCallContext,
   ) {
-    const tab = yield* this.#usableTab(caller, tabId);
+    const tab = yield* this.#gatedTab(caller, tabId, context);
     // A ref starts with the snapshot revision that made it.
     const target: BrowserTarget | undefined = ref
       ? { kind: "ref", ref, revision: Number(ref.split(":", 1)[0]) }
@@ -1056,8 +1192,9 @@ export class ChromeTabsHost {
     caller: { threadId: string; ownerAgentId: string },
     params: DynamicToolCallParams,
     args: { readonly tabId: string; readonly dialogId: string; readonly accept: boolean },
+    context: ChromeCallContext,
   ) {
-    const tab = yield* this.#usableTab(caller, args.tabId);
+    const tab = yield* this.#gatedTab(caller, args.tabId, context);
     yield* tab.engine.answerDialog(args.dialogId, args.accept, { threadId: params.threadId, turnId: params.turnId });
     const answered = args.accept ? "accepted" : "dismissed";
     // The action that opened the dialog goes on, and can open the next one.

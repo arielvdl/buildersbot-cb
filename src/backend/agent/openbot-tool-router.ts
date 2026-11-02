@@ -46,7 +46,7 @@ import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
 import type { MessageSendCard } from "../chrome-message-send";
-import type { ChromeCallContext } from "../chrome-tabs-host";
+import type { ChromeCallContext, SiteAccessCard } from "../chrome-tabs-host";
 import { OPENBOT_CHROME_NAMESPACE } from "../chrome-tools";
 import { CHROME_TURN_ORIGINS, chromeTurnOrigin } from "../chrome-turn-origin";
 import type { ProviderSession } from "../database/provider-sessions";
@@ -59,7 +59,13 @@ import {
 } from "../guard/guard-gate";
 import { HUB_CONNECTIONS_NAMESPACE } from "../hub-connections/hub-connection-tool-definitions";
 import type { HubConnectionContext, HubConnectionTools } from "../hub-connections/hub-connection-tools";
-import { type HubTurnOrigin, hubTurnOrigin, routineOriginOf, sentOrigin } from "../hub-connections/turn-origin";
+import {
+  type HubTurnOrigin,
+  hubConnectionOrigin,
+  hubTurnOrigin,
+  routineOriginOf,
+  sentOrigin,
+} from "../hub-connections/turn-origin";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
 import type { MessagingThreads } from "../messaging/messaging-threads";
@@ -138,6 +144,15 @@ import { handleUpdateAgentsTool } from "./update-agents-tool";
 
 const logger = createBuildersBotLogger("openbot-tool-router");
 
+/** The words of each kind of sensitive site, for the consent card of the owner's Chrome. */
+const CHROME_SITE_KIND_TEXT = {
+  mail: "status.agent.chromeSiteKind.mail",
+  chat: "status.agent.chromeSiteKind.chat",
+  "cloud-console": "status.agent.chromeSiteKind.cloud-console",
+  social: "status.agent.chromeSiteKind.social",
+  "payment-frame": "status.agent.chromeSiteKind.payment-frame",
+  "private-network": "status.agent.chromeSiteKind.private-network",
+} as const satisfies Record<SiteAccessCard["kind"], string>;
 /** How long the plan card of `acknowledge_request` waits before the host presses its start button. */
 const ACKNOWLEDGE_START_MS = 10_000;
 
@@ -456,7 +471,8 @@ export class BuildersBotToolRouter {
   /** Where the turn of a connection call came from. The process decides it, never the agent's text. */
   #connectionContext(agentId: string, params: DynamicToolCallParams): HubConnectionContext {
     const publicThreadId = this.#conversation.publicThreadId(agentId, params.threadId);
-    const origin = this.turnOrigin(agentId, publicThreadId, params.turnId);
+    // The Hub connections read an agent turn that a routine started as an agent turn.
+    const origin = hubConnectionOrigin(this.turnOrigin(agentId, publicThreadId, params.turnId));
     return { agentId, threadId: publicThreadId, turnId: params.turnId, origin };
   }
 
@@ -1591,7 +1607,35 @@ export class BuildersBotToolRouter {
           Effect.map((decision) => decision === "accept"),
           Effect.orElseSucceed(() => false),
         );
-    const result = yield* chrome.handleDynamicTool(params, { origin, approveMessageSend });
+    const approveSiteAccess = (card: SiteAccessCard) =>
+      this.#attention
+        .awaitToolApproval(
+          client,
+          request,
+          {
+            requestId: request.id,
+            agentId,
+            threadId,
+            turnId: request.params.turnId,
+            kind: "permissions",
+            command: null,
+            cwd: null,
+            reason: sourceText("status.agent.chromeSiteAccess", {
+              project: card.project,
+              site: card.site,
+              kind: sourceText(CHROME_SITE_KIND_TEXT[card.kind]),
+            }),
+            grantRoot: null,
+            permissions: null,
+          },
+          // Only the owner answers: the site is logged in as the owner.
+          { alwaysAsk: true, ownerOnly: true },
+        )
+        .pipe(
+          Effect.map((decision) => decision === "accept"),
+          Effect.orElseSucceed(() => false),
+        );
+    const result = yield* chrome.handleDynamicTool(params, { origin, approveMessageSend, approveSiteAccess });
     if (request.signal?.aborted) return null;
     if (!this.#guardGate) return result;
     const tabId = isRecord(params.arguments) && isString(params.arguments.tabId) ? params.arguments.tabId : null;

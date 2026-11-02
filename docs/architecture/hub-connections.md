@@ -47,13 +47,17 @@ person's Refresh reads again at once.
 
 The origin of a turn is the most closed origin of its thread and of each of its deliveries
 (`hub-connections/turn-origin.ts`), from the most open to the most closed: `owner_ui`, `routine`,
-`agent`, `unknown`, `team_member`, `messaging`. Only the first three get the tools.
+`agent`, `routine_agent`, `unknown`, `team_member`, `messaging`. Only the first four get the tools,
+and the tools read `routine_agent` as `agent` (`hubConnectionOrigin`). `routine_agent` is an agent turn
+that a routine started, at any distance; it keeps the owner's Chrome closed along the whole chain
+([browser.md](browser.md)).
 
 - A message that the person writes in the app is `owner_ui`; with a team member stamped on it, or
   on its last queue edit, `team_member`; in a channel, `team_member`; from a chat app (also as the
   answer of an agent that works there), `messaging`.
 - A message that an agent sends carries the origin of the turn that sent it, as `sentOrigin` gives
-  it: the person's own turn and a routine pass on `agent`; a closed origin stays closed. This holds
+  it: the person's own turn passes on `agent`, a routine passes on `routine_agent`, and a closed origin
+  stays closed. This holds
   for `send_message`, the brief of `start_task`, the first message of an agent that `create_agent`
   makes, an interrupt notice and an automatic result. An agent message with no origin (one stored
   before this version) is closed.
@@ -63,7 +67,7 @@ The origin of a turn is the most closed origin of its thread and of each of its 
 - A routine run has the origin of who saved the routine (`routineOriginOf`, kept in the mailbox
   metadata row, `routineOrigins`, key `routine:<id>`): the person in the app (the Routines editor,
   or a team member's app as the person's own device) gives `routine`; an agent's or a routine's turn
-  gives `agent`; a team member (through a tool or the Team API) and a chat app give a closed origin.
+  gives `routine_agent`; a team member (through a tool or the Team API) and a chat app give a closed origin.
   Every save writes its entry. A routine with no entry runs closed (`unknown`): one that an import, a
   template, the marketplace or an older version made. The person saves it in Routines to open it.
 - A change of a saved routine sets a more open origin only when the person (`owner_ui`) saves its

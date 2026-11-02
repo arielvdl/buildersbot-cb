@@ -10,7 +10,7 @@
  * `SITE_FLOOR_VERSION` with each change, so both sides can say which floor they apply.
  */
 
-export const SITE_FLOOR_VERSION = 1;
+export const SITE_FLOOR_VERSION = 2;
 
 /** The schemes an agent tab may load in its main frame. `about:blank` is the only `about:` page. */
 export const AGENT_SCHEMES = ["http:", "https:"] as const;
@@ -35,6 +35,8 @@ export const SITE_FLOOR: readonly SiteFloorEntry[] = [
   { domain: "login.live.com", reason: "account" },
   { domain: "account.live.com", reason: "account" },
   { domain: "account.microsoft.com", reason: "account" },
+  { domain: "admin.google.com", reason: "account" },
+  { domain: "icloud.com", reason: "account" },
   { domain: "vault.bitwarden.com", reason: "password-vault" },
   { domain: "vault.bitwarden.eu", reason: "password-vault" },
   { domain: "1password.com", reason: "password-vault" },
@@ -55,6 +57,18 @@ export const SITE_FLOOR: readonly SiteFloorEntry[] = [
   { domain: "btgpactual.com", reason: "bank" },
   { domain: "original.com.br", reason: "bank" },
   { domain: "mercadopago.com.br", reason: "bank" },
+  { domain: "pagbank.com.br", reason: "bank" },
+  { domain: "pagseguro.com.br", reason: "bank" },
+  { domain: "pagseguro.uol.com.br", reason: "bank" },
+  { domain: "bancopan.com.br", reason: "bank" },
+  { domain: "safra.com.br", reason: "bank" },
+  { domain: "banrisul.com.br", reason: "bank" },
+  { domain: "neon.com.br", reason: "bank" },
+  { domain: "nuinvest.com.br", reason: "bank" },
+  { domain: "caixa.com.br", reason: "bank" },
+  { domain: "bancobmg.com.br", reason: "bank" },
+  { domain: "modalmais.com.br", reason: "bank" },
+  { domain: "agibank.com.br", reason: "bank" },
   { domain: "picpay.com", reason: "bank" },
   { domain: "xpi.com.br", reason: "bank" },
   { domain: "rico.com.vc", reason: "bank" },
@@ -78,6 +92,15 @@ export const SITE_FLOOR: readonly SiteFloorEntry[] = [
   { domain: "mercadobitcoin.com.br", reason: "exchange" },
   { domain: "foxbit.com.br", reason: "exchange" },
   { domain: "novadax.com.br", reason: "exchange" },
+  { domain: "bitso.com", reason: "exchange" },
+  { domain: "gemini.com", reason: "exchange" },
+  { domain: "mexc.com", reason: "exchange" },
+  { domain: "gate.io", reason: "exchange" },
+  { domain: "gate.com", reason: "exchange" },
+  { domain: "htx.com", reason: "exchange" },
+  { domain: "bitfinex.com", reason: "exchange" },
+  { domain: "bitstamp.net", reason: "exchange" },
+  { domain: "bitpreco.com", reason: "exchange" },
   { domain: "gov.br", reason: "government" },
   { domain: "login.gov", reason: "government" },
 ];
@@ -87,7 +110,7 @@ export const SITE_FLOOR: readonly SiteFloorEntry[] = [
  * payment frames. They are not on the floor; the app asks the person once, and routines and message
  * threads get `consent_required` at once, because nobody answers there.
  */
-export type SensitiveSiteKind = "mail" | "chat" | "cloud-console" | "social" | "payment-frame";
+export type SensitiveSiteKind = "mail" | "chat" | "cloud-console" | "social" | "payment-frame" | "private-network";
 
 export const SENSITIVE_SITES: readonly { readonly domain: string; readonly kind: SensitiveSiteKind }[] = [
   { domain: "mail.google.com", kind: "mail" },
@@ -171,14 +194,46 @@ export function siteFloorDecision(url: string, options: FloorOptions = {}): Floo
   return { blocked: true, rule: entry.reason };
 }
 
+/**
+ * A host of the person's own network: loopback, the private IPv4 ranges (RFC 1918), link-local, unique
+ * local IPv6, `localhost` and `.local` names. A router, a NAS or a dev server there can hold a session.
+ */
+export function isPrivateNetworkHost(hostname: string): boolean {
+  const host = floorHost(hostname).replace(/^\[|\]$/gu, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.exec(host);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return (
+      a === 127 ||
+      a === 10 ||
+      a === 0 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254)
+    );
+  }
+  if (!host.includes(":")) return false;
+  // An IPv4 address in IPv6 form (`::ffff:7f00:1`) asks too: a public one there is rare.
+  return (
+    host === "::1" ||
+    /^f[cd][0-9a-f]{0,2}:/u.test(host) ||
+    /^fe[89ab][0-9a-f]?:/u.test(host) ||
+    host.startsWith("::ffff:")
+  );
+}
+
 /** The kind of a sensitive site, or null. A site on the floor is not sensitive: it is blocked. */
 export function sensitiveSiteKind(url: string): SensitiveSiteKind | null {
   let host: string;
   try {
-    host = floorHost(new URL(url).hostname);
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    host = floorHost(parsed.hostname);
   } catch {
     return null;
   }
+  if (isPrivateNetworkHost(host)) return "private-network";
   return SENSITIVE_SITES.find((entry) => hostMatches(host, entry.domain))?.kind ?? null;
 }
 

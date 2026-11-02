@@ -4,15 +4,25 @@
  * ability to confirm the content and intended recipients", so each send on a communication site waits
  * for a card with the text and the recipients, also when the person said "Always" for the project.
  *
- * The rule is a gate in code, before the action, not a model instruction. It is a heuristic: a site is
- * a communication site by its host, and an action is a send by the name of what it clicks, an Enter
- * key, or a type with submit. On such a site, a click on a target that the host cannot name (a CSS
- * selector or a point) counts as a send, so the rule fails closed.
+ * The rule is a gate in code, before the action, not a model instruction. It fails closed:
+ *
+ * - a site is a communication site by the host of the page, or of the frame of the target (a chat
+ *   widget in a frame), or of any frame of the last snapshot when the action has no target;
+ * - a click is a send unless every element that the engine can resolve the target to has a name that
+ *   is not a send: the engine matches a role or text target by substring, so the gate checks every
+ *   element of the last snapshot that the target can match, and an element with no name counts as a
+ *   send. A selector, a point and a stale ref count as a send;
+ * - Enter, NumpadEnter and Space (which presses a focused button) are sends; a `type` with `submit`,
+ *   or with a new line (`\n` or `\r`), is a send;
+ * - the card takes the text and the recipients from the last snapshot, so the caller refuses a send
+ *   when an action ran after that snapshot (`ChromeTabsHost` counts them), and checks again after the
+ *   person's answer that no action ran meanwhile.
  */
 
 import type { BrowserElement, BrowserSnapshot, BrowserTarget } from "@openbot/contracts/ipc";
+import { textMatches } from "./browser-cdp-values";
 
-/** Hosts where people write to each other: mail, chat, social networks and forums. */
+/** Hosts where people write to each other: mail, chat, social networks, forums and code review. */
 const COMMUNICATION_HOSTS = [
   "mail.google.com",
   "chat.google.com",
@@ -40,55 +50,50 @@ const COMMUNICATION_HOSTS = [
   "mastodon.social",
   "web.skype.com",
   "zoom.us",
+  "github.com",
+  "gitlab.com",
+  "bitbucket.org",
+  "youtube.com",
+  "news.ycombinator.com",
+  "tiktok.com",
+  "intercom.io",
+  "zendesk.com",
+  "crisp.chat",
+  "tawk.to",
 ] as const;
 
 /** Host labels that name mail or chat on any domain, such as `webmail.example.com`. */
-const COMMUNICATION_LABELS = new Set(["mail", "webmail", "chat", "messages", "inbox"]);
+const COMMUNICATION_LABELS = new Set(["mail", "webmail", "chat", "messages", "inbox", "messenger"]);
 
 /** Names of a control that sends, in English and Portuguese, as people label them. */
 const SEND_NAME =
   /\b(send|sending|reply|reply all|respond|post|publish|tweet|retweet|repost|share|comment|submit|enviar|envie|envio|responder|publicar|postar|compartilhar|comentar|mandar)\b/iu;
 
+/** Keys that send in a composer, or press the focused send button. */
+const SEND_KEYS = new Set(["enter", "numpadenter", "return", "space", "spacebar", " "]);
+
 /** Field names that hold recipients. */
-const RECIPIENT_NAME = /^(to|cc|bcc|recipients?|para|cco|destinat[áa]rios?)\b/iu;
+const RECIPIENT_NAME = /^(to|cc|bcc|recipients?|para|cc[oó]|destinat[áa]rios?)\b/iu;
+/** A recipient shown as a chip: an e-mail address in the name of an option, a list item or a button. */
+const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/u;
+const CHIP_ROLES = new Set(["option", "listitem", "button", "gridcell", "row", "link"]);
 
 const TEXT_ROLES = new Set(["textbox", "searchbox", "combobox"]);
 const MAX_CARD_TEXT = 1_500;
+const MAX_RECIPIENTS = 20;
 
 export function isCommunicationSite(url: string): boolean {
   let host: string;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
-    host = parsed.hostname.toLowerCase();
+    host = parsed.hostname.toLowerCase().replace(/\.+$/u, "");
   } catch {
     return false;
   }
   if (COMMUNICATION_HOSTS.some((known) => host === known || host.endsWith(`.${known}`))) return true;
   const first = host.split(".")[0] ?? "";
   return COMMUNICATION_LABELS.has(first);
-}
-
-/** The element that a target names in the last snapshot, when the target is a ref of it. */
-function elementOf(target: BrowserTarget | undefined, snapshot: BrowserSnapshot | null): BrowserElement | null {
-  if (target?.kind !== "ref" || !snapshot) return null;
-  return snapshot.elements.find((element) => element.ref === target.ref) ?? null;
-}
-
-/** The name of what an action targets, or null when only the page knows it. */
-function targetName(target: BrowserTarget | undefined, snapshot: BrowserSnapshot | null): string | null {
-  if (!target) return null;
-  switch (target.kind) {
-    case "ref":
-      return elementOf(target, snapshot)?.name ?? null;
-    case "role":
-      return target.name ?? null;
-    case "text":
-      return target.text;
-    case "css":
-    case "point":
-      return null;
-  }
 }
 
 /** One agent action in a tab, as the gate sees it. */
@@ -112,6 +117,75 @@ export interface MessageSendCard {
 }
 
 /**
+ * The elements of the last snapshot that a target can resolve to, as the engine resolves it; null when
+ * the snapshot cannot tell (no snapshot, a stale ref, a selector or a point).
+ */
+function candidates(target: BrowserTarget | undefined, snapshot: BrowserSnapshot | null): BrowserElement[] | null {
+  if (!target || !snapshot) return null;
+  switch (target.kind) {
+    case "ref": {
+      if (target.revision !== snapshot.revision) return null;
+      const element = snapshot.elements.find((entry) => entry.ref === target.ref);
+      return element ? [element] : null;
+    }
+    case "role":
+      return snapshot.elements.filter(
+        (element) =>
+          element.role === target.role &&
+          (target.name === undefined || textMatches(element.name, target.name, target.exact === true)),
+      );
+    case "text":
+      return snapshot.elements.filter((element) =>
+        [element.name, element.description].some((value) => textMatches(value, target.text, target.exact === true)),
+      );
+    case "css":
+    case "point":
+      return null;
+  }
+}
+
+/** Whether the target, or a frame that the action may reach, is on a communication site. */
+function onCommunicationSite(url: string, action: ChromeAction, snapshot: BrowserSnapshot | null): boolean {
+  if (isCommunicationSite(url)) return true;
+  const elements = action.target ? (candidates(action.target, snapshot) ?? []) : (snapshot?.elements ?? []);
+  return elements.some((element) => element.frame !== null && isCommunicationSite(element.frame.url));
+}
+
+/** Whether the action sends, and the label of what sends; null when it does not send. */
+function sendLabel(action: ChromeAction, snapshot: BrowserSnapshot | null): string | null {
+  switch (action.tool) {
+    case "click": {
+      const found = candidates(action.target, snapshot);
+      // A target that the snapshot cannot name can be the send button: the card asks.
+      if (found === null || found.length === 0) return "a control that the agent chose by position or selector";
+      const sending = found.find((element) => element.name.trim() === "" || SEND_NAME.test(element.name));
+      if (!sending) return null;
+      return sending.name.trim() === "" ? "a control with no name" : sending.name;
+    }
+    case "press": {
+      const key = action.key.split("+").at(-1)?.toLowerCase() ?? "";
+      return SEND_KEYS.has(key) ? action.key : null;
+    }
+    case "type":
+      if (action.submit) return "Enter";
+      return /[\r\n]/u.test(action.text) ? "a new line" : null;
+  }
+}
+
+/** The recipients that the snapshot shows: recipient fields, and chips with an e-mail address. */
+function recipientsOf(elements: readonly BrowserElement[]): string[] {
+  const fromFields = elements
+    .filter((element) => element.role !== null && TEXT_ROLES.has(element.role) && RECIPIENT_NAME.test(element.name))
+    .map((element) => element.value ?? "")
+    .filter((value) => value.trim() !== "");
+  const fromChips = elements
+    .filter((element) => element.role !== null && CHIP_ROLES.has(element.role))
+    .map((element) => EMAIL.exec(element.name)?.[0] ?? "")
+    .filter((value) => value !== "");
+  return [...new Set([...fromFields, ...fromChips])].slice(0, MAX_RECIPIENTS);
+}
+
+/**
  * Whether the action sends a message, and the card for it: null when it does not. `snapshot` is the
  * last snapshot that this agent read of the tab; the card takes the text and the recipients from it.
  */
@@ -120,47 +194,24 @@ export function messageSendCard(
   action: ChromeAction,
   snapshot: BrowserSnapshot | null,
 ): MessageSendCard | null {
-  if (!isCommunicationSite(url)) return null;
-  let label: string | null;
-  switch (action.tool) {
-    case "click": {
-      const name = targetName(action.target, snapshot);
-      // A target that the host cannot name can be the send button: the card asks.
-      if (name !== null && !SEND_NAME.test(name)) return null;
-      label = name ?? "a control that the agent chose by position or selector";
-      break;
-    }
-    case "press": {
-      const key = action.key.split("+").at(-1)?.toLowerCase() ?? "";
-      if (key !== "enter") return null;
-      label = action.key;
-      break;
-    }
-    case "type":
-      if (!action.submit && !action.text.includes("\n")) return null;
-      label = action.submit ? "Enter" : "a new line";
-      break;
-  }
-  const fields = (snapshot?.elements ?? []).filter(
-    (element) => element.role !== null && TEXT_ROLES.has(element.role) && element.value,
-  );
-  const recipients = fields
-    .filter((element) => RECIPIENT_NAME.test(element.name))
-    .map((element) => element.value ?? "")
-    .slice(0, 20);
-  const typed = action.tool === "type" ? [action.text] : [];
+  if (!onCommunicationSite(url, action, snapshot)) return null;
+  const label = sendLabel(action, snapshot);
+  if (label === null) return null;
+  const elements = snapshot?.elements ?? [];
+  const fields = elements.filter((element) => element.role !== null && TEXT_ROLES.has(element.role) && element.value);
+  const typed = action.tool === "type" ? [action.text.replace(/\r\n?/gu, "\n")] : [];
   const written = fields.filter((element) => !RECIPIENT_NAME.test(element.name)).map((element) => element.value ?? "");
   const text = [...written, ...typed].join("\n").trim();
   let site = url;
   try {
     site = new URL(url).origin;
   } catch {
-    // The URL was checked above.
+    // A frame's site made it a communication site; the page URL stays as it is.
   }
   return {
     site,
     action: label,
     text: [...text].length > MAX_CARD_TEXT ? `${[...text].slice(0, MAX_CARD_TEXT - 1).join("")}…` : text,
-    recipients,
+    recipients: recipientsOf(elements),
   };
 }

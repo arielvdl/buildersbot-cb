@@ -9,7 +9,8 @@
 // site opened by an agent, in a tab group named after its project, without focus; two conversations of
 // different projects in two groups; the same tab in the next turn; the result format of each tool
 // against the Builders Bot browser's; the limits (4 for an agent, 12 in all); the site floor; the gates
-// (turn origin, scripts, a message send); and the messages that cross the bridge.
+// (turn origin, also along a chain that a routine or a webhook started; scripts; a message send, also
+// the ways around its card; a sensitive site's consent); and the messages that cross the bridge.
 //
 //   bun scripts/chrome-agents-e2e.ts [--headed] [--only <text in a case name>]
 //
@@ -35,10 +36,19 @@ import {
   type ChromeCallContext,
   type ChromeProject,
   ChromeTabsHost,
+  type SiteAccessCard,
 } from "../src/backend/chrome-tabs-host";
 import { CHROME_DYNAMIC_TOOLS, OPENBOT_CHROME_NAMESPACE } from "../src/backend/chrome-tools";
 import { CHROME_TURN_ORIGINS, chromeTurnOrigin } from "../src/backend/chrome-turn-origin";
-import type { HubDeliveryOrigin, HubTurnOrigin } from "../src/backend/hub-connections/turn-origin";
+import {
+  CONNECTION_ORIGINS,
+  type HubDeliveryOrigin,
+  type HubTurnOrigin,
+  hubConnectionOrigin,
+  hubTurnOrigin,
+  routineOriginOf,
+  sentOrigin,
+} from "../src/backend/hub-connections/turn-origin";
 import type { DynamicToolResult } from "../src/backend/protocol";
 import { bridgeSocket } from "../src/main/chrome-bridge/bridge-paths";
 import { loadPeerChecker } from "../src/main/chrome-bridge/bridge-peer";
@@ -387,6 +397,7 @@ async function main(): Promise<void> {
             `<label>To <input aria-label="To" id="to"></label>
              <label>Message <textarea aria-label="Message" id="body"></textarea></label>
              <button id="send" onclick="fetch('/sent', { method: 'POST', body: JSON.stringify({ to: document.getElementById('to').value, text: document.getElementById('body').value }) }).then(() => { document.getElementById('state').textContent = 'Sent' })">Send</button>
+             <button id="icon" onclick="fetch('/sent', { method: 'POST', body: JSON.stringify({ to: document.getElementById('to').value, text: document.getElementById('body').value }) })"><svg width="12" height="12"><rect width="12" height="12"></rect></svg></button>
              <p id="state"></p>`,
           );
         case "/to-bank":
@@ -485,7 +496,7 @@ async function main(): Promise<void> {
     "--disable-default-apps",
     "--process-per-site",
     "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable,MediaRouter,OptimizationHints",
-    "--host-resolver-rules=MAP alpha.test 127.0.0.1, MAP beta.test 127.0.0.1, MAP webmail.test 127.0.0.1, MAP itau.com.br 127.0.0.1, MAP *.itau.com.br 127.0.0.1",
+    "--host-resolver-rules=MAP alpha.test 127.0.0.1, MAP beta.test 127.0.0.1, MAP webmail.test 127.0.0.1, MAP router.local 127.0.0.1, MAP itau.com.br 127.0.0.1, MAP *.itau.com.br 127.0.0.1",
     ...(headed ? [] : ["--headless=new"]),
     "about:blank",
   ];
@@ -548,6 +559,9 @@ async function main(): Promise<void> {
   const names = new Map<string, string>(Object.values(agents).map((agent) => [agent.id, agent.name]));
   let approveSends: boolean | "absent" = "absent";
   const cards: MessageSendCard[] = [];
+  /** The person's answer to the consent card of a sensitive site; "absent" where nobody answers. */
+  let approveSites: boolean | "absent" = true;
+  const siteCards: SiteAccessCard[] = [];
   const context = (origin: HubTurnOrigin = "owner_ui"): ChromeCallContext => ({
     origin,
     ...(approveSends === "absent"
@@ -557,6 +571,15 @@ async function main(): Promise<void> {
             Effect.sync(() => {
               cards.push(card);
               return approveSends === true;
+            }),
+        }),
+    ...(approveSites === "absent"
+      ? {}
+      : {
+          approveSiteAccess: (card: SiteAccessCard) =>
+            Effect.sync(() => {
+              siteCards.push(card);
+              return approveSites === true;
             }),
         }),
   });
@@ -955,7 +978,13 @@ async function main(): Promise<void> {
       const script = await call(agents.ana, "run_script", { tabId: anaTab, script: "return 1" });
       expect(!script.result.success && script.text.includes("scripts"), "run_script ran", script.text);
       const refused: Record<string, string> = {};
-      for (const origin of ["team_member", "messaging", "routine", "unknown"] satisfies HubTurnOrigin[]) {
+      for (const origin of [
+        "team_member",
+        "messaging",
+        "routine",
+        "routine_agent",
+        "unknown",
+      ] satisfies HubTurnOrigin[]) {
         expect(!CHROME_TURN_ORIGINS.has(origin), `${origin} may use Chrome`);
         const result = await call(agents.ana, "list_tabs", {}, origin);
         expect(
@@ -1019,22 +1048,69 @@ async function main(): Promise<void> {
           ),
           agentWithNoStamp: chromeTurnOrigin([{ ...owner, sender: "agent", channel: false }], ownThread, remote, false),
           noDelivery: chromeTurnOrigin([], ownThread, remote, false),
+          // The owner's turn sends to an agent (send_message, a task, an interrupt): the agent may use Chrome.
+          ownerSentToAgent: chromeTurnOrigin(
+            [{ ...owner, sender: "agent", channel: false, stamp: sentOrigin("owner_ui") }],
+            ownThread,
+            remote,
+            false,
+          ),
+          // A routine's turn sends to an agent: no person watches, so the chain stays closed.
+          routineSentToAgent: chromeTurnOrigin(
+            [{ ...owner, sender: "agent", channel: false, stamp: sentOrigin("routine") }],
+            ownThread,
+            remote,
+            false,
+          ),
+          // A routine (a webhook routine too) that an agent's turn saved runs closed.
+          agentSavedRoutineRun: chromeTurnOrigin(
+            [{ ...owner, sender: "routine", channel: false, stamp: routineOriginOf("agent") }],
+            ownThread,
+            remote,
+            false,
+          ),
+          // A run of a routine that an agent saved before this change carries `agent`: still closed.
+          olderAgentSavedRoutineRun: chromeTurnOrigin(
+            [{ ...owner, sender: "routine", channel: false, stamp: "agent" }],
+            ownThread,
+            remote,
+            false,
+          ),
+          // ...and what that run sends on stays closed at every step.
+          chainFromRoutineRun: chromeTurnOrigin(
+            [
+              {
+                ...owner,
+                sender: "agent",
+                channel: false,
+                stamp: sentOrigin(
+                  sentOrigin(
+                    hubTurnOrigin([{ ...owner, sender: "routine", channel: false, stamp: "agent" }], ownThread, remote),
+                  ),
+                ),
+              },
+            ],
+            ownThread,
+            remote,
+            false,
+          ),
         } satisfies Record<string, HubTurnOrigin>;
         const open = Object.fromEntries(
           Object.entries(origins).map(([name, origin]) => [name, CHROME_TURN_ORIGINS.has(origin)]),
         );
+        const openNames = ["ownerInOwnThread", "ownerInChannelNoTeam", "agentOfOwner", "ownerSentToAgent"];
         expect(
-          open.ownerInOwnThread === true &&
-            open.ownerInChannelNoTeam === true &&
-            open.agentOfOwner === true &&
-            Object.entries(open).every(
-              ([name, granted]) =>
-                granted === ["ownerInOwnThread", "ownerInChannelNoTeam", "agentOfOwner"].includes(name),
-            ),
+          Object.entries(open).every(([name, granted]) => granted === openNames.includes(name)),
           "the owner's Chrome opens for a turn that is not the owner's, or stays closed for the owner",
           { origins, open },
         );
-        return Promise.resolve({ origins, open });
+        // The Hub connections read an agent turn that a routine started as before: an agent turn.
+        const hub = {
+          folded: hubConnectionOrigin("routine_agent"),
+          connections: CONNECTION_ORIGINS.has("routine_agent"),
+        };
+        expect(hub.folded === "agent" && hub.connections, "the Hub connections changed for a routine chain", hub);
+        return Promise.resolve({ origins, open, hub });
       },
     );
 
@@ -1088,11 +1164,114 @@ async function main(): Promise<void> {
           sent,
         );
         // On a mail site, a click that the host cannot name (a selector) asks too: the rule fails closed.
+        const fresh = async () => {
+          const read = await call(agents.carla, "snapshot", { tabId, image: "never" });
+          return {
+            lines: (Array.isArray(read.json.elements) ? read.json.elements : []).map(String),
+            revision: Number(read.json.revision),
+          };
+        };
+        await fresh();
+        approveSends = false;
         const cardsBefore = cards.length;
         await call(agents.carla, "click", { tabId, target: { kind: "css", selector: "#to" } });
         expect(cards.length === cardsBefore + 1, "a click by selector on a mail site did not ask (it fails closed)");
+
+        // The ways around the card (review of 02/11), each with nobody to answer a card: all refused.
         approveSends = "absent";
-        return { cards: cards.length, card, sent };
+        const around: Record<string, string> = {};
+        // A recipient changed after the last snapshot: the card would show the old one.
+        await call(agents.carla, "type", {
+          tabId,
+          target: { kind: "css", selector: "#to" },
+          text: "atacante@example.com",
+        });
+        around.staleSnapshot = (await call(agents.carla, "click", { tabId, target })).text;
+        // A carriage return in `type` is a new line, so it is a send.
+        await fresh();
+        around.carriageReturn = (
+          await call(agents.carla, "type", { tabId, target: { kind: "css", selector: "#body" }, text: "dados\r" })
+        ).text;
+        // Space presses a focused button.
+        await fresh();
+        around.space = (await call(agents.carla, "press", { tabId, key: "Space" })).text;
+        // The engine finds a role or a text by a part of the name.
+        await fresh();
+        around.partialRole = (
+          await call(agents.carla, "click", { tabId, target: { kind: "role", role: "button", name: "Sen" } })
+        ).text;
+        await fresh();
+        around.partialText = (await call(agents.carla, "click", { tabId, target: { kind: "text", text: "Sen" } })).text;
+        // A button with only an icon has no name: it can be the send button.
+        const iconRead = await fresh();
+        const iconLine = iconRead.lines.find((line) => / button\b/u.test(line) && !/"[^"]+"/u.test(line));
+        if (iconLine)
+          around.iconButton = (
+            await call(agents.carla, "click", {
+              tabId,
+              target: { kind: "ref", ref: iconLine.split(" ")[0] ?? "", revision: iconRead.revision },
+            })
+          ).text;
+        for (const [name, text] of Object.entries(around)) {
+          const expected = name === "staleSnapshot" ? "fresh snapshot" : "approval";
+          expect(text.includes(expected), `a send went around the card: ${name}`, text);
+        }
+        await sleep(300);
+        expect(sent.length === 1, "a message went out without the person's approval", sent);
+        // With a fresh snapshot, the card shows the recipient that the page holds now.
+        approveSends = false;
+        await fresh();
+        await call(agents.carla, "click", { tabId, target: { kind: "css", selector: "#send" } });
+        const current = cards.at(-1);
+        expect(
+          current?.recipients.some((recipient) => recipient.includes("atacante@example.com")) === true,
+          "the card does not show the recipient that the page holds now",
+          current,
+        );
+        approveSends = "absent";
+        return { cards: cards.length, card, current, around, iconButtonListed: iconLine !== undefined, sent };
+      },
+    );
+
+    await testCase(
+      "sensitive site: an agent asks the person once per project; nobody to answer means no access",
+      async () => {
+        const site = (path: string) => `http://router.local:${port}${path}`;
+        approveSites = "absent";
+        const noCard = await call(agents.ana, "open", { url: site("/alpha") });
+        expect(
+          !noCard.result.success && noCard.text.includes("allows it"),
+          "a sensitive site opened where nobody answers a card",
+          noCard.text,
+        );
+        approveSites = false;
+        const before = siteCards.length;
+        const declined = await call(agents.ana, "open", { url: site("/alpha") });
+        expect(
+          !declined.result.success && declined.text.includes("did not allow") && siteCards.length === before + 1,
+          "a declined sensitive site opened",
+          declined.text,
+        );
+        approveSites = true;
+        const allowed = await call(agents.ana, "open", { url: site("/alpha") });
+        expect(allowed.result.success, "the allowed sensitive site did not open", allowed.text);
+        const asked = siteCards.length;
+        const allowedTab = String((isDynamicRecord(allowed.json.tab) ? allowed.json.tab : {}).id);
+        await call(agents.ana, "snapshot", { tabId: allowedTab, image: "never" });
+        expect(siteCards.length === asked, "the same project was asked again for the same site", siteCards);
+        // Another project asks for itself.
+        approveSites = "absent";
+        const other = await call(agents.carla, "open", { url: site("/alpha") });
+        expect(!other.result.success, "another project used the site that one project allowed", other.text);
+        // A navigation from a plain page to the sensitive site waits for the consent too.
+        const plain = await call(agents.carla, "open", { url: `http://alpha.test:${port}/alpha` });
+        const plainTab = String((isDynamicRecord(plain.json.tab) ? plain.json.tab : {}).id);
+        const navigated = await call(agents.carla, "navigate", { tabId: plainTab, url: site("/second") });
+        expect(!navigated.result.success, "a navigation reached a sensitive site with no consent", navigated.text);
+        await call(agents.ana, "close_tab", { tabId: allowedTab });
+        await call(agents.carla, "close_tab", { tabId: plainTab });
+        approveSites = true;
+        return { card: siteCards.at(-1), noCard: noCard.text, declined: declined.text, other: other.text };
       },
     );
 
