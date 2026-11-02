@@ -242,8 +242,22 @@ In a new git worktree, run `bun run dev:bootstrap`. It copies the files that `.w
 lists from the main checkout when they are missing, installs dependencies, migrates the local API,
 and seeds the isolated profile. Set it as the worktree setup command of your agent harness.
 
+In a new worktree, `bun install --frozen-lockfile` and then `bun run dev` are sufficient. `bun run dev`
+does these steps itself when they are necessary:
+
+- It installs the Electron binary when `node_modules/electron` has none. Bun does not run the root
+  `postinstall` when an `.npmrc` sets `ignore-scripts=true`, and electron-vite then stops with
+  `Electron uninstall`. `bun run dev` runs `bun run postinstall`: it clones Electron from the cache
+  below, or downloads it and checks the checksum. Run `bun run postinstall` yourself to start
+  Electron in another way.
+- It ignores `OPENBOT_AUTH_API_URL` and `OPENBOT_REMOTE_SIGNAL_URL` from the environment, and tells
+  you in its log. The dev app always uses the account API and Signal of its own stack. A value from
+  `launchctl setenv` gets to each process of the macOS session, and the dev host then signed in to
+  that server. Run `launchctl getenv OPENBOT_AUTH_API_URL` to see such a value.
+- The local account API writes each development sign-in code to the terminal of `bun run dev`.
+
 On macOS, a worktree's `node_modules` uses almost no new disk space. Bun clones packages from its
-cache, and the root `postinstall` clones Electron from `~/Library/Caches/Builders Bot/electron-dist`.
+cache, and the root `postinstall` clones Electron from `~/Library/Caches/OpenBot/electron-dist`.
 `du` still shows the full size of each clone.
 The first install of an Electron version extracts it once and saves it there. Delete the directory
 to clear the cache; an entry that nobody used for 30 days is removed by the next save.
@@ -316,7 +330,7 @@ See [web client delivery](docs/web-client.md) for the release gate and focused c
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Start the local Auth API, Signal service, and Electron client with renderer HMR on its app profile. Ports are allocated through the dev registry, so a sibling worktree never takes one this stack won. It refuses a second stack in the same worktree unless you pass `--force`. Each worktree opens a profile of its own, keyed to its path; `--shared` opens the shared `Builders Bot Dev` profile instead. `--isolated` is still accepted and changes nothing. A profile that you used before stays on disk unchanged. `--hosting=test` stops with an error: it signed the app in to the test account Worker of the upstream OpenBot project, and Builders Bot has no test account Worker yet. A profile that does not exist yet is seeded with the showcase data of `bun run dev:seed` before the client starts, so a first start never opens an empty app; an existing profile is left as it is. An isolated profile still shares the computer's provider CLI store, so it does not download the pinned CLIs again. Before it starts, it runs `bun install --frozen-lockfile` and `bun run api:migrate:local` only when `bun.lock`, a workspace `package.json`, a patch, or a migration changed since their last successful run. The stamps are in `node_modules` and `apps/auth-api/.wrangler/state/v3/d1`, and each `bun install` writes the install stamp too; delete one to run its step again. |
+| `bun run dev` | Start the local Auth API, Signal service, and Electron client with renderer HMR on its app profile. Ports are allocated through the dev registry, so a sibling worktree never takes one this stack won. It refuses a second stack in the same worktree unless you pass `--force`. Each worktree opens a profile of its own, keyed to its path; `--shared` opens the shared `Builders Bot Dev` profile instead. `--isolated` is still accepted and changes nothing. A profile that you used before stays on disk unchanged. `--hosting=test` stops with an error: it signed the app in to the test account Worker of the upstream OpenBot project, and Builders Bot has no test account Worker yet. A profile that does not exist yet is seeded with the showcase data of `bun run dev:seed` before the client starts, so a first start never opens an empty app; an existing profile is left as it is. An isolated profile still shares the computer's provider CLI store, so it does not download the pinned CLIs again. Before it starts, it runs `bun install --frozen-lockfile` and `bun run api:migrate:local` only when `bun.lock`, a workspace `package.json`, a patch, or a migration changed since their last successful run. The stamps are in `node_modules` and `apps/auth-api/.wrangler/state/v3/d1`, and each `bun install` writes the install stamp too; delete one to run its step again. It runs `bun run postinstall` when `node_modules/electron` has no Electron binary, for example after an install with `ignore-scripts=true`. The app always uses the account API and Signal of this stack: the command ignores `OPENBOT_AUTH_API_URL` and `OPENBOT_REMOTE_SIGNAL_URL` from the environment. |
 | `bun run preview` | Preview the built Electron client with the green preview icon. |
 | `bun run mobile:go` | Start the mobile app in Expo Go and clear the Metro cache. |
 | `bun mobile:ios` | Build and launch the iOS simulator app without RocketSim. |
