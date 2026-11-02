@@ -25,7 +25,7 @@ import {
   type ChromeProject,
   ChromeTabsHost,
 } from "../../backend/chrome-tabs-host";
-import { hostRequirement, loadPeerChecker } from "./bridge-peer";
+import { chromeRequirement, hostRequirement, loadPeerChecker } from "./bridge-peer";
 import { type KeySealer, writePrivate } from "./bridge-state";
 import { ChromeBridgeService, type ChromeBridgeShape } from "./chrome-bridge-service";
 import type { PairingPrompt, PairingRequest } from "./host-connection";
@@ -146,7 +146,7 @@ export function createChromeAgents(options: ChromeAgentsOptions): ChromeAgents {
         channel,
         stateFolder,
         sealer,
-        peerChecker: loadPeerChecker(addon, hostRequirement(channel)),
+        peerChecker: loadPeerChecker(addon, hostRequirement(channel), chromeRequirement(channel)),
         prompt,
         appVersion: options.appVersion,
         ...(extensionId

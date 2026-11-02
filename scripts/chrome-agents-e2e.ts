@@ -444,7 +444,8 @@ async function main(): Promise<void> {
       channel: "e2e",
       stateFolder: join(work, "app-state"),
       sealer: testSealer(),
-      peerChecker: loadPeerChecker(peer.addon, `cdhash H"${host.cdhash}"`),
+      // The host must be the signed one, and Chrome for Testing must have started it.
+      peerChecker: loadPeerChecker(peer.addon, `cdhash H"${host.cdhash}"`, `cdhash H"${codeHash(CFT_BINARY)}"`),
       prompt,
       appVersion: host.version,
       nativeHost: {

@@ -14,11 +14,12 @@
  *    `chrome-peer` addon) and a stand-in Chrome on the host's stdin and stdout: pairing with the two
  *    choices, a wrong choice, the card limit outside a window (`busy`), revocation, 9 MB and 1.5 MB
  *    messages, 600 requests at once (in-flight caps and order by tab), features that one side did not
- *    announce, the app restarting (reconnection time), and a process that is not the host on the app's
- *    socket.
+ *    announce, the app restarting (reconnection time), a process that is not the host on the app's
+ *    socket, and the signed host started by a program that is not Chrome.
  * C. Chrome for Testing (pinned, isolated temporary profile) with the stub extension
  *    (`scripts/chrome-bridge-stub-extension`), the Native Messaging manifest written only inside that
- *    profile, a real click on the welcome page and a choice in the app, then messages, load and a restart.
+ *    profile, a real click on the welcome page and a choice in the app, then messages, load and a restart;
+ *    the app takes the host only because Chrome for Testing started it.
  *    Skipped with a reason when the swap is above 6 GB or the disk is below 3 GB.
  *
  * Report: `.buildersbot-build/chrome-extension/protocol-smoke.json`. Never the person's Chrome, its
@@ -939,6 +940,29 @@ async function sectionB(host: ReturnType<typeof buildChromeHost>, peerAddon: str
       { perlRead: perl.stdout.trim(), bunRead: nodePeer },
     );
     measures.hostRssIdleKb = rssKb(s1.child.pid);
+
+    // B9: the signed host itself, started by a program that is not Chrome (here, this process). The
+    // store channel asks that Google Chrome start the host; this app asks for a Chrome that no process
+    // here is, so the host is refused before one byte is read, and no card opens.
+    await app.stop();
+    const chromeOnly = new App({
+      ...base,
+      peerChecker: loadPeerChecker(peerAddon, `cdhash H"${host.cdhash}"`, `cdhash H"${"0".repeat(40)}"`),
+    });
+    try {
+      await chromeOnly.start();
+      await chromeOnly.run(chromeOnly.api.openPairingWindow);
+      const notByChrome = await newStub();
+      await sleep(2_000);
+      const loaded = await chromeOnly.run(chromeOnly.api.load);
+      check(
+        "the signed host started by a program that is not Chrome is refused, with no card",
+        loaded.length === 0 && chromeOnly.prompt.asked.length === 0 && notByChrome.extension.view.phase !== "ready",
+        { connections: loaded.length, cards: chromeOnly.prompt.asked.length, phase: notByChrome.extension.view.phase },
+      );
+    } finally {
+      await chromeOnly.stop();
+    }
   } finally {
     for (const run of hosts) run.child.kill();
     await app.stop();
@@ -1035,7 +1059,8 @@ async function sectionC(host: ReturnType<typeof buildChromeHost>, peerAddon: str
     channel: "e2e",
     stateFolder,
     sealer: testSealer(),
-    peerChecker: loadPeerChecker(peerAddon, `cdhash H"${host.cdhash}"`),
+    // The host must be the signed one, and Chrome for Testing must have started it.
+    peerChecker: loadPeerChecker(peerAddon, `cdhash H"${host.cdhash}"`, `cdhash H"${codeHash(cft.binary)}"`),
     appVersion: host.version,
     // The manifest goes into the test profile only: Chrome reads `<user-data-dir>/NativeMessagingHosts`.
     nativeHost: {

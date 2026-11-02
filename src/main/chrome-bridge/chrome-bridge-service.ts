@@ -5,7 +5,8 @@
  *
  * - The socket is in a folder of this user only (0700); the socket file is 0600. No TCP port.
  * - Each connection is held paused until the peer check: the process on the other side must meet the
- *   host requirement of this channel (`chrome-peer` addon, LOCAL_PEERTOKEN). A peer that fails is
+ *   host requirement of this channel (`chrome-peer` addon, LOCAL_PEERTOKEN), and the process that
+ *   started it must be Google Chrome (the pinned Chrome for Testing in E2E). A peer that fails is
  *   closed before one byte of it is read.
  * - At most `MAX_CONNECTIONS` profiles at once.
  * - Pairing (DESIGN §3.1, §3.2): an unknown extension key opens the pairing card only inside a pairing
@@ -33,7 +34,7 @@ import {
 } from "@openbot/contracts/chrome-bridge/protocol";
 import { Context, Effect, Layer, Schema } from "effect";
 import { type BridgeSocket, bridgeSocket, preparePrivateFolder } from "./bridge-paths";
-import type { PeerChecker } from "./bridge-peer";
+import { acceptsPeer, type PeerChecker } from "./bridge-peer";
 import { BridgeStateStore, type KeySealer, type PairedBrowser } from "./bridge-state";
 import {
   BridgeRequestError,
@@ -309,10 +310,11 @@ export const makeChromeBridge = Effect.fn("ChromeBridge.make")(function* (option
       log("chrome bridge: a peer without a readable identity was refused");
       return;
     }
-    const uid = process.getuid?.();
-    if (identity.valid === false || (uid !== undefined && identity.uid !== uid)) {
+    if (!acceptsPeer(identity, process.getuid?.(), options.peerChecker.checksParent)) {
       peer.destroy();
-      log(`chrome bridge: refused a process that is not the Chrome host (pid ${identity.pid})`);
+      log(
+        `chrome bridge: refused a process that is not the Chrome host, or that Chrome did not start (pid ${identity.pid}, parent ${identity.parent?.pid ?? "none"})`,
+      );
       return;
     }
     connections.add(new HostConnection(peer, host, { peerPid: identity.pid, log }));

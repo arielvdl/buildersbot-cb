@@ -2,12 +2,18 @@
 // that process meet a code signing requirement (DESIGN §6.1). Node has no getsockopt, so the app asks
 // this addon before it reads one byte from a Chrome host:
 //
-//   check(fd, requirement) -> { pid, uid, valid, identifier, team }
+//   check(fd, requirement, parentRequirement?) -> { pid, uid, valid, identifier, team, parent }
 //
 // `fd` is the descriptor of an accepted socket. `requirement` is a code signing requirement in text, or
 // null to read the identity without a check (`valid` is then null). The audit token comes from the
 // kernel (LOCAL_PEERTOKEN), so the pid cannot be swapped between the read and the check. The addon
 // parses no data from the socket.
+//
+// `parent` is the process that started the peer: Chrome starts its native host itself, so a host that
+// another program started (a copy of the signed host run by hand) has another parent. It is
+// { pid, valid, identifier, team }, with `valid` checked against `parentRequirement` the same way, or
+// null when the kernel gives no parent. The parent is known by its pid, so the peer's parent is read
+// again after the check: a parent that changed in between (it ended) makes `valid` false.
 //
 // The Node-API declarations below are the stable C ABI of js_native_api.h (version 8), so the addon
 // builds without Node or Electron headers and loads in both.
@@ -15,10 +21,12 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 #include <bsm/libbsm.h>
+#include <libproc.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/proc_info.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -65,67 +73,46 @@ static void set_string(napi_env env, napi_value object, const char *name, CFStri
   napi_set_named_property(env, object, name, out);
 }
 
-static napi_value check(napi_env env, napi_callback_info info) {
-  size_t argc = 2;
-  napi_value argv[2] = {NULL, NULL};
-  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc != 2)
-    return fail(env, "check(fd, requirement) takes two arguments");
-  int32_t fd = -1;
-  if (napi_get_value_int32(env, argv[0], &fd) != napi_ok || fd < 0) return fail(env, "fd is not a descriptor");
+/** A requirement argument: a string, or null (no check). It returns false on a bad argument. */
+static bool read_requirement(napi_env env, napi_value value, char *text, bool *has) {
   napi_valuetype kind = napi_undefined_type;
-  napi_typeof(env, argv[1], &kind);
-  char requirement_text[MAX_REQUIREMENT + 1];
-  bool has_requirement = false;
-  if (kind == napi_string_type) {
-    size_t length = 0;
-    if (napi_get_value_string_utf8(env, argv[1], requirement_text, sizeof requirement_text, &length) != napi_ok ||
-        length >= MAX_REQUIREMENT)
-      return fail(env, "requirement is too long");
-    has_requirement = true;
-  } else if (kind != napi_null_type) {
-    return fail(env, "requirement is a string or null");
-  }
+  napi_typeof(env, value, &kind);
+  *has = false;
+  if (kind == napi_null_type || kind == napi_undefined_type) return true;
+  if (kind != napi_string_type) return false;
+  size_t length = 0;
+  if (napi_get_value_string_utf8(env, value, text, MAX_REQUIREMENT + 1, &length) != napi_ok ||
+      length >= MAX_REQUIREMENT)
+    return false;
+  *has = true;
+  return true;
+}
 
-  audit_token_t token;
-  socklen_t token_length = sizeof token;
-  if (getsockopt(fd, SOL_LOCAL, LOCAL_PEERTOKEN, &token, &token_length) != 0 || token_length != sizeof token)
-    return fail(env, "the socket has no peer token");
-
-  napi_value result = NULL, value = NULL;
-  napi_create_object(env, &result);
-  napi_create_int32(env, audit_token_to_pid(token), &value);
-  napi_set_named_property(env, result, "pid", value);
-  napi_create_int32(env, (int32_t)audit_token_to_euid(token), &value);
-  napi_set_named_property(env, result, "uid", value);
-
-  CFDataRef token_data = CFDataCreate(NULL, (const UInt8 *)&token, sizeof token);
-  const void *keys[] = {kSecGuestAttributeAudit};
-  const void *values[] = {token_data};
-  CFDictionaryRef attributes = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks,
-                                                  &kCFTypeDictionaryValueCallBacks);
-  SecCodeRef code = NULL;
-  OSStatus copied = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &code);
-  CFRelease(attributes);
-  CFRelease(token_data);
-
+/**
+ * Sets `identifier`, `team` and `valid` of `object` for a process's code. `valid` is null without a
+ * requirement, and false when the code could not be read.
+ */
+static void describe_code(napi_env env, napi_value object, SecCodeRef code, bool has_requirement,
+                          const char *requirement_text) {
   CFStringRef identifier = NULL, team = NULL;
   CFDictionaryRef signing = NULL;
   SecStaticCodeRef static_code = NULL;
-  if (copied == errSecSuccess && SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &static_code) == errSecSuccess &&
+  if (code && SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &static_code) == errSecSuccess &&
       SecCodeCopySigningInformation(static_code, kSecCSSigningInformation, &signing) == errSecSuccess) {
     identifier = CFDictionaryGetValue(signing, kSecCodeInfoIdentifier);
     team = CFDictionaryGetValue(signing, kSecCodeInfoTeamIdentifier);
   }
-  set_string(env, result, "identifier", identifier);
-  set_string(env, result, "team", team);
+  set_string(env, object, "identifier", identifier);
+  set_string(env, object, "team", team);
   if (signing) CFRelease(signing);
   if (static_code) CFRelease(static_code);
 
+  napi_value value = NULL;
   if (!has_requirement) {
     napi_get_null(env, &value);
   } else {
     bool valid = false;
-    if (copied == errSecSuccess) {
+    if (code) {
       CFStringRef text = CFStringCreateWithCString(NULL, requirement_text, kCFStringEncodingUTF8);
       SecRequirementRef requirement = NULL;
       if (text && SecRequirementCreateWithString(text, kSecCSDefaultFlags, &requirement) == errSecSuccess) {
@@ -136,8 +123,84 @@ static napi_value check(napi_env env, napi_callback_info info) {
     }
     napi_get_boolean(env, valid, &value);
   }
-  napi_set_named_property(env, result, "valid", value);
+  napi_set_named_property(env, object, "valid", value);
+}
+
+/** The code of a process, from a guest attribute (its audit token or its pid), or NULL. */
+static SecCodeRef code_for(CFStringRef attribute, CFTypeRef value) {
+  const void *keys[] = {attribute};
+  const void *values[] = {value};
+  CFDictionaryRef attributes = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks,
+                                                  &kCFTypeDictionaryValueCallBacks);
+  SecCodeRef code = NULL;
+  if (SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &code) != errSecSuccess) code = NULL;
+  CFRelease(attributes);
+  return code;
+}
+
+/** The parent pid of a process, or -1. */
+static pid_t parent_of(pid_t pid) {
+  struct proc_bsdinfo info;
+  if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof info) != (int)sizeof info) return -1;
+  return (pid_t)info.pbi_ppid;
+}
+
+static napi_value check(napi_env env, napi_callback_info info) {
+  size_t argc = 3;
+  napi_value argv[3] = {NULL, NULL, NULL};
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 2 || argc > 3)
+    return fail(env, "check(fd, requirement, parentRequirement?) takes two or three arguments");
+  int32_t fd = -1;
+  if (napi_get_value_int32(env, argv[0], &fd) != napi_ok || fd < 0) return fail(env, "fd is not a descriptor");
+  char requirement_text[MAX_REQUIREMENT + 1];
+  char parent_text[MAX_REQUIREMENT + 1];
+  bool has_requirement = false, has_parent_requirement = false;
+  if (!read_requirement(env, argv[1], requirement_text, &has_requirement))
+    return fail(env, "requirement is a string or null, and shorter than 4096 bytes");
+  if (argc == 3 && !read_requirement(env, argv[2], parent_text, &has_parent_requirement))
+    return fail(env, "parentRequirement is a string or null, and shorter than 4096 bytes");
+
+  audit_token_t token;
+  socklen_t token_length = sizeof token;
+  if (getsockopt(fd, SOL_LOCAL, LOCAL_PEERTOKEN, &token, &token_length) != 0 || token_length != sizeof token)
+    return fail(env, "the socket has no peer token");
+
+  napi_value result = NULL, value = NULL;
+  napi_create_object(env, &result);
+  pid_t pid = audit_token_to_pid(token);
+  napi_create_int32(env, pid, &value);
+  napi_set_named_property(env, result, "pid", value);
+  napi_create_int32(env, (int32_t)audit_token_to_euid(token), &value);
+  napi_set_named_property(env, result, "uid", value);
+
+  CFDataRef token_data = CFDataCreate(NULL, (const UInt8 *)&token, sizeof token);
+  SecCodeRef code = code_for(kSecGuestAttributeAudit, token_data);
+  CFRelease(token_data);
+  describe_code(env, result, code, has_requirement, requirement_text);
   if (code) CFRelease(code);
+
+  pid_t parent = parent_of(pid);
+  if (parent <= 0) {
+    napi_get_null(env, &value);
+  } else {
+    napi_create_object(env, &value);
+    napi_value parent_pid = NULL;
+    napi_create_int32(env, parent, &parent_pid);
+    napi_set_named_property(env, value, "pid", parent_pid);
+    int32_t number = parent;
+    CFNumberRef parent_number = CFNumberCreate(NULL, kCFNumberSInt32Type, &number);
+    SecCodeRef parent_code = code_for(kSecGuestAttributePid, parent_number);
+    CFRelease(parent_number);
+    describe_code(env, value, parent_code, has_parent_requirement, parent_text);
+    if (parent_code) CFRelease(parent_code);
+    // The parent is known by its pid: one that changed meanwhile is not the process that was checked.
+    if (has_parent_requirement && parent_of(pid) != parent) {
+      napi_value invalid = NULL;
+      napi_get_boolean(env, false, &invalid);
+      napi_set_named_property(env, value, "valid", invalid);
+    }
+  }
+  napi_set_named_property(env, result, "parent", value);
   return result;
 }
 
