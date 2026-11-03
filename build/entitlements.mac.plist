@@ -7,7 +7,10 @@
       <string>applinks:openbot.run</string>
     </array>
     <key>com.apple.developer.team-identifier</key>
-    <string>ZTRDTUL87R</string>
+    <!-- Precisa ser o time que assina. O build notarizado usa Developer ID da
+         E-COMMERCE EXPERIENCE (8TA8YQY457); troque aqui se a assinatura passar a
+         ser de outro time, senão o par com associated-domains fica inconsistente. -->
+    <string>8TA8YQY457</string>
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
