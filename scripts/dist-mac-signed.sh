@@ -8,7 +8,8 @@
 # Pré-requisitos:
 #   1. certificado "Developer ID Application" no keychain (scripts/creds/ do repo
 #      builders-cve emite, ver docs de assinatura)
-#   2. chave de API ASC: ASC_KEY_ID + ASC_ISSUER (padrão: a do time e-commerce)
+#   2. chave de API ASC: ASC_KEY_ID + ASC_ISSUER (padrão: chave principal
+#      da Cultura Builder, L8KABF93C5)
 #
 # Uso:
 #   ./scripts/dist-mac-signed.sh            # build + assinatura + notarização
@@ -17,8 +18,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-ASC_KEY_ID="${ASC_KEY_ID:-GZPQDQ53F8}"
-ASC_ISSUER="${ASC_ISSUER:-4ee22c1b-f18c-4943-968e-3d3d0ea59e6b}"
+ASC_KEY_ID="${ASC_KEY_ID:-L8KABF93C5}"
+ASC_ISSUER="${ASC_ISSUER:-772f6c41-8140-4c41-b0e4-a2bff919be63}"
 ASC_KEY="${ASC_KEY:-$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8}"
 IDENTITY="${IDENTITY:-Developer ID Application}"
 CHECK_ONLY=0
