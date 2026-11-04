@@ -113,14 +113,28 @@ const latestDownload = Effect.fn("LatestDownload.resolve")(function* (
   // release assets are cached aggressively, so a fresh upload would keep serving a stale 404.
   const bust = `?r=${Date.now()}`;
   const manifestUrl = `${releasesUrl}/latest/download/${config.manifest}${bust}`;
-  const response = yield* Effect.tryPromise({
-    try: (signal) =>
-      fetcher(manifestUrl, {
-        headers: { accept: "text/yaml, text/plain" },
-        signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
-      }),
-    catch: () => new DownloadManifestError({}),
-  });
+  const fetchManifest = (signal: AbortSignal) =>
+    fetcher(manifestUrl, {
+      headers: { accept: "text/yaml, text/plain" },
+      signal,
+    });
+  // GitHub throttles the Worker's egress IP now and then; one quiet retry absorbs it.
+  let response: Response;
+  try {
+    response = yield* Effect.tryPromise({
+      try: (signal) => fetchManifest(signal),
+      catch: () => new DownloadManifestError({}),
+    });
+    if (!response.ok) {
+      yield* Effect.sleep("750 millis");
+      response = yield* Effect.tryPromise({
+        try: (signal) => fetchManifest(signal),
+        catch: () => new DownloadManifestError({}),
+      });
+    }
+  } catch {
+    return fallbackToReleases(platform, releasesUrl, `manifest fetch failed for ${platform}`);
+  }
   if (!response.ok) return fallbackToReleases(platform, releasesUrl, `manifest status ${response.status}`);
   const manifest = yield* Effect.tryPromise({
     try: () => response.text(),
