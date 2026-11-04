@@ -81,7 +81,7 @@ APP="dist/mac-arm64/Builders Bot.app"
 
 print -r -- ">> verificação do artefato"
 codesign --verify --strict --deep "$APP" || fail "assinatura inválida"
-codesign -dvvv "$APP" 2>&1 | grep -q "flags=0x[0-9a-f]*1000[0-9a-f]" || fail "hardened runtime ausente"
+[[ $(codesign -dvvv "$APP" 2>&1) == *"(runtime)"* ]] || fail "hardened runtime ausente"
 # O Computer Use depende de Apple Events; se a assinatura derrubar o entitlement,
 # o driver para de funcionar só no app distribuído.
 codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "automation.apple-events" \
