@@ -109,7 +109,10 @@ const latestDownload = Effect.fn("LatestDownload.resolve")(function* (
   releasesUrl: string,
 ) {
   const config = downloadManifest(platform, architecture);
-  const manifestUrl = `${releasesUrl}/latest/download/${config.manifest}`;
+  // Cache-buster: the Workers runtime shares Cloudflare's HTTP cache with browsers, and GitHub
+  // release assets are cached aggressively, so a fresh upload would keep serving a stale 404.
+  const bust = `?r=${Date.now()}`;
+  const manifestUrl = `${releasesUrl}/latest/download/${config.manifest}${bust}`;
   const response = yield* Effect.tryPromise({
     try: (signal) =>
       fetcher(manifestUrl, {
