@@ -26,7 +26,7 @@ interface DownloadManifestConfig {
  * so no download button may lead there. Until Builders Bot publishes its releases, each download
  * answers that the installer is not published here yet.
  */
-const RELEASES_BASE_URL: string | null = null;
+const RELEASES_BASE_URL: string | null = "https://github.com/arielvdl/buildersbot-cb/releases";
 
 const DOWNLOAD_PLATFORMS = ["linux", "macos", "windows"] as const satisfies readonly AvailableDownloadPlatform[];
 
