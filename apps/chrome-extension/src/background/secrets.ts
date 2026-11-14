@@ -252,12 +252,14 @@ const REMEMBER_FILLED = `function () {
   return true;
 }`;
 
-/** The guard world of the main frame, made now. */
-async function mainGuardWorld(tabId: number): Promise<number> {
+/** The current main frame and its document loader. */
+async function mainFrame(tabId: number): Promise<{ frameId: string; loaderId: string }> {
   const tree = await internalCommand(tabId, "Page.getFrameTree", {});
-  const [main] = frameIds(tree.frameTree);
-  if (main === undefined) throw new BridgeError("cdp_error", "the tab has no main frame");
-  return guardWorld(tabId, main, undefined);
+  const root = isDynamicRecord(tree.frameTree) ? tree.frameTree : {};
+  const frame = isDynamicRecord(root.frame) ? root.frame : {};
+  if (!isString(frame.id) || !isString(frame.loaderId))
+    throw new BridgeError("cdp_error", "the tab has no document identity");
+  return { frameId: frame.id, loaderId: frame.loaderId };
 }
 
 /**
@@ -270,10 +272,11 @@ export async function fillSecret(tabId: number, expectOrigin: string, nodeId: nu
   cleanAt.delete(tabId);
   const tab = await chrome.tabs.get(tabId);
   if (originOf(tab.url) !== expectOrigin) throw new BridgeError("out_of_scope", "the page is not the expected site");
+  const before = await mainFrame(tabId);
   await internalCommand(tabId, "DOM.focus", { nodeId });
   const resolved = await internalCommand(tabId, "DOM.resolveNode", {
     nodeId,
-    executionContextId: await mainGuardWorld(tabId),
+    executionContextId: await guardWorld(tabId, before.frameId, undefined),
   });
   const object = isDynamicRecord(resolved.object) ? resolved.object : {};
   if (!isString(object.objectId)) throw new BridgeError("cdp_error", "the field is gone");
@@ -290,6 +293,9 @@ export async function fillSecret(tabId: number, expectOrigin: string, nodeId: nu
     const after = await chrome.tabs.get(tabId);
     if (originOf(after.url) !== expectOrigin)
       throw new BridgeError("out_of_scope", "the page is not the expected site");
+    const current = await mainFrame(tabId);
+    if (current.frameId !== before.frameId || current.loaderId !== before.loaderId)
+      throw new BridgeError("out_of_scope", "the page changed before the secret was typed");
     await internalCommand(tabId, "Input.insertText", { text });
     await internalCommand(tabId, "Runtime.callFunctionOn", { objectId, functionDeclaration: REMEMBER_FILLED });
   } catch (error) {

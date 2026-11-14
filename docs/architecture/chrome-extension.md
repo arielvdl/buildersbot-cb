@@ -111,7 +111,8 @@ debugger attached and with only the port open.
 - Handed tabs (`tab-handoff`: `tab.claim`, `tab.release`, candidates) are not in this build; the
   extension does not announce that feature.
 - The password manager case of the secret check (DESIGN V16) and the drag of a tab or a group by a
-  person (V18, V26) need a person.
+  person (V18, V26) need a person. Document identity is checked again during secret filling;
+  this does not bind a node to the earlier snapshot or remove the final navigation race.
 - What starts the worker again after Chrome stops it with no browser event: in the runs, Chrome
   started it by itself in 0.4 to 2 s, before the one-minute watchdog alarm. The alarm bounds the wait
   when Chrome does not.

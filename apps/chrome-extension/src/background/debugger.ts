@@ -152,12 +152,10 @@ export function ensureAttached(tab: AgentTab): Promise<void> {
       await chrome.debugger.attach({ tabId: tab.tabId }, "1.3");
     } catch (error) {
       const text = chromeErrorText(error);
-      // A worker of this extension that Chrome restarted may still hold the session.
-      if (!text.includes("Another debugger is already attached")) {
-        if (/Cannot access|Cannot attach|chrome:\/\/|policy/iu.test(text))
-          throw new BridgeError("policy_blocks_debugger", "Chrome does not let the extension debug this tab");
-        throw new BridgeError("cdp_error", `attach failed: ${text}`);
-      }
+      // Startup drops stale sessions. A competing debugger must not become our session.
+      if (/Cannot access|Cannot attach|chrome:\/\/|policy/iu.test(text))
+        throw new BridgeError("policy_blocks_debugger", "Chrome does not let the extension debug this tab");
+      throw new BridgeError("cdp_error", `attach failed: ${text}`);
     }
     if ((generations.get(tab.tabId) ?? 0) !== generation) {
       await chrome.debugger.detach({ tabId: tab.tabId }).catch(() => undefined);
